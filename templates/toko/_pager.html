@@ -1,0 +1,7 @@
+{% if page.has_other_pages %}
+  <nav class="pager" aria-label="Halaman">
+    {% if page.has_previous %}<a class="btn btn-sm btn-ghost" href="?{% if query %}{{ query }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if cat %}kategori={{ cat|urlencode }}&amp;{% endif %}hal={{ page.previous_page_number }}">Sebelumnya</a>{% endif %}
+    <span class="muted">Halaman {{ page.number }} dari {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-sm btn-ghost" href="?{% if query %}{{ query }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if cat %}kategori={{ cat|urlencode }}&amp;{% endif %}hal={{ page.next_page_number }}">Berikutnya</a>{% endif %}
+  </nav>
+{% endif %}

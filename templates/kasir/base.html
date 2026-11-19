@@ -1,0 +1,23 @@
+{% load static %}<!doctype html>
+{% comment %}
+  Kerangka halaman di subdomain toko (<toko>.hansproject.app). Sengaja TIDAK
+  memakai base.html situs utama: di subdomain hanya ada URL toko/kasir.
+{% endcomment %}
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}{{ store.name }}{% endblock %}</title>
+  <meta name="theme-color" content="#fffbf5">
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="48x48">
+  <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png" sizes="32x32">
+  <link rel="preload" href="{% static 'fonts/plus-jakarta-sans-latin-var.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/kasir.css' %}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}k-page{% endblock %}">
+  {% block body %}{% endblock %}
+</body>
+</html>

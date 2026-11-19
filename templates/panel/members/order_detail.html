@@ -1,0 +1,42 @@
+{# Info pesanan di atas form ubah status (panel). #}
+<section class="card glass detail-card" aria-label="Rincian pesanan">
+  <ul class="kv" role="list">
+    <li><span>Kode pesanan</span><b>{{ object.code }}</b></li>
+    <li><span>Jenis</span><b>{{ object.get_order_type_display }}</b></li>
+    <li><span>Paket</span><b>{{ object.package_name }} — {{ object.price_text }}</b></li>
+    {% if object.is_renewal and object.store %}
+      <li><span>Toko</span><b><a href="{% url 'panel:toko-update' object.store_id %}">{{ object.store.name }}</a> ({{ object.store.host }}), paket sekarang {{ object.store.package_name }}, aktif sampai {{ object.store.active_until|date:"j M Y" }}</b></li>
+      {% if object.wants_new_subdomain %}<li><span>Minta ganti alamat</span><b>{{ object.store.host }} → {{ object.subdomain_host }}</b></li>{% endif %}
+    {% elif object.subdomain %}
+      <li><span>Alamat toko diminta</span><b>{{ object.subdomain_host }}</b></li>
+      {% if object.store %}<li><span>Toko</span><b><a href="{% url 'panel:toko-update' object.store_id %}">{{ object.store.name }}</a></b></li>{% endif %}
+    {% endif %}
+    {% if object.activated_at %}<li><span>Diaktifkan</span><b>{{ object.activated_at|date:"j M Y, H:i" }}</b></li>{% endif %}
+    <li><span>Status sekarang</span><b>{{ object.get_status_display }}</b></li>
+    <li><span>Dipesan</span><b>{{ object.created_at|date:"j M Y, H:i" }}</b></li>
+    <li><span>Pelanggan</span><b>{% if object.member_id %}<a href="{% url 'panel:pelanggan-update' object.member_id %}">{{ object.customer_name }}</a>{% else %}{{ object.customer_name }} <span class="muted">(akun sudah dihapus; pesanan disimpan untuk catatan pajak)</span>{% endif %}</b></li>
+    <li><span>Nama usaha</span><b>{{ object.customer_business|default:"–" }}</b></li>
+    <li><span>Nomor HP</span><b>{{ object.customer_phone|default:"–" }}</b></li>
+    <li><span>Email</span><b>{{ object.customer_email|default:"–" }}</b></li>
+  </ul>
+  {% if object.payment_proof %}
+    <div class="proof">
+      <p class="field-label">Bukti bayar <span class="muted">(dikirim {{ object.proof_uploaded_at|date:"j M Y, H:i" }})</span></p>
+      <a href="{% url 'panel:pesanan-bukti' object.pk %}" target="_blank" rel="noopener">
+        <img src="{% url 'panel:pesanan-bukti' object.pk %}" alt="Bukti bayar pesanan {{ object.code }}" loading="lazy">
+      </a>
+      <p class="field-help">Cocokkan nominal dan rekening tujuan. Bila sesuai, ubah status menjadi <b>Aktif</b> atau <b>Sedang diproses</b>.
+        {% if object.is_pos and not object.activated_at %}Status <b>Aktif</b> otomatis {% if object.is_renewal %}menambah masa aktif toko 1 bulan{% else %}membuat toko baru (aktif 1 bulan){% endif %}.{% endif %}</p>
+    </div>
+  {% elif object.package_category == "kasir" %}
+    <p class="muted">Pelanggan belum mengirim bukti bayar.</p>
+  {% endif %}
+  {% with r=object.refund_or_none %}
+    {% if r %}
+      <p class="field-label">Refund</p>
+      <p><a href="{% url 'panel:refund-update' r.pk %}">{{ r.get_status_display }}{% if r.amount %} · {{ r.amount|rupiah }}{% endif %}</a></p>
+    {% elif object.is_paid %}
+      <p class="field-help">Pesanan ini sudah dibayar. Bila Anda membatalkannya (status Dibatalkan), pelanggan bisa mengajukan refund dari halaman pesanannya.</p>
+    {% endif %}
+  {% endwith %}
+</section>

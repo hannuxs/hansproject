@@ -1,0 +1,46 @@
+{% extends "panel/base.html" %}
+{% block content %}
+<div class="page-head">
+  {% if section.description %}<p class="muted">{{ section.description }}</p>{% else %}<span></span>{% endif %}
+  {% if create_url %}<a class="btn" href="{{ create_url }}">{% icon "plus" %} Tambah {{ section.singular }}</a>{% endif %}
+</div>
+
+{% if rows %}
+  <div class="card glass table-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          {% if section.orderable %}<th scope="col" class="col-order">Urutan</th>{% endif %}
+          {% for col in section.columns %}<th scope="col">{{ col.label }}</th>{% endfor %}
+          <th scope="col" class="col-actions"><span class="visually-hidden">Aksi</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% if section.orderable %}
+              <td class="col-order">
+                <form method="post" action="{{ row.up_url }}">{% csrf_token %}
+                  <button class="icon-btn" type="submit" {% if forloop.first %}disabled{% endif %} aria-label="Naikkan urutan {{ row.obj }}">{% icon "arrow-up" "icon-sm" %}</button>
+                </form>
+                <form method="post" action="{{ row.down_url }}">{% csrf_token %}
+                  <button class="icon-btn" type="submit" {% if forloop.last %}disabled{% endif %} aria-label="Turunkan urutan {{ row.obj }}">{% icon "arrow-down" "icon-sm" %}</button>
+                </form>
+              </td>
+            {% endif %}
+            {% for label, value in row.cells %}
+              <td data-label="{{ label }}">{% if forloop.first %}<a class="row-link" href="{{ row.update_url }}">{{ value }}</a>{% else %}{{ value }}{% endif %}</td>
+            {% endfor %}
+            <td class="col-actions">
+              <a class="icon-btn" href="{{ row.update_url }}" aria-label="Ubah {{ row.obj }}">{% icon "edit" "icon-sm" %}</a>
+              {% if row.delete_url %}<a class="icon-btn danger" href="{{ row.delete_url }}" aria-label="Hapus {{ row.obj }}">{% icon "trash" "icon-sm" %}</a>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card glass empty-state">{% icon section.icon "icon-lg" %}<p>Belum ada data.</p></div>
+{% endif %}
+{% endblock %}

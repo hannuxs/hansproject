@@ -1,0 +1,108 @@
+{% extends "kasir/base.html" %}
+{% load static %}
+{% block title %}Kasir — {{ store.name }}{% endblock %}
+{% block body_class %}pos-body{% endblock %}
+{% block head_extra %}<script src="{% static 'js/kasir.js' %}" defer></script>{% endblock %}
+{% block body %}
+<div class="pos" data-pos-app data-cashier="{{ cashier.pk }}">
+  <header class="pos-top">
+    <div class="pos-store">
+      <b>{{ store.name }}</b>
+      <span>{{ outlet.name }} · {{ cashier.username }}</span>
+    </div>
+    <nav class="pos-nav" aria-label="Menu kasir">
+      <a class="pos-nav-btn" href="{% url 'kasir:riwayat' %}">{% icon "history" %}<span>Riwayat</span></a>
+      <form method="post" action="{% url 'kasir:keluar' %}" data-confirm="Keluar dari kasir?">
+        {% csrf_token %}
+        <button class="pos-nav-btn" type="submit">{% icon "logout" %}<span>Keluar</span></button>
+      </form>
+    </nav>
+  </header>
+
+  {% if in_grace %}
+    <p class="pos-warn" role="status">{% icon "alert" "icon-sm" %}<span>Langganan toko sudah habis. Kasir masih bisa dipakai sampai <b>{{ store.grace_until|date:"j F Y" }}</b>. Minta pemilik toko memperpanjang.</span></p>
+  {% endif %}
+  <noscript><p class="pos-warn">Layar kasir membutuhkan JavaScript. Aktifkan JavaScript di browser, lalu muat ulang halaman.</p></noscript>
+
+  <main class="pos-main">
+    <section class="pos-catalog" aria-label="Daftar barang">
+      <div class="pos-search">
+        {% icon "list" "icon-sm" %}
+        <label class="visually-hidden" for="pos-q">Cari barang</label>
+        <input id="pos-q" type="search" placeholder="Cari nama atau kode barang" autocomplete="off" enterkeyhint="search" data-search>
+      </div>
+      <div class="pos-cats" data-cats aria-label="Kategori"></div>
+      <div class="pos-grid" data-grid></div>
+      <p class="pos-empty" data-grid-empty hidden>
+        {% if pos_data.products %}Barang tidak ditemukan.{% else %}Belum ada barang. Pemilik toko bisa menambahkan barang di hansproject.app, menu <b>Barang</b>.{% endif %}
+      </p>
+      <p class="pos-empty" data-grid-more hidden>Barang lain tidak ditampilkan. Ketik nama barang di kotak pencarian.</p>
+    </section>
+
+    <aside class="pos-cart" data-cart-panel tabindex="-1" aria-label="Keranjang dan pembayaran">
+      <div class="pos-cart-head">
+        <h2>{% icon "cart" %} Keranjang</h2>
+        <button type="button" class="pos-link" data-clear hidden>Kosongkan</button>
+        <button type="button" class="pos-close" data-close-cart aria-label="Tutup keranjang">{% icon "x" %}</button>
+      </div>
+      <ul class="pos-lines" data-lines role="list"></ul>
+      <p class="pos-empty" data-cart-empty>Belum ada barang. Ketuk barang untuk menambahkan.</p>
+
+      <div class="pos-sum">
+        <div class="pos-row"><span>Subtotal</span><b data-subtotal>Rp0</b></div>
+        <div class="pos-discount">
+          <label for="pos-disc-type">Diskon</label>
+          <select id="pos-disc-type" data-disc-type>
+            <option value="">Tanpa diskon</option>
+            <option value="rp">Potongan Rp</option>
+            <option value="persen">Persen (%)</option>
+          </select>
+          <input type="text" inputmode="numeric" autocomplete="off" data-disc-value aria-label="Nilai diskon" hidden>
+        </div>
+        <div class="pos-row" data-disc-row hidden><span>Diskon</span><b data-discount>−Rp0</b></div>
+        <div class="pos-row pos-total"><span>Total</span><b data-total>Rp0</b></div>
+      </div>
+
+      <fieldset class="pos-methods">
+        <legend>Cara bayar</legend>
+        <label><input type="radio" name="pos-method" value="tunai" checked><span>{% icon "wallet" %}Tunai</span></label>
+        <label><input type="radio" name="pos-method" value="qris"><span>{% icon "qr" %}QRIS</span></label>
+        <label><input type="radio" name="pos-method" value="transfer"><span>{% icon "send" %}Transfer</span></label>
+      </fieldset>
+
+      <div class="pos-cash" data-cash>
+        <label for="pos-paid">Uang diterima</label>
+        <input id="pos-paid" type="text" inputmode="numeric" autocomplete="off" placeholder="0" data-paid>
+        <div class="pos-quick" data-quick></div>
+        <div class="pos-row pos-change"><span>Kembalian</span><b data-change>–</b></div>
+      </div>
+
+      <p class="alert alert-error pos-error" data-error role="alert" hidden></p>
+      <button type="button" class="btn btn-block pos-pay" data-pay disabled>Keranjang kosong</button>
+    </aside>
+  </main>
+
+  <div class="pos-bar">
+    <button type="button" class="pos-bar-btn" data-open-cart>
+      <span class="pos-bar-info"><span data-bar-count>0 barang</span><b data-bar-total>Rp0</b></span>
+      <span class="pos-bar-go">Bayar {% icon "arrow-right" "icon-sm" %}</span>
+    </button>
+  </div>
+
+  {# <dialog> asli, dibuka kasir.js dengan showModal(). Esc / tombol kembali HP = transaksi baru. #}
+  <dialog class="pos-done" data-done aria-labelledby="pos-done-title">
+      <span class="pos-done-icon" aria-hidden="true">{% icon "check" %}</span>
+      <h2 id="pos-done-title">Transaksi berhasil</h2>
+      <p class="k-muted">Nomor struk <b data-done-number></b></p>
+      <ul class="kv" role="list">
+        <li><span>Total</span><b data-done-total></b></li>
+        <li><span>Dibayar (<span data-done-method></span>)</span><b data-done-paid></b></li>
+      </ul>
+      <p class="pos-done-change">Kembalian <b data-done-change></b></p>
+      <a class="btn btn-block" href="#" data-done-receipt autofocus>{% icon "printer" %}<span>Cetak struk</span></a>
+      <form method="dialog"><button class="btn btn-ghost btn-block" data-new>{% icon "plus" %}<span>Transaksi baru</span></button></form>
+  </dialog>
+  {% csrf_token %}
+</div>
+{{ pos_data|json_script:"pos-data" }}
+{% endblock %}

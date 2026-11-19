@@ -1,0 +1,31 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Chat</p>
+    <h1 class="akun-title">Chat dengan HANS Project</h1>
+  </div>
+  {% if can_open %}<a class="btn btn-sm" href="{% url 'akun:chat-baru' %}">{% icon "plus" %}<span>Chat baru</span></a>{% endif %}
+</header>
+
+<section class="akun-card glass" aria-labelledby="buka-title">
+  <h2 id="buka-title">{% icon "chat" %} Obrolan aktif</h2>
+  {% if open_chats %}
+    {% include "akun/_chat_list.html" with chats=open_chats %}
+  {% else %}
+    <p class="empty">Tidak ada obrolan aktif. Tekan <b>Chat baru</b> untuk bertanya.</p>
+  {% endif %}
+  {% if not can_open %}<p class="field-help">Maksimal 3 obrolan aktif. Lanjutkan di obrolan yang ada, ya.</p>{% endif %}
+</section>
+
+<section class="akun-card glass" aria-labelledby="riwayat-title">
+  <h2 id="riwayat-title">{% icon "history" %} Riwayat (selesai)</h2>
+  {% if closed_chats %}
+    {% include "akun/_chat_list.html" with chats=closed_chats %}
+  {% else %}
+    <p class="empty">Belum ada obrolan yang selesai.</p>
+  {% endif %}
+</section>
+<p class="muted small center">Lebih suka Instagram? DM <a href="{{ site.instagram_profile_url }}" target="_blank" rel="noopener">@{{ site.instagram_username }}</a>.</p>
+{% endblock %}

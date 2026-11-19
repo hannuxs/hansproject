@@ -1,0 +1,42 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="kategori-title">
+  <div class="card-head">
+    <h2 id="kategori-title">{% icon "tag" %} Kategori barang</h2>
+    <a class="btn btn-sm btn-ghost" href="{% url 'toko:barang' store.subdomain %}">Kembali ke barang</a>
+  </div>
+  <p class="muted">Kategori membantu kasir mencari barang lebih cepat, misalnya Makanan, Minuman, Rokok.</p>
+
+  {% if categories %}
+    <ul class="cat-list" role="list">
+      {% for c in categories %}
+        <li{% if category.pk == c.pk %} class="is-editing"{% endif %}>
+          <span><b>{{ c.name }}</b> <span class="muted">· {{ c.n }} barang</span></span>
+          {% if store.can_edit %}
+            <span class="cat-actions">
+              <a class="link-btn" href="{% url 'toko:kategori-ubah' store.subdomain c.pk %}">Ubah</a>
+              <form method="post" action="{% url 'toko:kategori-hapus' store.subdomain c.pk %}" data-confirm="Hapus kategori {{ c.name }}? Barangnya tidak ikut terhapus.">
+                {% csrf_token %}<button class="link-btn danger" type="submit">Hapus</button>
+              </form>
+            </span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Belum ada kategori.</p>
+  {% endif %}
+
+  {% if store.can_edit %}
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      <h3 class="form-sub">{% if category %}Ubah kategori "{{ category.name }}"{% else %}Tambah kategori{% endif %}</h3>
+      {{ form.name.as_field_group }}
+      <div class="akun-actions">
+        <button class="btn" type="submit">{% icon "check" %}<span>{% if category %}Simpan{% else %}Tambah{% endif %}</span></button>
+        {% if category %}<a class="btn btn-ghost" href="{% url 'toko:kategori' store.subdomain %}">Batal</a>{% endif %}
+      </div>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "panel/base.html" %}
+{% load static %}
+{% block head_extra %}<link rel="stylesheet" href="{% static 'css/chat.css' %}"><script src="{% static 'js/chat.js' %}" defer></script>{% endblock %}
+{% block content %}
+<p><a href="{% url 'panel:chat-list' %}">← Semua obrolan</a></p>
+<div class="chat-admin-grid">
+  <section class="card glass chat-card" aria-labelledby="chat-title">
+    <header class="chat-head">
+      <span class="avatar chat-avatar" aria-hidden="true">{{ conversation.member.initial }}</span>
+      <div>
+        <h2 id="chat-title">{{ conversation.member.display_name }}</h2>
+        <p class="muted">{{ conversation.get_topic_display }} · dibuka {{ conversation.created_at|date:"j M Y, H:i" }}</p>
+      </div>
+      <span class="badge {% if not conversation.is_open %}badge-soft{% endif %}">{{ conversation.get_status_display }}</span>
+    </header>
+    {% url 'panel:chat-poll' conversation.pk as poll_url %}
+    {% include "components/chat_thread.html" with viewer="admin" %}
+    {% if conversation.is_open %}
+      {% include "components/chat_composer.html" %}
+      <form method="post" class="chat-close-form" data-confirm="Tutup obrolan ini? Pelanggan tidak bisa membalas lagi di obrolan ini.">
+        {% csrf_token %}<input type="hidden" name="aksi" value="tutup">
+        <button class="btn btn-sm btn-ghost" type="submit">{% icon "check" %} Tandai selesai &amp; tutup obrolan</button>
+      </form>
+    {% else %}
+      <p class="chat-closed muted">Obrolan ini sudah selesai{% if conversation.closed_at %} ({{ conversation.closed_at|date:"j M Y, H:i" }}){% endif %}. Pelanggan bisa membuka obrolan baru.</p>
+    {% endif %}
+  </section>
+
+  <aside class="card glass" aria-label="Data pelanggan">
+    {% with m=conversation.member %}
+      <ul class="kv" role="list">
+        <li><span>Pelanggan</span><b><a href="{% url 'panel:pelanggan-update' m.pk %}">{{ m.display_name }}</a></b></li>
+        <li><span>Usaha</span><b>{{ m.business_name|default:"–" }}</b></li>
+        <li><span>HP</span><b>{{ m.phone_display|default:"–" }}</b></li>
+        <li><span>Email</span><b>{{ m.email }}</b></li>
+      </ul>
+    {% endwith %}
+    {% if orders %}
+      <p class="field-label">Pesanan terbaru</p>
+      <ul class="kv" role="list">{% for o in orders %}<li><span><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> · {{ o.title }}</span><b>{{ o.get_status_display }}</b></li>{% endfor %}</ul>
+    {% endif %}
+    {% if refunds %}
+      <p class="field-label">Refund</p>
+      <ul class="kv" role="list">{% for r in refunds %}<li><span><a href="{% url 'panel:refund-update' r.pk %}">{{ r.order.code }}</a></span><b>{{ r.get_status_display }}</b></li>{% endfor %}</ul>
+    {% endif %}
+    {% if other_chats %}
+      <p class="field-label">Obrolan lain</p>
+      <ul class="kv" role="list">{% for c in other_chats %}<li><span><a href="{% url 'panel:chat' c.pk %}">#{{ c.pk }} {{ c.get_topic_display }}</a></span><b>{{ c.get_status_display }}</b></li>{% endfor %}</ul>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

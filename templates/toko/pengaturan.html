@@ -1,0 +1,18 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="set-title">
+  <h2 id="set-title">{% icon "settings" %} Pengaturan toko &amp; struk</h2>
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    <div class="field">
+      <span class="field-label">Alamat toko</span>
+      <p class="readonly">{{ store.host }}</p>
+      <p class="field-help">Ingin ganti alamat? Ajukan saat <a href="{% url 'toko:perpanjang' store.subdomain %}">perpanjang</a>. Alamat baru kami periksa dulu.</p>
+    </div>
+    {% if store.can_edit %}
+      <div class="akun-actions"><button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button></div>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

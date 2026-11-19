@@ -1,0 +1,28 @@
+{% comment %}
+  Kotak tulis pesan chat (halaman akun & panel). Tanpa JavaScript: formulir biasa (halaman dimuat ulang).
+  Dengan chat.js: terkirim tanpa memuat ulang, Enter = kirim (Shift+Enter = baris baru) di komputer.
+{% endcomment %}
+<form method="post" enctype="multipart/form-data" class="chat-composer" data-chat-form novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="reply_to" value="" data-reply-input>
+  <div class="composer-bar reply-bar" data-reply-bar hidden>
+    {% icon "reply" "icon-sm" %}<span>Membalas: <b data-reply-text></b></span>
+    <button type="button" class="composer-x" data-reply-cancel aria-label="Batal membalas">{% icon "x" "icon-sm" %}</button>
+  </div>
+  <div class="composer-bar file-bar" data-file-bar hidden>
+    <img data-file-preview alt="" width="44" height="44">
+    <span data-file-name></span>
+    <button type="button" class="composer-x" data-file-clear aria-label="Hapus gambar">{% icon "x" "icon-sm" %}</button>
+  </div>
+  {% if form.errors %}
+    <p class="alert alert-error" role="alert">{% icon "alert" %}<span>{% for errors in form.errors.values %}{% for e in errors %}{{ e }} {% endfor %}{% endfor %}</span></p>
+  {% endif %}
+  <p class="alert alert-error" data-chat-error role="alert" hidden></p>
+  <div class="composer-row">
+    <label class="composer-attach" for="chat-image">{% icon "image" %}<span class="visually-hidden">Lampirkan gambar (JPG, PNG, WebP, maks. 3 MB)</span></label>
+    <input id="chat-image" class="composer-file" type="file" name="image" accept="image/jpeg,image/png,image/webp" data-file-input>
+    <label for="chat-text" class="visually-hidden">Pesan</label>
+    <textarea id="chat-text" name="text" rows="1" maxlength="2000" placeholder="Tulis pesan…" autocomplete="off" data-chat-text></textarea>
+    <button class="btn composer-send" type="submit" data-chat-send>{% icon "send" %}<span class="visually-hidden">Kirim</span></button>
+  </div>
+</form>

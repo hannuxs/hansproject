@@ -1,0 +1,38 @@
+<section class="section" id="halaman-promosi" aria-labelledby="promo-title">
+  <div class="container promo-grid">
+    <div>
+      {% include "components/section_head.html" with eyebrow="Bonus untuk pelanggan kasir" title="Toko Anda dapat halaman promosi sendiri" lead="Kalau mau, toko Anda bisa punya halaman sederhana di internet, di alamat toko Anda sendiri." id="promo-title" %}
+      <p><b>Yang bisa Anda ubah sendiri:</b></p>
+      <ul class="check-list" role="list">
+        <li>{% icon "check" %}<span>Logo toko</span></li>
+        <li>{% icon "check" %}<span>Tulisan di halaman</span></li>
+        <li>{% icon "check" %}<span>Beberapa foto di halaman utama</span></li>
+        <li>{% icon "check" %}<span>Daftar harga dari aplikasi kasir. Tinggal nyalakan, harga barang otomatis ikut tampil.</span></li>
+      </ul>
+      <p class="tech">Landing page toko di subdomain, editor terbatas (logo, teks, foto hero), toggle sinkronisasi katalog harga dari POS.</p>
+      <p class="callout">{% icon "info" %}<span><strong>Hanya untuk promosi.</strong> Halaman ini tidak bisa dipakai pembeli untuk pesan atau belanja online.</span></p>
+    </div>
+
+    <figure class="browser glass reveal" aria-label="Contoh halaman promosi toko">
+      <div class="browser-bar" aria-hidden="true">
+        <span class="browser-dots"><i></i><i></i><i></i></span>
+        <span class="browser-url">🔒 <b>warungbudi</b>.hansproject.app</span>
+      </div>
+      <div class="shop-hero">
+        <div class="shop-logo" aria-hidden="true">WB</div>
+        <h3>Warung Budi</h3>
+        <p>Sembako, jajanan, dan minuman dingin. Buka setiap hari.</p>
+      </div>
+      <div class="shop-photos" aria-hidden="true"><div>🛒</div><div>🥤</div><div>🍪</div></div>
+      <div class="shop-prices">
+        <div class="shop-prices-head"><span>Daftar harga</span><span class="mini-switch"><i></i> Tampil</span></div>
+        <ul>
+          <li><span>Beras 5 kg</span><b>Rp68.000</b></li>
+          <li><span>Minyak goreng 1 L</span><b>Rp17.500</b></li>
+          <li><span>Gula pasir 1 kg</span><b>Rp16.000</b></li>
+        </ul>
+      </div>
+      <figcaption class="visually-hidden">Contoh tampilan, bukan toko sungguhan.</figcaption>
+    </figure>
+  </div>
+</section>

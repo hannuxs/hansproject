@@ -1,0 +1,13 @@
+{% extends "kasir/base.html" %}
+{% block title %}{{ error_title }}{% endblock %}
+{% block body %}
+<main class="k-center">
+  <div class="k-card glass">
+    <p class="k-code text-gradient">{{ error_code }}</p>
+    <h1 class="k-title">{% if error_code == 404 %}Toko atau halaman tidak ditemukan{% else %}{{ error_title }}{% endif %}</h1>
+    <p class="k-lead">{% if error_code == 404 %}Periksa lagi alamat yang Anda ketik.{% else %}{{ error_text }}{% endif %}</p>
+    <a class="btn btn-block" href="/kasir/">Ke halaman kasir</a>
+  </div>
+  <p class="k-foot"><a href="{{ SITE_URL }}/" rel="noopener">HANS Project</a></p>
+</main>
+{% endblock %}

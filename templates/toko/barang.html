@@ -1,0 +1,48 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass" aria-labelledby="barang-title">
+  <div class="card-head">
+    <h2 id="barang-title">{% icon "box" %} Barang ({{ total }})</h2>
+    <div class="head-actions">
+      <a class="btn btn-sm btn-ghost" href="{% url 'toko:kategori' store.subdomain %}">{% icon "tag" %}<span>Kategori</span></a>
+      {% if store.can_edit %}<a class="btn btn-sm" href="{% url 'toko:barang-baru' store.subdomain %}">{% icon "plus" %}<span>Tambah barang</span></a>{% endif %}
+    </div>
+  </div>
+
+  <form method="get" class="filter-bar" role="search">
+    <div class="field"><label class="field-label" for="q">Cari</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Nama atau kode barang"></div>
+    <div class="field">
+      <label class="field-label" for="kategori">Kategori</label>
+      <select id="kategori" name="kategori">
+        <option value="">Semua kategori</option>
+        {% for c in categories %}<option value="{{ c.pk }}"{% if cat == c.pk|stringformat:"s" %} selected{% endif %}>{{ c.name }} ({{ c.n }})</option>{% endfor %}
+        <option value="tanpa"{% if cat == "tanpa" %} selected{% endif %}>Tanpa kategori</option>
+      </select>
+    </div>
+    <button class="btn btn-sm" type="submit">{% icon "list" %}<span>Tampilkan</span></button>
+  </form>
+
+  {% if page.object_list %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th scope="col">Barang</th><th scope="col">Kategori</th><th scope="col" class="num">Harga</th><th scope="col">Dijual</th></tr></thead>
+        <tbody>
+          {% for p in page.object_list %}
+            <tr{% if not p.is_active %} class="row-off"{% endif %}>
+              <td><a href="{% url 'toko:barang-ubah' store.subdomain p.pk %}"><b>{{ p.name }}</b></a>{% if p.code %}<br><span class="muted small">{{ p.code }}</span>{% endif %}</td>
+              <td class="muted">{{ p.category.name|default:"–" }}</td>
+              <td class="num">{{ p.price|rupiah }}</td>
+              <td>{% if p.is_active %}{% icon "check" "icon-ok" label="Ya" %}{% else %}{% icon "x" "icon-off" label="Tidak" %}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "toko/_pager.html" %}
+  {% elif q or cat %}
+    <p class="empty">Tidak ada barang yang cocok.</p>
+  {% else %}
+    <p class="empty">Belum ada barang. Tekan <b>Tambah barang</b> untuk mulai.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="form-title">
+  <h2 id="form-title">{% icon "box" %} {{ page_title }}</h2>
+  {% if not store.can_edit %}<p class="alert" role="note">{% icon "lock" %}<span>Toko sedang terkunci. Data hanya bisa dilihat.</span></p>{% endif %}
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+    {{ form.name.as_field_group }}
+    {{ form.price.as_field_group }}
+    {{ form.category.as_field_group }}
+    <p class="field-help"><a href="{% url 'toko:kategori' store.subdomain %}">Buat atau ubah kategori</a></p>
+    {{ form.code.as_field_group }}
+    {{ form.is_active.as_field_group }}
+    {% if store.can_edit %}
+      <div class="akun-actions">
+        <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
+        {% if not product %}<button class="btn btn-ghost" type="submit" name="lagi" value="1">{% icon "plus" %}<span>Simpan &amp; tambah lagi</span></button>{% endif %}
+        <a class="btn btn-ghost" href="{% url 'toko:barang' store.subdomain %}">Batal</a>
+      </div>
+    {% endif %}
+  </form>
+  {% if product and store.can_edit %}
+    <form method="post" action="{% url 'toko:barang-hapus' store.subdomain product.pk %}" class="cancel-form" data-confirm="Hapus barang {{ product.name }}? Transaksi lama tetap tersimpan.">
+      {% csrf_token %}<button class="link-btn danger" type="submit">Hapus barang ini</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

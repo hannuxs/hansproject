@@ -1,0 +1,38 @@
+/* Struk belanja. Lebar mengikuti pengaturan toko: 58 mm atau 80 mm. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #ece9e6; color: #000;
+  font: 12px/1.35 ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, "Courier New", monospace;
+}
+body.paper-58 { --paper: 58mm; --pad: 2mm; }
+body.paper-80 { --paper: 80mm; --pad: 3mm; font-size: 13px; }
+.struk { width: var(--paper); margin: 12px auto 40px; padding: 4mm var(--pad); background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); }
+.struk-head { text-align: center; padding-bottom: 6px; border-bottom: 1px dashed #000; }
+.struk-head h1 { font-size: 1.25em; font-weight: 700; word-break: break-word; }
+.struk-head p { word-break: break-word; }
+.struk-meta, .struk-items, .struk-sum { padding: 6px 0; border-bottom: 1px dashed #000; }
+.struk-meta p, .struk-sum p, .struk-line { display: flex; justify-content: space-between; gap: 6px; }
+.struk-meta p span:last-child { text-align: right; word-break: break-all; }
+.struk-items { list-style: none; display: grid; gap: 4px; }
+.struk-name { display: block; word-break: break-word; }
+.struk-total { font-weight: 700; font-size: 1.15em; margin: 2px 0; }
+.struk-foot { padding-top: 6px; text-align: center; word-break: break-word; }
+.struk-void { margin-bottom: 6px; padding: 4px; border: 2px solid #000; text-align: center; font-weight: 700; letter-spacing: 0.1em; }
+
+.struk-tools {
+  position: sticky; top: 0; display: flex; justify-content: center; gap: 10px; padding: 10px;
+  background: #fffbf5; box-shadow: 0 1px 0 #d0d0d0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.struk-btn {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 8px 18px; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #c2410c, #b3260f 48%, #6e120b); color: #fff; font: 700 15px/1 system-ui, sans-serif; text-decoration: none;
+}
+.struk-btn.ghost { background: #fff; color: #3b1a12; box-shadow: inset 0 0 0 2px #eadfd3; }
+.struk-btn:focus-visible { outline: 3px solid #6e120b; outline-offset: 2px; }
+
+@media print {
+  @page { margin: 0; }
+  body { background: #fff; }
+  .struk-tools { display: none; }
+  .struk { margin: 0; box-shadow: none; padding-top: 2mm; padding-bottom: 6mm; }
+}

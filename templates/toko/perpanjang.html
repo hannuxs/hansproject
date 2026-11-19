@@ -1,0 +1,31 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="renew-title">
+  <h2 id="renew-title">{% icon "clock" %} Perpanjang langganan</h2>
+  <p class="muted">Perpanjangan menambah masa aktif 1 bulan, dihitung dari {% if store.days_left >= 0 %}tanggal habis sekarang ({{ store.active_until|date:"j F Y" }}){% else %}hari pembayaran dikonfirmasi{% endif %}. Semua data toko tetap.</p>
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+    {{ form.package.as_field_group }}
+    {% if store.extra_outlets %}
+      <div class="quote-box">
+        <p class="field-label">Biaya 1 bulan (termasuk {{ store.extra_outlets }} toko tambahan)</p>
+        <ul class="kv" role="list">
+          {% for p, q in quotes %}<li><span>Paket {{ p.name }}: {{ q.package_price|rupiah }} + {{ q.extra_count }} toko × {{ addon.price|rupiah }}</span><b>{{ q.amount|rupiah }}</b></li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <p class="field-help">Pindah paket juga bisa di sini. Bila pindah ke paket dengan jumlah toko lebih sedikit, toko terbaru di atas batas dinonaktifkan (datanya tetap ada).</p>
+    <div class="field{% if form.new_subdomain.errors %} has-error{% endif %}">
+      <label class="field-label" for="{{ form.new_subdomain.id_for_label }}">{{ form.new_subdomain.label }}</label>
+      <div class="sub-input"><input type="text" name="{{ form.new_subdomain.html_name }}" id="{{ form.new_subdomain.id_for_label }}" value="{{ form.new_subdomain.value|default:'' }}" maxlength="60" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="{{ store.subdomain }}"{% if form.new_subdomain.errors %} aria-invalid="true"{% endif %}><span>.{{ STORE_BASE_DOMAIN }}</span></div>
+      {% if form.new_subdomain.errors %}{{ form.new_subdomain.errors }}{% endif %}
+      <p class="field-help">{{ form.new_subdomain.help_text }} Selama belum disetujui, alamat lama ({{ store.host }}) tetap dipakai.</p>
+    </div>
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "cart" %}<span>Buat pesanan perpanjangan</span></button>
+      <a class="btn btn-ghost" href="{% url 'toko:ringkasan' store.subdomain %}">Batal</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

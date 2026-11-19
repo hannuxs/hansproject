@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Kerangka halaman akun pelanggan (/akun/...). Halaman ini PRIBADI:
+  tidak di-cache dan tidak diindeks (header diatur SecurityHeadersMiddleware).
+{% endcomment %}
+{% block title %}{{ page_title }} | HANS Project{% endblock %}
+{% block description %}Akun pelanggan HANS Project.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block canonical %}{{ request.path }}{% endblock %}
+{% block og_url %}{{ request.path }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% static 'css/akun.css' %}">{% endblock %}
+{% block header %}{% if akun_tabs %}{% include "akun/_header.html" %}{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block bottom_nav %}{% if akun_tabs %}{% include "akun/_bottom_nav.html" %}{% else %}{{ block.super }}{% endif %}{% endblock %}
+
+{% block content %}
+<section class="section aurora akun{% block section_class %}{% endblock %}">
+  <div class="container akun-wrap{% block wrap_class %}{% endblock %}">
+    {% if notice %}<p class="alert alert-success" role="status">{% icon "check" %}<span>{{ notice }}</span></p>{% endif %}
+    {% block akun %}{% endblock %}
+  </div>
+</section>
+{% endblock %}

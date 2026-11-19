@@ -1,0 +1,82 @@
+{% extends "panel/base.html" %}
+{% block content %}
+<div class="dash-grid">
+  <section class="card glass dash-hero">
+    <h2>Halo, {{ panel_user.get_username }} 👋</h2>
+    <p class="muted">Semua perubahan di panel ini langsung tampil di website. Data lama aman: setiap perubahan tercatat di Riwayat Perubahan.</p>
+    <div class="quick">
+      <a class="btn btn-sm" href="{% url 'panel:paket-list' %}">{% icon "tag" %} Ubah harga paket</a>
+      <a class="btn btn-sm btn-ghost" href="{% url 'panel:faq-list' %}">{% icon "help" %} Kelola FAQ</a>
+      <a class="btn btn-sm btn-ghost" href="{% url 'panel:pengaturan' %}">{% icon "settings" %} Kontak &amp; pengaturan</a>
+    </div>
+  </section>
+
+  <section class="card glass" aria-labelledby="pelanggan-title">
+    <h2 id="pelanggan-title">{% icon "cart" %} Pelanggan</h2>
+    <ul class="kv" role="list">
+      <li><span>Bukti bayar perlu dicek</span><b>{% if orders_to_check %}<a href="{% url 'panel:pesanan-list' %}">{{ orders_to_check }}</a>{% else %}0{% endif %}</b></li>
+      <li><span>Menunggu konsultasi (Rimba)</span><b>{% if orders_to_consult %}<a href="{% url 'panel:pesanan-list' %}">{{ orders_to_consult }}</a>{% else %}0{% endif %}</b></li>
+      <li><span>Menunggu pembayaran</span><b>{{ orders_waiting_payment }}</b></li>
+      <li><span>Chat perlu dibalas</span><b>{% if chats_need_reply %}<a href="{% url 'panel:chat-list' %}">{{ chats_need_reply }}</a>{% else %}0{% endif %}</b></li>
+      <li><span>Refund perlu diproses</span><b>{% if refunds_open %}<a href="{% url 'panel:refund-list' %}">{{ refunds_open }}</a>{% else %}0{% endif %}</b></li>
+      <li><span>Jumlah pelanggan terdaftar</span><b>{{ member_count }}</b></li>
+    </ul>
+  </section>
+
+  <section class="card glass" aria-labelledby="todo-title">
+    <h2 id="todo-title">{% icon "alert" %} Perlu diisi</h2>
+    {% if reminders %}
+      <ul class="todo" role="list">
+        {% for r in reminders %}<li><a href="{% url r.url_name %}">{{ r.text }}</a></li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="alert alert-success">{% icon "check" %}<span>Semua data utama sudah diisi.</span></p>
+    {% endif %}
+  </section>
+
+  <section class="card glass" aria-labelledby="klik-title">
+    <h2 id="klik-title">{% icon "chart" %} Klik tombol DM Instagram</h2>
+    <p class="muted">Hanya angka hitungan per hari, tanpa data pribadi pengunjung.</p>
+    <div class="stat-row">
+      <div class="stat"><span class="stat-num">{{ click_week }}</span><span class="stat-label">7 hari terakhir</span></div>
+      <div class="stat"><span class="stat-num">{{ click_month }}</span><span class="stat-label">30 hari terakhir</span></div>
+    </div>
+    {% if click_rows %}
+      <table class="data-table compact">
+        <thead><tr><th scope="col">Tombol</th><th scope="col" class="num">7 hari</th><th scope="col" class="num">30 hari</th></tr></thead>
+        <tbody>
+          {% for r in click_rows %}<tr><td>{{ r.label }}</td><td class="num">{{ r.week }}</td><td class="num">{{ r.month }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Belum ada klik yang tercatat.</p>
+    {% endif %}
+  </section>
+
+  <section class="card glass" aria-labelledby="aman-title">
+    <h2 id="aman-title">{% icon "shield" %} Keamanan</h2>
+    <ul class="kv" role="list">
+      <li><span>Verifikasi dua langkah</span><b>{% if panel_user.has_2fa %}Aktif{% else %}Belum aktif{% endif %}</b></li>
+      <li><span>Percobaan masuk gagal (24 jam)</span><b>{{ failed_logins_24h }}</b></li>
+    </ul>
+    {% if last_logins %}
+      <p class="muted small">Masuk terakhir:</p>
+      <ul class="mini-list" role="list">{% for a in last_logins %}<li>{{ a.created_at|date:"j M Y, H:i" }} — {{ a.username }} ({{ a.get_stage_display }})</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  <section class="card glass dash-wide" aria-labelledby="riwayat-title">
+    <h2 id="riwayat-title">{% icon "history" %} Perubahan terakhir</h2>
+    {% if recent_changes %}
+      <ul class="mini-list" role="list">
+        {% for log in recent_changes %}
+          <li><span class="badge badge-soft">{{ log.get_action_display }}</span> {{ log.target_type }} “{{ log.target_repr }}” <span class="muted">— {{ log.username|default:"sistem" }}, {{ log.created_at|date:"j M Y H:i" }}</span></li>
+        {% endfor %}
+      </ul>
+      <a href="{% url 'panel:audit' %}">Lihat semua riwayat</a>
+    {% else %}
+      <p class="muted">Belum ada perubahan.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

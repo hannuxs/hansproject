@@ -1,0 +1,29 @@
+{# Pilihan periode & outlet untuk Transaksi dan Laporan. #}
+<form method="get" class="filter-bar">
+  <div class="field">
+    <label class="field-label" for="periode">Periode</label>
+    <select id="periode" name="periode">
+      {% for key, label in periods %}<option value="{{ key }}"{% if period == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      {% if period == "pilih" %}<option value="" selected>{{ start|date:"j M Y" }} – {{ end|date:"j M Y" }}</option>{% endif %}
+    </select>
+  </div>
+  {% if outlets|length > 1 %}
+    <div class="field">
+      <label class="field-label" for="outlet">Toko</label>
+      <select id="outlet" name="outlet">
+        <option value="">Semua toko</option>
+        {% for o in outlets %}<option value="{{ o.pk }}"{% if outlet.pk == o.pk %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+      </select>
+    </div>
+  {% endif %}
+  <button class="btn btn-sm" type="submit">{% icon "list" %}<span>Tampilkan</span></button>
+</form>
+<details class="range-pick"{% if period == "pilih" %} open{% endif %}>
+  <summary>Pilih tanggal sendiri</summary>
+  <form method="get" class="filter-bar">
+    <div class="field"><label class="field-label" for="dari">Dari</label><input id="dari" type="date" name="dari" value="{{ start|date:'Y-m-d' }}"></div>
+    <div class="field"><label class="field-label" for="sampai">Sampai</label><input id="sampai" type="date" name="sampai" value="{{ end|date:'Y-m-d' }}"></div>
+    {% if outlet %}<input type="hidden" name="outlet" value="{{ outlet.pk }}">{% endif %}
+    <button class="btn btn-sm" type="submit">{% icon "list" %}<span>Tampilkan</span></button>
+  </form>
+</details>

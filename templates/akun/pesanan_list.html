@@ -1,0 +1,44 @@
+{% extends "akun/base.html" %}
+{% block akun %}
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Pesanan</p>
+    <h1 class="akun-title">Pesanan & refund</h1>
+  </div>
+  <a class="btn btn-sm" href="{% url 'akun:pesan-pilih' %}">{% icon "plus" %}<span>Pesan paket</span></a>
+</header>
+
+<section class="akun-card glass" aria-labelledby="jalan-title">
+  <h2 id="jalan-title">{% icon "clock" %} Sedang berjalan</h2>
+  {% if open_orders %}
+    {% include "akun/_order_list.html" with orders=open_orders %}
+  {% else %}
+    <p class="empty">Tidak ada pesanan yang sedang berjalan.</p>
+  {% endif %}
+</section>
+
+{% if refunds %}
+<section class="akun-card glass" aria-labelledby="refund-title">
+  <h2 id="refund-title">{% icon "wallet" %} Refund</h2>
+  <ul class="order-list" role="list">
+    {% for r in refunds %}
+      <li>
+        <a class="order-item" href="{% url 'akun:pesanan' r.order.code %}#refund">
+          <span class="order-main"><b>Refund {{ r.order.code }}</b><span class="muted">{{ r.order.title }} · diajukan {{ r.created_at|date:"j M Y" }}{% if r.amount %} · {{ r.amount|rupiah }}{% endif %}</span></span>
+          <span class="status status-{{ r.status_tone }}">{{ r.get_status_display }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="akun-card glass" aria-labelledby="riwayat-title">
+  <h2 id="riwayat-title">{% icon "history" %} Riwayat pesanan</h2>
+  {% if past_orders %}
+    {% include "akun/_order_list.html" with orders=past_orders %}
+  {% else %}
+    <p class="empty">Belum ada riwayat. <a href="{% url 'akun:pesan-pilih' %}">Pilih paket</a> untuk mulai.</p>
+  {% endif %}
+</section>
+{% endblock %}

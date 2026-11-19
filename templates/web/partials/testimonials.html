@@ -1,0 +1,16 @@
+<section class="section" id="testimoni" aria-labelledby="testi-title">
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Kata pelanggan" title="Cerita dari pelanggan kami" id="testi-title" center=True %}
+    <div class="grid grid-3">
+      {% for t in snap.testimonials %}
+        <figure class="card glass testi reveal">
+          <blockquote>“{{ t.quote }}”</blockquote>
+          <figcaption>
+            {% if t.photo %}<img src="{{ t.photo.url }}" width="48" height="48" alt="" loading="lazy">{% endif %}
+            <span>{{ t.name }}<small>{% if t.business %}{{ t.business }}{% endif %}{% if t.business and t.location %} · {% endif %}{{ t.location }}</small></span>
+          </figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+  </div>
+</section>

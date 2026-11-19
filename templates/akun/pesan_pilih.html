@@ -1,0 +1,49 @@
+{% extends "akun/base.html" %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'akun:pesanan-list' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Pesanan</span></a></p>
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Pesan paket</p>
+    <h1 class="akun-title">Pilih paket</h1>
+  </div>
+</header>
+
+{% if has_store %}
+  <p class="alert" role="note">{% icon "info" %}<span>Sudah punya aplikasi kasir? Untuk menambah toko/cabang di langganan yang sama, buka <a href="{% url 'toko:tambah' %}">Toko › Tambah toko</a>. Untuk menambah masa aktif atau pindah paket, pakai <b>Perpanjang</b>. Paket di bawah ini membuat <b>langganan baru</b> dengan alamat kasir sendiri.</span></p>
+{% endif %}
+
+<section aria-labelledby="kasir-title">
+  <h2 class="pick-title" id="kasir-title">{% icon "calculator" %} Aplikasi kasir (langganan bulanan)</h2>
+  <ul class="pick-grid" role="list">
+    {% for p in pos_packages %}
+      <li class="akun-card glass pick-card{% if p.is_highlighted %} is-highlighted{% endif %}">
+        {% if p.badge %}<span class="badge">{{ p.badge }}</span>{% endif %}
+        <h3>{{ p.icon }} Paket {{ p.name }}</h3>
+        <p class="pick-price"><b>{{ p.price_text }}</b></p>
+        {% if p.tagline %}<p class="muted small">{{ p.tagline }}</p>{% endif %}
+        <ul class="check-list" role="list">
+          {% for f in p.features.all|slice:":4" %}<li>{% icon "check" %}<span>{{ f.simple }}</span></li>{% endfor %}
+        </ul>
+        <a class="btn btn-block" href="{% url 'akun:pesan' p.code %}">{% icon "cart" %}<span>Pilih Paket {{ p.name }}</span></a>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if service_packages %}
+<section aria-labelledby="jasa-title">
+  <h2 class="pick-title" id="jasa-title">{% icon "code" %} Jasa bikin website &amp; aplikasi</h2>
+  <ul class="pick-grid" role="list">
+    {% for p in service_packages %}
+      <li class="akun-card glass pick-card">
+        <h3>{{ p.icon }} Paket {{ p.name }}</h3>
+        <p class="pick-price"><b>{{ p.price_text }}</b></p>
+        {% if p.tagline %}<p class="muted small">{{ p.tagline }}</p>{% endif %}
+        <a class="btn btn-block btn-ghost" href="{% url 'akun:pesan' p.code %}">{% icon "chat" %}<span>Konsultasi gratis</span></a>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+<p class="muted small center">Ingin membandingkan semua isi paket? <a href="/#harga">Lihat daftar harga lengkap</a>.</p>
+{% endblock %}

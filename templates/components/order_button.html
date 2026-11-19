@@ -1,0 +1,12 @@
+{% comment %}
+  Tombol "Pesan Sekarang" untuk satu paket.
+  Parameter:
+    pkg   : paket yang dipesan
+    style : kelas tambahan tombol, misalnya "btn-light" untuk kartu bergradasi
+
+  Belum login -> halaman /akun/pesan/<kode>/ meneruskan ke Daftar / Masuk,
+  lalu kembali ke konfirmasi pesanan paket ini setelah berhasil masuk.
+{% endcomment %}
+<a class="btn btn-block order-btn {{ style }}" href="{% url 'akun:pesan' pkg.code %}">
+  {% icon "cart" %}<span>Pesan Sekarang</span><span class="visually-hidden"> Paket {{ pkg.name }}</span>
+</a>

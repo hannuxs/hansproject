@@ -1,0 +1,11 @@
+{% extends "panel/auth/_layout.html" %}
+{% block auth %}
+  <h1 class="auth-title">Verifikasi dua langkah</h1>
+  <p class="muted">Buka aplikasi Authenticator di HP Anda, lalu masukkan kode 6 angka untuk HANS Project.</p>
+  <form method="post" class="stack" novalidate>
+    {% csrf_token %}
+    {{ form }}
+    <button class="btn btn-block" type="submit">{% icon "shield" %} Verifikasi</button>
+  </form>
+  <p class="auth-help"><a href="{% url 'panel:login' %}">Kembali ke halaman masuk</a></p>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% with parts=snap.hero_parts %}
+<section class="hero aurora" id="beranda" aria-labelledby="hero-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow">Aplikasi kasir untuk usaha kecil</p>
+      <h1 class="hero-title" id="hero-title">{{ parts.0 }}{% if parts.1 %}<span class="hl">{{ parts.1 }}</span>{{ parts.2 }}{% endif %}</h1>
+      <p class="hero-lead">{{ site.hero_subtitle }}</p>
+      <div class="hero-cta">
+        <a class="btn" href="#harga">Lihat harga paket {% icon "arrow-down" %}</a>
+        {% include "components/ask_button.html" with topic="umum" style="btn-ghost" %}
+      </div>
+      <p class="hero-alt">{% include "components/instagram_dm.html" with text="Atau DM Instagram" %}</p>
+      <ul class="trust" role="list">
+        <li>{% icon "check" %} Cukup pakai HP</li>
+        <li>{% icon "check" %} Bisa dipakai 24 jam</li>
+        <li>{% icon "check" %} Catatan aman walau HP rusak</li>
+      </ul>
+    </div>
+
+    <div class="demo" data-pos>
+      <div class="phone">
+        <div class="screen" aria-label="Contoh tampilan aplikasi kasir di HP" role="group">
+          <div class="pos-top"><small>Kasir · Toko 1</small><strong>Warung Budi</strong></div>
+          <ul class="pos-items" role="list">
+            {% for emoji, name, price in demo_items %}
+              <li><button class="pos-item" type="button" data-item data-name="{{ name }}" data-price="{{ price }}" disabled>
+                <span class="emoji" aria-hidden="true">{{ emoji }}</span><span>{{ name }}</span><span>{{ price|rupiah }}</span>
+              </button></li>
+            {% endfor %}
+          </ul>
+          <ul class="pos-cart" data-cart role="list" aria-label="Belanjaan">
+            <li><span>Kopi Susu <span class="qty">×2</span></span><span>Rp10.000</span></li>
+            <li><span>Roti Manis <span class="qty">×1</span></span><span>Rp6.000</span></li>
+          </ul>
+          <div class="pos-total"><span>Total</span><strong data-total>Rp16.000</strong></div>
+          <div class="pos-actions">
+            <button class="btn btn-sm pos-reset" type="button" data-reset>Hapus</button>
+            <button class="btn btn-sm" type="button" data-pay>{% icon "printer" %} Bayar &amp; cetak struk</button>
+          </div>
+          <div class="receipt-wrap" data-receipt hidden>
+            <div class="receipt" role="dialog" aria-label="Contoh struk belanja">
+              <h4>WARUNG BUDI</h4>
+              <p class="center">warungbudi.hansproject.app</p>
+              <p class="center" data-receipt-time></p>
+              <hr>
+              <div data-receipt-lines></div>
+              <hr>
+              <div class="row total"><span>TOTAL</span><span data-receipt-total></span></div>
+              <hr>
+              <p class="center">Terima kasih 🙏</p>
+              <button class="btn btn-sm btn-block" type="button">Tutup</button>
+            </div>
+          </div>
+          <p class="visually-hidden" aria-live="polite" data-live></p>
+        </div>
+        <div class="float-card float-a glass" aria-hidden="true">{% icon "chart" %}<span>Rekap otomatis<small>harian–bulanan</small></span></div>
+        <div class="float-card float-b glass" aria-hidden="true">{% icon "receipt" %}<span>Struk rapi<small>printer thermal</small></span></div>
+      </div>
+      <p class="demo-caption"><span class="js-only">👆 Coba ketuk barangnya, lalu tekan Bayar.</span><span class="nojs-only">Contoh tampilan aplikasi kasir.</span> Ini hanya contoh.</p>
+    </div>
+  </div>
+</section>
+{% endwith %}

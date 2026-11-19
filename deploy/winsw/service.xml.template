@@ -1,0 +1,26 @@
+<!--
+  Templat konfigurasi WinSW (Windows Service). Diisi otomatis oleh
+  service-install.bat lewat scripts\make_service_xml.py. Jangan diubah manual.
+-->
+<service>
+  <id>{id}</id>
+  <name>{name}</name>
+  <description>{description}</description>
+  <executable>{executable}</executable>
+  <arguments>{arguments}</arguments>
+  <workingdirectory>{workdir}</workingdirectory>
+  {depends}
+  {env}
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>15 sec</stoptimeout>
+  <logpath>{logdir}</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

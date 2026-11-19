@@ -1,0 +1,27 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<div class="akun-card glass auth-card">
+  <p class="eyebrow">Akun HANS Project</p>
+  <h1 class="akun-title">Daftar / Masuk</h1>
+  <p class="akun-lead">Cukup pakai akun Google Anda, tanpa membuat password baru. Pertama kali masuk, akun HANS Project Anda dibuat otomatis.</p>
+
+  {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
+
+  {% if configured %}
+    <a class="google-btn" href="{{ start_url }}">{% icon "google" %}<span>Lanjutkan dengan Google</span></a>
+    <p class="auth-note">Belum punya akun Google? Di halaman Google, pilih <b>Buat akun</b>, lalu kembali ke sini.</p>
+  {% else %}
+    <p class="alert" role="note">{% icon "info" %}<span>Fitur masuk sedang disiapkan. Untuk sementara, hubungi kami lewat DM Instagram.</span></p>
+    {% include "components/instagram_dm.html" %}
+  {% endif %}
+
+  <ul class="auth-points" role="list">
+    <li>{% icon "cart" %}<span>Pesan paket dan pantau status pesanan Anda.</span></li>
+    <li>{% icon "chat" %}<span>Tanya langsung ke kami, jawabannya tampil di akun Anda.</span></li>
+    <li>{% icon "shield" %}<span>Dari Google kami hanya menerima nama dan email Anda. Password Google Anda tidak pernah kami lihat.</span></li>
+  </ul>
+
+  <p class="auth-legal">Saat pertama masuk, Anda akan diminta membaca dan menyetujui <a href="{% url 'web:terms' %}">Syarat &amp; Ketentuan</a> serta membaca <a href="{% url 'web:privacy' %}">Kebijakan Privasi</a> kami.</p>
+</div>
+{% endblock %}

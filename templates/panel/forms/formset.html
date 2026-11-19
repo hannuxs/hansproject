@@ -1,0 +1,18 @@
+{# Tabel isian berulang (formset). Parameter: formset, title, help #}
+<section class="card glass formset" data-formset data-prefix="{{ formset.prefix }}">
+  <header class="card-head">
+    <h2>{{ title }}</h2>
+    {% if help %}<p class="muted">{{ help }}</p>{% endif %}
+  </header>
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<div class="alert alert-error">{% icon "alert" %}<div>{{ formset.non_form_errors }}</div></div>{% endif %}
+  <div class="formset-rows" data-formset-rows>
+    {% for form in formset %}
+      {% include "panel/forms/formset_row.html" with number=forloop.counter %}
+    {% endfor %}
+  </div>
+  <template data-formset-template>
+    {% include "panel/forms/formset_row.html" with form=formset.empty_form number="baru" %}
+  </template>
+  <button type="button" class="btn btn-ghost btn-sm" data-formset-add>{% icon "plus" %} Tambah baris</button>
+</section>

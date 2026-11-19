@@ -1,0 +1,37 @@
+{% extends "akun/base.html" %}
+{% comment %}
+  Popup persetujuan setelah login Google. Muncul sekali per akun, dan muncul lagi
+  hanya bila pemilik mengubah "versi Syarat & Ketentuan" di panel.
+  Tidak bisa ditutup: semua halaman akun dialihkan ke sini sampai pelanggan setuju.
+{% endcomment %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+{% comment %}
+  Elemen dialog asli, dibuka site.js dengan showModal(): tampil di lapisan teratas (di atas header & menu
+  bawah), fokus terkunci di dalamnya, dan halaman di belakang tidak bisa dipakai. closedby="none": tidak bisa
+  ditutup dengan klik di luar. Tanpa JavaScript, isinya tampil sebagai kartu biasa di halaman.
+{% endcomment %}
+<dialog class="consent-dialog" id="consent-dialog" closedby="none" aria-labelledby="consent-title" aria-describedby="consent-desc">
+    <span class="consent-icon" aria-hidden="true">{% icon "shield" %}</span>
+    <h1 class="consent-title" id="consent-title">{% if updated %}Ada pembaruan{% else %}Satu langkah lagi{% endif %}</h1>
+    <p class="consent-desc" id="consent-desc">
+      {% if updated %}Syarat &amp; Ketentuan dan Kebijakan Privasi kami diperbarui ({{ version|date:"j F Y" }}). Silakan baca dulu sebelum melanjutkan.{% else %}Halo {{ member.display_name }}, silakan baca dulu sebelum memakai akun Anda.{% endif %}
+    </p>
+    <ul class="consent-links" role="list">
+      <li><a href="{% url 'web:terms' %}" target="_blank" rel="noopener">{% icon "file" %}<span>Syarat &amp; Ketentuan</span>{% icon "external" "icon-sm" %}</a></li>
+      <li><a href="{% url 'web:privacy' %}" target="_blank" rel="noopener">{% icon "lock" %}<span>Kebijakan Privasi</span>{% icon "external" "icon-sm" %}</a></li>
+    </ul>
+    <form method="post" class="consent-form" novalidate>
+      {% csrf_token %}
+      <label class="consent-check">
+        <input type="checkbox" name="setuju" value="1" required autofocus data-consent-check>
+        <span>Saya berusia minimal 18 tahun, menyetujui Syarat &amp; Ketentuan, dan sudah membaca Kebijakan Privasi.</span>
+      </label>
+      {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
+      <button class="btn btn-block" type="submit" data-consent-submit>{% icon "check" %}<span>Setuju &amp; lanjutkan</span></button>
+    </form>
+    <form method="post" action="{% url 'akun:keluar' %}" class="consent-out">
+      {% csrf_token %}<button class="link-btn" type="submit">Tidak setuju, keluar</button>
+    </form>
+</dialog>
+{% endblock %}

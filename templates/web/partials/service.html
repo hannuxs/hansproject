@@ -1,0 +1,36 @@
+{% for pkg in snap.service_packages %}
+<section class="section dark" id="{% if forloop.first %}jasa{% else %}jasa-{{ pkg.code }}{% endif %}" aria-labelledby="jasa-{{ pkg.code }}-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Jasa bikin website & aplikasi" title="Mau punya website atau aplikasi sendiri?" lead="Layanan yang berbeda dari aplikasi kasir: website atau aplikasi dibuat dari nol, khusus untuk usaha Anda." id="jasa-title-head" %}
+    <div class="rimba">
+      <article class="card glass-dark reveal" aria-labelledby="jasa-{{ pkg.code }}-title">
+        <div class="plan-head">
+          <span class="plan-emoji" aria-hidden="true">{{ pkg.icon }}</span>
+          <h3 class="plan-name" id="jasa-{{ pkg.code }}-title"><small>Paket</small>{{ pkg.name }}</h3>
+        </div>
+        {% if pkg.tagline %}<p class="rimba-desc"><b>Cocok untuk:</b> {{ pkg.tagline }}</p>{% endif %}
+        <ul class="plan-features" role="list">
+          {% for item in pkg.features.all %}
+            <li>{% icon "check" %}{% include "components/two_level.html" %}</li>
+          {% endfor %}
+        </ul>
+        {% if pkg.description %}<p class="rimba-desc">{{ pkg.description }}</p>{% endif %}
+        <div class="toolbar">{% include "components/tech_toggle.html" with id="tech-jasa" %}</div>
+      </article>
+
+      <aside class="rimba-price glass-dark reveal" aria-label="Harga Paket {{ pkg.name }}">
+        {% include "components/price.html" %}
+        {% with notes=pkg.notes.all %}
+          {% if notes %}
+            <ul class="note-list" role="list">
+              {% for item in notes %}<li>{% icon "info" %}{% include "components/two_level.html" %}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+        {% include "components/order_button.html" with style="btn-light" %}
+      </aside>
+    </div>
+  </div>
+</section>
+{% endfor %}

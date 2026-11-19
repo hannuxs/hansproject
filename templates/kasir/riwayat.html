@@ -1,0 +1,30 @@
+{% extends "kasir/base.html" %}
+{% block title %}Riwayat hari ini — {{ store.name }}{% endblock %}
+{% block body %}
+<div class="k-wrap">
+  <p class="k-back"><a href="{% url 'kasir:pos' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Kembali ke kasir</span></a></p>
+  <div class="k-card glass k-card-wide">
+    <p class="k-eyebrow">{{ outlet.name }}</p>
+    <h1 class="k-title">Transaksi hari ini</h1>
+    <div class="k-stats">
+      <div><span>Penjualan</span><b>{{ report.revenue|rupiah }}</b></div>
+      <div><span>Transaksi</span><b>{{ report.count }}</b></div>
+    </div>
+    {% if sales %}
+      <ul class="k-sales" role="list">
+        {% for sale in sales %}
+          <li>
+            <a class="k-sale{% if sale.is_void %} is-void{% endif %}" href="{% url 'kasir:struk' sale.pk %}">
+              <span><b>{{ sale.number }}</b><span class="k-muted">{{ sale.created_at|time:"H:i" }} · {{ sale.get_method_display }}</span></span>
+              <span class="k-sale-total">{% if sale.is_void %}<s>{{ sale.total|rupiah }}</s> <small>Batal</small>{% else %}{{ sale.total|rupiah }}{% endif %}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="k-muted">Belum ada transaksi hari ini.</p>
+    {% endif %}
+    <p class="k-note">Hanya pemilik toko yang bisa membatalkan transaksi (di hansproject.app).</p>
+  </div>
+</div>
+{% endblock %}

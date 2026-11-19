@@ -1,0 +1,14 @@
+{% extends "panel/base.html" %}
+{% block body_class %}auth{% endblock %}
+{% block layout %}
+<main id="isi" class="auth-wrap aurora">
+  <div class="auth-card glass">
+    <div class="auth-brand">{% include "components/brand.html" with href="/" %}</div>
+    {% if messages %}
+      {% for m in messages %}<p class="alert {% if m.level_tag == 'error' %}alert-error{% elif m.level_tag == 'success' %}alert-success{% endif %}" role="status">{% icon "info" %}<span>{{ m }}</span></p>{% endfor %}
+    {% endif %}
+    {% block auth %}{% endblock %}
+  </div>
+  <p class="auth-foot">{% icon "lock" "icon-sm" %} Halaman khusus pengelola HANS Project</p>
+</main>
+{% endblock %}

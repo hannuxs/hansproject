@@ -1,0 +1,19 @@
+{# Rincian refund di atas form proses (panel). #}
+<section class="card glass detail-card" aria-label="Rincian refund">
+  {% with o=object.order %}
+    <ul class="kv" role="list">
+      <li><span>Pesanan</span><b><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> · {{ o.title }} · {{ o.price_text }}</b></li>
+      <li><span>Nominal pesanan</span><b>{% if o.amount %}{{ o.amount|rupiah }}{% else %}–{% endif %}</b></li>
+      <li><span>Status pesanan</span><b>{{ o.get_status_display }}</b></li>
+      <li><span>Pelanggan</span><b>{{ o.customer_name }} · {{ o.customer_email|default:"–" }} · {{ o.customer_phone|default:"–" }}</b></li>
+      <li><span>Transfer ke</span><b>{{ object.bank_name }} · <span class="mono">{{ object.account_number }}</span></b></li>
+      <li><span>Atas nama</span><b>{{ object.account_holder }}</b></li>
+      <li><span>Diajukan</span><b>{{ object.created_at|date:"j M Y, H:i" }}</b></li>
+      {% if object.processed_at %}<li><span>Selesai diproses</span><b>{{ object.processed_at|date:"j M Y, H:i" }}</b></li>{% endif %}
+    </ul>
+    {% if object.note %}<p class="field-label">Catatan pelanggan</p><blockquote class="question-text">{{ object.note|linebreaksbr }}</blockquote>{% endif %}
+    {% if o.payment_proof %}<p><a href="{% url 'panel:pesanan-bukti' o.pk %}" target="_blank" rel="noopener">Lihat bukti bayar pesanan</a></p>{% endif %}
+    {% if object.transfer_proof %}<p><a href="{% url 'panel:refund-bukti' object.pk %}" target="_blank" rel="noopener">Lihat bukti transfer refund</a></p>{% endif %}
+  {% endwith %}
+  <p class="field-help">Pastikan nama pemilik rekening sama dengan nama pemesan. Setelah transfer, unggah buktinya lalu ubah status menjadi <b>Sudah ditransfer</b>. Untuk pengembalian sebagian (per hari), ubah nominal sebelum mentransfer.</p>
+</section>

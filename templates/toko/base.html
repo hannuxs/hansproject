@@ -1,0 +1,55 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% comment %}
+  Dashboard pemilik toko (hansproject.app/akun/toko/<alamat>/...). Pribadi: no-store & noindex.
+{% endcomment %}
+{% block title %}{{ page_title }} | HANS Project{% endblock %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'toko:daftar' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua toko</span></a></p>
+
+<header class="akun-card glass toko-head">
+  <div class="toko-id">
+    <span class="avatar" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
+    <div class="toko-id-text">
+      <h1 class="akun-title">{{ store.name }}</h1>
+      <p class="muted">Paket {{ store.package_name }} · aktif sampai {{ store.active_until|date:"j M Y" }}</p>
+    </div>
+    <span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span>
+  </div>
+  <div class="toko-links">
+    <div class="toko-url">
+      <span class="muted">Alamat kasir</span>
+      <a href="{{ store.kasir_url }}" target="_blank" rel="noopener"><b>{{ store.host }}/kasir</b> {% icon "external" "icon-sm" %}</a>
+    </div>
+    <a class="btn btn-sm" href="{{ store.kasir_url }}" target="_blank" rel="noopener">{% icon "calculator" %}<span>Buka kasir</span></a>
+    <a class="btn btn-sm btn-ghost" href="{% url 'toko:perpanjang' store.subdomain %}">{% icon "clock" %}<span>Perpanjang</span></a>
+  </div>
+</header>
+
+{% with state=store.state_now %}
+  {% if state == "tenggang" %}
+    <p class="alert" role="status">{% icon "alert" %}<span>Masa aktif sudah habis pada {{ store.active_until|date:"j F Y" }}. Kasir masih bisa dipakai sampai <b>{{ store.grace_until|date:"j F Y" }}</b>. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang sekarang</a>.</span></p>
+  {% elif state == "terkunci" %}
+    <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Kasir terkunci karena langganan belum diperpanjang. Laporan masih bisa dilihat dan diunduh. Data dihapus permanen setelah <b>{{ store.delete_on|date:"j F Y" }}</b>. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> sebelum tanggal itu dan semua data kembali seperti semula.</span></p>
+  {% elif state == "ditangguhkan" %}
+    <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Toko ini sedang ditangguhkan oleh admin HANS Project. Kasir tidak bisa dipakai sementara. Hubungi kami lewat <a href="{% url 'akun:chat-baru' %}?topik=kasir">Chat</a>.</span></p>
+  {% elif store.days_left <= 7 %}
+    <p class="alert" role="status">{% icon "clock" %}<span>Masa aktif tinggal {{ store.days_left }} hari (sampai {{ store.active_until|date:"j F Y" }}). <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> supaya kasir tidak terkunci.</span></p>
+  {% endif %}
+{% endwith %}
+{% if renewal %}
+  <p class="alert" role="status">{% icon "cart" %}<span>Ada perpanjangan yang sedang berjalan ({{ renewal.code }}, {{ renewal.get_status_display|lower }}). <a href="{% url 'akun:pesanan' renewal.code %}">Lihat pesanan</a>.</span></p>
+{% endif %}
+{% if store.admin_note %}
+  <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ store.admin_note|linebreaksbr }}</p></div>
+{% endif %}
+
+<nav class="toko-tabs" aria-label="Menu toko">
+  {% for tab in tabs %}
+    <a href="{{ tab.url }}"{% if tab.active %} aria-current="page"{% endif %}>{% icon tab.icon %}<span>{{ tab.label }}</span></a>
+  {% endfor %}
+</nav>
+
+{% block toko %}{% endblock %}
+{% endblock %}

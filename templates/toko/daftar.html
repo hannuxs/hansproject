@@ -1,0 +1,57 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block akun %}
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Toko</p>
+    <h1 class="akun-title">Toko saya</h1>
+  </div>
+  <a class="btn btn-sm" href="{% url 'toko:tambah' %}">{% icon "plus" %}<span>Tambah toko</span></a>
+</header>
+
+{% if stores %}
+  <ul class="store-cards" role="list">
+    {% for store, sums in stores %}
+      <li class="akun-card glass store-card">
+        <div class="toko-id">
+          <span class="avatar" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
+          <div class="toko-id-text">
+            <h2><a href="{% url 'toko:ringkasan' store.subdomain %}">{{ store.name }}</a></h2>
+            <p class="muted small">{{ store.host }} · Paket {{ store.package_name }} · sampai {{ store.active_until|date:"j M Y" }}</p>
+          </div>
+          <span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span>
+        </div>
+        <div class="quota-row">
+          <span class="quota-badge"><b>{{ store.outlets_used }}</b> / {{ store.outlet_limit }}</span>
+          <span><b>Toko dibuat</b><br><span class="muted small">{{ store.outlet_quota_text }}{% if store.outlets_free %} · sisa {{ store.outlets_free }}{% endif %}</span></span>
+          {% if store.can_edit %}<a class="btn btn-sm btn-ghost" href="{% if store.outlets_free %}{% url 'toko:outlet-baru' store.subdomain %}{% else %}{% url 'toko:beli-toko' store.subdomain %}{% endif %}">{% icon "plus" %}<span>{% if store.outlets_free %}Buat toko{% else %}Beli toko{% endif %}</span></a>{% endif %}
+        </div>
+        <div class="toko-stats compact two">
+          <div class="stat"><span>Hari ini</span><b>{{ sums.today|rupiah }}</b></div>
+          <div class="stat"><span>Bulan ini</span><b>{{ sums.month|rupiah }}</b></div>
+        </div>
+        <div class="akun-actions">
+          <a class="btn btn-sm" href="{% url 'toko:ringkasan' store.subdomain %}">{% icon "settings" %}<span>Kelola</span></a>
+          <a class="btn btn-sm btn-ghost" href="{{ store.kasir_url }}" target="_blank" rel="noopener">{% icon "calculator" %}<span>Buka kasir</span></a>
+          <a class="btn btn-sm btn-ghost" href="{% url 'toko:perpanjang' store.subdomain %}">{% icon "clock" %}<span>Perpanjang</span></a>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <section class="akun-card glass empty-state">
+    <span class="empty-icon" aria-hidden="true">{% icon "store" %}</span>
+    <h2>Belum ada toko</h2>
+    <p class="muted">Toko dibuat otomatis setelah pesanan Paket Tunas atau Tumbuh Anda aktif.</p>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pilih paket kasir</span></a></div>
+  </section>
+{% endif %}
+
+{% if pending %}
+  <section class="akun-card glass" aria-labelledby="proses-title">
+    <h2 id="proses-title">{% icon "clock" %} Toko yang sedang diproses</h2>
+    {% include "akun/_order_list.html" with orders=pending %}
+  </section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,11 @@
+<ul class="order-list" role="list">
+  {% for order in orders %}
+    <li>
+      <a class="order-item" href="{% url 'akun:pesanan' order.code %}">
+        <span class="order-main"><b>{{ order.title }}</b><span class="muted">{{ order.code }} · {{ order.created_at|date:"j M Y" }}{% if order.subdomain_host %} · {{ order.subdomain_host }}{% endif %}</span></span>
+        <span class="status status-{{ order.status_tone }}">{{ order.get_status_display }}</span>
+        {% if order.can_request_refund %}<span class="status status-wait">Bisa refund</span>{% endif %}
+      </a>
+    </li>
+  {% endfor %}
+</ul>

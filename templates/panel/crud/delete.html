@@ -1,0 +1,13 @@
+{% extends "panel/base.html" %}
+{% block content %}
+<div class="card glass confirm">
+  <p class="confirm-icon">{% icon "trash" "icon-lg" %}</p>
+  <h2>Hapus {{ section.singular }} “{{ object }}”?</h2>
+  <p class="muted">Data yang dihapus tidak bisa dikembalikan (kecuali dari file backup). Bila hanya ingin menyembunyikan dari website, matikan pilihan “tampilkan” saja.</p>
+  <form method="post" class="confirm-actions">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">{% icon "trash" %} Ya, hapus</button>
+    <a class="btn btn-ghost" href="{{ list_url }}">Batal</a>
+  </form>
+</div>
+{% endblock %}

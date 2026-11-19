@@ -1,0 +1,66 @@
+{% load static %}<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="same-origin">
+  <title>{% if page_title %}{{ page_title }} · {% endif %}Panel HANS Project</title>
+  <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/panel.css' %}">
+  <script src="{% static 'js/panel.js' %}" defer></script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="panel {% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#isi">Langsung ke isi</a>
+  {% block layout %}
+  <div class="panel-shell">
+    <aside class="sidebar" id="menu-panel">
+      <div class="sidebar-brand">
+        {% url 'panel:dashboard' as dash %}{% include "components/brand.html" with href=dash %}
+        <span class="badge badge-soft">Panel</span>
+      </div>
+      <nav aria-label="Menu panel">
+        {% for group, items in nav_groups %}
+          <p class="nav-group">{{ group }}</p>
+          <ul role="list">
+            {% for item in items %}
+              <li><a href="{{ item.url }}" {% if item.key == nav_active %}aria-current="page"{% endif %}>{% icon item.icon %}<span>{{ item.label }}</span></a></li>
+            {% endfor %}
+          </ul>
+        {% endfor %}
+      </nav>
+      <div class="sidebar-foot">
+        <a class="btn btn-ghost btn-sm btn-block" href="/" target="_blank" rel="noopener">{% icon "external" %} Lihat website</a>
+        <form method="post" action="{% url 'panel:logout' %}">{% csrf_token %}
+          <button class="btn btn-sm btn-block" type="submit">{% icon "logout" %} Keluar</button>
+        </form>
+      </div>
+    </aside>
+
+    <div class="panel-main">
+      <header class="topbar glass">
+        <details class="topbar-menu">
+          <summary aria-label="Buka menu panel">{% icon "menu" %}</summary>
+        </details>
+        <h1 class="topbar-title">{{ page_title }}</h1>
+        <span class="topbar-user">{% icon "user-check" %}<span>{{ panel_user.get_username }}</span></span>
+      </header>
+      <main id="isi" class="panel-content" tabindex="-1">
+        {% if messages %}
+          <div class="messages">
+            {% for m in messages %}
+              <p class="alert {% if m.level_tag == 'success' %}alert-success{% elif m.level_tag == 'error' %}alert-error{% endif %}" role="status">
+                {% if m.level_tag == 'success' %}{% icon "check" %}{% elif m.level_tag == 'error' %}{% icon "alert" %}{% else %}{% icon "info" %}{% endif %}<span>{{ m }}</span>
+              </p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% endblock %}
+</body>
+</html>

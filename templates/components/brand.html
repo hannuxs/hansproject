@@ -1,0 +1,8 @@
+{% load static %}{# Logo "H" + teks "HANS Project" (teks biasa, bukan gambar). Parameter: href, size #}
+<a class="brand" href="{{ href|default:'/' }}" aria-label="HANS Project — beranda">
+  <picture>
+    <source srcset="{% static 'img/logo-h-64.webp' %} 1x, {% static 'img/logo-h-128.webp' %} 2x" type="image/webp">
+    <img src="{% static 'img/logo-h-128.png' %}" width="40" height="40" alt="">
+  </picture>
+  <span class="brand-text"><b class="text-gradient">HANS</b> <span>Project</span></span>
+</a>

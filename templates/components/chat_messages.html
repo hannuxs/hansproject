@@ -1,0 +1,27 @@
+{% comment %}
+  Gelembung pesan chat. Juga dikirim sebagai potongan HTML lewat JSON (pesan baru), jadi
+  semua teks di-escape oleh template (tidak ada HTML dari pengguna yang dijalankan).
+  Parameter: messages, viewer ("member" = halaman pelanggan, "admin" = panel), show_days.
+{% endcomment %}
+{% for m in messages %}
+  {% if show_days %}{% ifchanged m.created_at|date:"Ymd" %}<p class="chat-day"><span>{{ m.created_at|date:"l, j F Y" }}</span></p>{% endifchanged %}{% endif %}
+  <article class="bubble {% if viewer == 'admin' %}{% if m.from_admin %}mine{% else %}theirs{% endif %}{% else %}{% if m.from_admin %}theirs{% else %}mine{% endif %}{% endif %}"
+           id="pesan-{{ m.pk }}" data-id="{{ m.pk }}">
+    <p class="bubble-who">{% if m.from_admin %}HANS Project{% else %}{% if viewer == 'admin' %}{{ m.conversation.member.display_name }}{% else %}Anda{% endif %}{% endif %}</p>
+    {% if m.reply_to %}
+      <a class="bubble-quote" href="#pesan-{{ m.reply_to_id }}">
+        <b>{% if m.reply_to.from_admin %}HANS Project{% elif viewer == 'admin' %}Pelanggan{% else %}Anda{% endif %}</b>
+        <span>{% if not m.reply_to.text %}{% icon "image" "icon-sm" %} {% endif %}{{ m.reply_to.preview }}</span>
+      </a>
+    {% endif %}
+    {% if m.image %}
+      {% if viewer == 'admin' %}{% url 'panel:chat-gambar' m.pk as img %}{% else %}{% url 'akun:chat-gambar' m.conversation_id m.pk as img %}{% endif %}
+      <a class="bubble-image" href="{{ img }}" target="_blank" rel="noopener"><img src="{{ img }}" alt="Gambar yang dikirim {% if m.from_admin %}HANS Project{% else %}pelanggan{% endif %}" loading="lazy"></a>
+    {% endif %}
+    {% if m.text %}<p class="bubble-text">{{ m.text|linebreaksbr }}</p>{% endif %}
+    <footer class="bubble-meta">
+      <time datetime="{{ m.created_at|date:'c' }}">{{ m.created_at|date:"H:i" }}</time>
+      {% if conversation.is_open %}<button type="button" class="bubble-reply" data-reply="{{ m.pk }}" data-reply-text="{{ m.preview }}">{% icon "reply" "icon-sm" %}<span>Balas</span></button>{% endif %}
+    </footer>
+  </article>
+{% endfor %}

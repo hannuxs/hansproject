@@ -1,0 +1,24 @@
+{# Info toko di atas form ubah (panel). #}
+<section class="card glass detail-card" aria-label="Rincian toko">
+  <ul class="kv" role="list">
+    <li><span>Alamat</span><b><a href="{{ object.url }}" target="_blank" rel="noopener">{{ object.host }}</a> · <a href="{{ object.kasir_url }}" target="_blank" rel="noopener">kasir</a></b></li>
+    <li><span>Keadaan</span><b>{{ object.state_label }}</b></li>
+    <li><span>Aktif sampai</span><b>{{ object.active_until|date:"j M Y" }}</b></li>
+    <li><span>Masa tenggang sampai</span><b>{{ object.grace_until|date:"j M Y" }}</b></li>
+    <li><span>Data dihapus setelah</span><b>{{ object.delete_on|date:"j M Y" }}</b></li>
+    <li><span>Pemilik</span><b><a href="{% url 'panel:pelanggan-update' object.owner_id %}">{{ object.owner.display_name }}</a> · {{ object.owner.email }} · {{ object.owner.phone_display|default:"–" }}</b></li>
+    <li><span>Outlet aktif</span><b>{{ object.outlets.all|length }} dibuat, batas {{ object.outlet_limit }}</b></li>
+    <li><span>Barang</span><b>{{ object.products.count }}</b></li>
+    <li><span>Transaksi</span><b>{{ object.sales.count }}</b></li>
+    <li><span>Dibuat</span><b>{{ object.created_at|date:"j M Y, H:i" }}</b></li>
+  </ul>
+  {% with orders=object.orders.all %}
+    {% if orders %}
+      <p class="field-label">Pesanan untuk toko ini</p>
+      <ul class="kv" role="list">
+        {% for o in orders %}<li><span><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> · {{ o.title }}</span><b>{{ o.get_status_display }}</b></li>{% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+  <p class="field-help">Menghapus toko menghapus permanen semua barang, outlet, akun kasir, dan transaksinya. Toko yang tidak diperpanjang dihapus otomatis 30 hari setelah masa aktif habis.</p>
+</section>

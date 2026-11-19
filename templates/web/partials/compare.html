@@ -1,0 +1,33 @@
+{% if snap.comparison_rows %}
+<section class="section" id="detail-teknis" aria-labelledby="teknis-title">
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Untuk yang paham teknologi" title="Detail teknis semua paket" lead="Perbandingan lengkap dengan istilah teknis. Ketuk untuk membuka." id="teknis-title" center=True %}
+    <details class="tech-details glass">
+      <summary>Lihat tabel detail teknis {% icon "chevron-down" %}</summary>
+      <div class="table-wrap">
+        <table class="compare">
+          <caption class="visually-hidden">Perbandingan teknis Paket {% for p in snap.comparison_columns %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</caption>
+          <thead>
+            <tr>
+              <td></td>
+              {% for p in snap.comparison_columns %}<th scope="col" class="{% if p.is_highlighted %}is-hl{% endif %}">{{ p.icon }} {{ p.name }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Harga</th>
+              {% for p in snap.comparison_columns %}<td class="{% if p.is_highlighted %}is-hl{% endif %}">{{ p.price_compact }}</td>{% endfor %}
+            </tr>
+            {% for label, values in snap.comparison_rows %}
+              <tr>
+                <th scope="row">{{ label }}</th>
+                {% for value in values %}<td>{{ value }}</td>{% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+</section>
+{% endif %}

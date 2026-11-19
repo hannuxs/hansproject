@@ -1,0 +1,52 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="trx-title">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">Transaksi</p>
+      <h2 id="trx-title">{{ sale.number }}</h2>
+    </div>
+    <span class="status status-{% if sale.is_void %}off{% else %}ok{% endif %}">{{ sale.get_status_display }}</span>
+  </div>
+  <ul class="kv" role="list">
+    <li><span>Waktu</span><b>{{ sale.created_at|date:"j F Y, H:i" }}</b></li>
+    <li><span>Outlet</span><b>{{ sale.outlet.name }}</b></li>
+    <li><span>Kasir</span><b>{{ sale.cashier_name }}</b></li>
+    <li><span>Cara bayar</span><b>{{ sale.get_method_display }}</b></li>
+  </ul>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th scope="col">Barang</th><th scope="col" class="num">Jumlah</th><th scope="col" class="num">Harga</th><th scope="col" class="num">Total</th></tr></thead>
+      <tbody>
+        {% for item in sale.items.all %}<tr><td>{{ item.name }}</td><td class="num">{{ item.qty }}</td><td class="num">{{ item.price|rupiah }}</td><td class="num">{{ item.line_total|rupiah }}</td></tr>{% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><th scope="row" colspan="3">Subtotal</th><td class="num">{{ sale.subtotal|rupiah }}</td></tr>
+        {% if sale.discount %}<tr><th scope="row" colspan="3">{{ sale.discount_label }}</th><td class="num">−{{ sale.discount|rupiah }}</td></tr>{% endif %}
+        <tr class="tfoot-total"><th scope="row" colspan="3">Total</th><td class="num">{{ sale.total|rupiah }}</td></tr>
+        <tr><th scope="row" colspan="3">Dibayar</th><td class="num">{{ sale.paid|rupiah }}</td></tr>
+        {% if sale.change %}<tr><th scope="row" colspan="3">Kembalian</th><td class="num">{{ sale.change|rupiah }}</td></tr>{% endif %}
+      </tfoot>
+    </table>
+  </div>
+  {% if sale.is_void %}
+    <p class="alert" role="note">{% icon "info" %}<span>Dibatalkan {{ sale.voided_at|date:"j M Y, H:i" }}. Alasan: {{ sale.void_reason }}. Transaksi ini tidak dihitung di laporan.</span></p>
+  {% endif %}
+  <div class="akun-actions">
+    <a class="btn btn-sm" href="{% url 'toko:transaksi-struk' store.subdomain sale.pk %}">{% icon "printer" %}<span>Lihat / cetak struk</span></a>
+    <a class="btn btn-sm btn-ghost" href="{% url 'toko:transaksi' store.subdomain %}">Kembali</a>
+  </div>
+
+  {% if not sale.is_void and store.can_edit %}
+    <details class="void-box"{% if form.errors %} open{% endif %}>
+      <summary>Batalkan transaksi ini</summary>
+      <form method="post" class="akun-form" novalidate data-confirm="Batalkan transaksi {{ sale.number }}? Tidak bisa dikembalikan.">
+        {% csrf_token %}
+        {{ form.reason.as_field_group }}
+        <p class="field-help">Pakai bila kasir salah input. Transaksi tetap tersimpan dengan tanda "Dibatalkan" dan tidak dihitung di laporan.</p>
+        <div class="akun-actions"><button class="btn btn-danger btn-sm" type="submit">{% icon "x" %}<span>Batalkan transaksi</span></button></div>
+      </form>
+    </details>
+  {% endif %}
+</section>
+{% endblock %}

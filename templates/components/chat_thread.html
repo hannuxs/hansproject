@@ -1,0 +1,9 @@
+{% comment %}
+  Isi obrolan (dipakai halaman akun & panel). Parameter: chat_messages, viewer ("member"/"admin"), poll_url, last_id.
+  role="log": pembaca layar mengumumkan pesan baru yang masuk tanpa memindahkan fokus.
+{% endcomment %}
+<div class="chat-thread" role="log" aria-live="polite" aria-label="Isi obrolan" tabindex="0"
+     data-chat data-poll-url="{{ poll_url }}" data-last-id="{{ last_id }}" data-open="{% if conversation.is_open %}1{% else %}0{% endif %}">
+  {% include "components/chat_messages.html" with messages=chat_messages show_days=True %}
+  {% if not chat_messages %}<p class="empty chat-empty">Belum ada pesan.</p>{% endif %}
+</div>

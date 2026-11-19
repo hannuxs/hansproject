@@ -1,0 +1,20 @@
+{% extends "panel/auth/_layout.html" %}
+{% block auth %}
+  <h1 class="auth-title">Aktifkan verifikasi dua langkah</h1>
+  <p class="muted">Wajib sekali saja. Setelah ini, setiap masuk panel Anda butuh password <b>dan</b> kode dari HP.</p>
+  <ol class="setup-steps">
+    <li>Pasang aplikasi <b>Google Authenticator</b>, <b>Microsoft Authenticator</b>, atau <b>Aegis</b> di HP.</li>
+    <li>Di aplikasi itu, pilih <b>tambah akun</b> lalu <b>pindai kode QR</b> ini:</li>
+  </ol>
+  <div class="qr-box">{{ qr_svg|safe }}</div>
+  <details class="secret-box">
+    <summary>Tidak bisa memindai? Ketik kunci ini</summary>
+    <code class="secret">{{ secret }}</code>
+  </details>
+  <ol class="setup-steps" start="3"><li>Masukkan kode 6 angka yang muncul di aplikasi:</li></ol>
+  <form method="post" class="stack" novalidate>
+    {% csrf_token %}
+    {{ form }}
+    <button class="btn btn-block" type="submit">{% icon "shield" %} Aktifkan &amp; masuk</button>
+  </form>
+{% endblock %}

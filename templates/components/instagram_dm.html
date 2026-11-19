@@ -1,0 +1,9 @@
+{% comment %}
+  Tautan DM Instagram (kontak alternatif tanpa login). Username diatur di Panel → Pengaturan Umum.
+  Parameter: text (kalimat sebelum username, bawaan "DM Instagram"), style (kelas tambahan)
+{% endcomment %}
+{% if site.instagram_username %}
+  <a class="ig-link {{ style }}" href="{{ site.instagram_dm_url }}" data-track="instagram" target="_blank" rel="noopener">
+    {% icon "instagram" %}<span>{{ text|default:"DM Instagram" }} <b>@{{ site.instagram_username }}</b></span>
+  </a>
+{% endif %}

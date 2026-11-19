@@ -1,0 +1,39 @@
+{% now "Y" as year %}
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        {% include "components/brand.html" with href="/" %}
+        <p class="footer-about">Aplikasi kasir langganan untuk usaha kecil, dan jasa bikin website &amp; aplikasi. Daftar, pesan, dan tanya-tanya lewat akun Anda di website ini.</p>
+        {% if site.social_links %}
+          <div class="footer-social">
+            {% for key, label, url in site.social_links %}
+              <a href="{{ url }}" target="_blank" rel="noopener me">{% icon key label=label %}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <div>
+        <h2>Kontak</h2>
+        <ul>
+          {% if site.instagram_username %}<li>{% include "components/instagram_dm.html" with text="DM Instagram" style="ig-link-footer" %}</li>{% endif %}
+          {% if site.email %}<li><a href="mailto:{{ site.email }}">{{ site.email }}</a></li>{% endif %}
+          <li>Layanan: {% if site.support_hours %}{{ site.support_hours }}{% else %}jam kerja{% endif %}</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Informasi</h2>
+        <ul>
+          <li><a href="/#harga">Harga paket</a></li>
+          <li><a href="/#faq">Tanya jawab</a></li>
+          <li><a href="{% url 'web:terms' %}">Syarat &amp; Ketentuan</a></li>
+          <li><a href="{% url 'web:privacy' %}">Kebijakan Privasi</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; {{ year }} HANS Project. Semua hak dilindungi.</p>
+      <p>hansproject.app</p>
+    </div>
+  </div>
+</footer>

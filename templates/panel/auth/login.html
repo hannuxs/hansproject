@@ -1,0 +1,11 @@
+{% extends "panel/auth/_layout.html" %}
+{% block auth %}
+  <h1 class="auth-title">Masuk ke panel</h1>
+  <p class="muted">Kelola harga, paket, FAQ, dan pengaturan website.</p>
+  <form method="post" class="stack" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {{ form }}
+    <button class="btn btn-block" type="submit">{% icon "lock" %} Masuk</button>
+  </form>
+{% endblock %}

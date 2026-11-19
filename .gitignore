@@ -1,0 +1,27 @@
+# Rahasia — JANGAN pernah masuk git
+.env
+.env.*
+!.env.example
+deploy/caddy/Caddyfile
+
+# Dibuat ulang di setiap komputer/server
+.venv/
+staticfiles/
+__pycache__/
+*.py[cod]
+
+# Data & hasil kerja server
+media/
+private/
+backups/
+logs/
+run/
+tools/
+*.sql.gz
+*.partial
+
+# Alat pengembang
+.coverage
+htmlcov/
+.idea/
+.vscode/

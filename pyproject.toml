@@ -1,0 +1,16 @@
+[project]
+name = "hansproject-web"
+version = "1.0.0"
+description = "Website landing page + daftar harga HANS Project (hansproject.app)"
+requires-python = ">=3.12"
+
+[tool.bandit]
+exclude_dirs = ["tests", "apps/accounts/migrations", "apps/content/migrations", ".venv"]
+
+[tool.coverage.run]
+source = ["apps", "config"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

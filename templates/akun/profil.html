@@ -1,0 +1,47 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<section class="akun-card glass profile-card" aria-labelledby="profil-title">
+  <div class="profile-head">
+    <span class="avatar" aria-hidden="true">{{ member.initial }}</span>
+    <div>
+      <h1 class="akun-title" id="profil-title">{{ member.display_name }}</h1>
+      <p class="muted">{{ member.business_name }}</p>
+    </div>
+  </div>
+  <ul class="kv" role="list">
+    <li><span>Email (dari Google)</span><b>{{ member.email }}</b></li>
+    <li><span>Nomor HP</span><b>{{ member.phone_display }}</b></li>
+    <li><span>Nama usaha</span><b>{{ member.business_name }}</b></li>
+    <li><span>Terdaftar</span><b>{{ member.created_at|date:"j F Y" }}</b></li>
+  </ul>
+  <div class="akun-actions">
+    <a class="btn btn-sm" href="{% url 'akun:lengkapi' %}">{% icon "edit" %}<span>Ubah data diri</span></a>
+    <form method="post" action="{% url 'akun:keluar' %}">
+      {% csrf_token %}
+      <button class="btn btn-sm btn-ghost" type="submit">{% icon "logout" %}<span>Keluar</span></button>
+    </form>
+  </div>
+  <form method="post" action="{% url 'akun:keluar' %}" class="logout-all">
+    {% csrf_token %}<input type="hidden" name="semua" value="1">
+    <button class="link-btn" type="submit">Keluar dari semua perangkat</button>
+  </form>
+</section>
+
+<section class="akun-card glass" aria-labelledby="ringkas-title">
+  <h2 id="ringkas-title">{% icon "list" %} Ringkasan akun</h2>
+  <ul class="kv" role="list">
+    <li><span>Toko</span><b><a href="{% url 'toko:daftar' %}">{{ store_count }}</a></b></li>
+    <li><span>Pesanan</span><b><a href="{% url 'akun:pesanan-list' %}">{{ order_count }}</a></b></li>
+    <li><span>Obrolan</span><b><a href="{% url 'akun:chat-list' %}">{{ chat_count }}</a></b></li>
+  </ul>
+</section>
+
+<section class="akun-card glass" aria-labelledby="privasi-title">
+  <h2 id="privasi-title">{% icon "shield" %} Privasi & persetujuan</h2>
+  <ul class="kv" role="list">
+    <li><span>Menyetujui Syarat & Ketentuan</span><b>{% if member.terms_accepted_at %}{{ member.terms_accepted_at|date:"j M Y, H:i" }}{% else %}–{% endif %}</b></li>
+  </ul>
+  <p class="muted small">Baca lagi <a href="{% url 'web:terms' %}">Syarat &amp; Ketentuan</a> dan <a href="{% url 'web:privacy' %}">Kebijakan Privasi</a>. Untuk minta salinan atau penghapusan data, <a href="{% url 'akun:chat-baru' %}?topik=umum">kirim chat</a> atau DM Instagram <a href="{{ site.instagram_profile_url }}" target="_blank" rel="noopener">@{{ site.instagram_username }}</a>.</p>
+</section>
+{% endblock %}

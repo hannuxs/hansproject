@@ -1,0 +1,67 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<div class="akun-card glass">
+  <p class="eyebrow">Konfirmasi pesanan</p>
+  <h1 class="akun-title">Paket {{ package.name }}</h1>
+  {% if package.tagline %}<p class="akun-lead">{{ package.tagline }}</p>{% endif %}
+
+  <div class="order-summary">
+    <span class="muted">Harga</span>
+    <b class="order-price">{{ package.price_text }}</b>
+  </div>
+
+  {% with features=package.features.all %}
+    {% if features %}
+      <ul class="check-list" role="list">
+        {% for f in features %}<li>{% icon "check" %}<span>{{ f.simple }}</span></li>{% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  {% with notes=package.notes.all %}
+    {% if notes %}
+      <div class="alert" role="note">{% icon "info" %}<div><b>Catatan penting</b><ul class="note-list">{% for n in notes %}<li>{{ n.simple }}</li>{% endfor %}</ul></div></div>
+    {% endif %}
+  {% endwith %}
+
+  {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
+
+  {% if existing %}
+    <p class="alert" role="status">{% icon "info" %}<span>Anda sudah punya pesanan Paket {{ package.name }} yang belum selesai ({{ existing.code }}).</span></p>
+    <div class="akun-actions">
+      <a class="btn" href="{% url 'akun:pesanan' existing.code %}">{% icon "arrow-right" %}<span>Lihat pesanan</span></a>
+    </div>
+  {% else %}
+    <p class="next-steps">
+      {% if package.is_pos %}
+        Setelah pesanan dibuat, Anda akan melihat cara pembayaran (transfer bank atau scan QRIS) dan bisa mengirim foto bukti bayar di halaman pesanan.
+      {% else %}
+        Setelah pesanan dibuat, kami akan menghubungi Anda untuk membahas kebutuhan sebelum pembayaran. Perkembangannya tampil di halaman pesanan.
+      {% endif %}
+    </p>
+    {% if stores %}
+      <p class="alert" role="note">{% icon "info" %}<span>Sudah punya toko? Untuk menambah masa aktif atau pindah paket, pakai tombol <b>Perpanjang</b> di halaman toko:
+        {% for s in stores %}<a href="{% url 'toko:perpanjang' s.subdomain %}">{{ s.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
+        Pesanan di halaman ini membuat <b>toko baru</b>.</span></p>
+    {% endif %}
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      {% if store_form %}
+        {% with f=store_form.subdomain %}
+          <div class="field{% if f.errors %} has-error{% endif %}">
+            <label class="field-label" for="{{ f.id_for_label }}">{{ f.label }} <span class="req" aria-hidden="true">*</span></label>
+            <div class="sub-input"><input type="text" name="{{ f.html_name }}" id="{{ f.id_for_label }}" value="{{ f.value|default:'' }}" maxlength="60" required autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="warungbudi" aria-describedby="{{ f.id_for_label }}_help"{% if f.errors %} aria-invalid="true"{% endif %}><span>.{{ STORE_BASE_DOMAIN }}</span></div>
+            {% if f.errors %}{{ f.errors }}{% endif %}
+            <p class="field-help" id="{{ f.id_for_label }}_help">Alamat aplikasi kasir Anda, contoh <b>warungbudi.{{ STORE_BASE_DOMAIN }}</b>. {{ f.help_text }} Setelah aktif, ganti alamat perlu persetujuan kami.</p>
+          </div>
+        {% endwith %}
+      {% endif %}
+      <div class="akun-actions">
+        <button class="btn" type="submit">{% icon "cart" %}<span>Buat pesanan</span></button>
+        <a class="btn btn-ghost" href="/#{% if package.is_pos %}harga{% else %}jasa{% endif %}">Kembali</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

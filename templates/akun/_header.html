@@ -1,0 +1,14 @@
+{# Header area akun: menu akun (layar lebar) + tombol "Beranda" kembali ke situs. #}
+<header class="site-header">
+  <div class="container header-inner">
+    {% include "components/brand.html" with href="/" %}
+    <nav class="nav-desktop nav-akun" aria-label="Menu akun">
+      {% for t in akun_tabs %}
+        <a href="{{ t.url }}"{% if t.active %} aria-current="page"{% endif %}>{% icon t.icon "icon-sm" %}<span>{{ t.label }}</span>{% if t.badge %}<b class="nav-badge"><span class="visually-hidden">, </span>{{ t.badge }}<span class="visually-hidden"> belum dibaca</span></b>{% endif %}</a>
+      {% endfor %}
+    </nav>
+    <div class="header-account">
+      <a class="profile-btn home-btn" href="/">{% icon "home" %}<span>Beranda</span></a>
+    </div>
+  </div>
+</header>

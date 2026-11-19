@@ -1,0 +1,23 @@
+{% extends "panel/base.html" %}
+{% block content %}
+<div class="dash-grid">
+  <section class="card glass">
+    <h2>{% icon "lock" %} Ganti password</h2>
+    <p class="muted">Gunakan minimal 12 karakter. Kalimat pendek yang mudah Anda ingat tapi sulit ditebak orang lain itu bagus.</p>
+    <form method="post" class="stack" novalidate>
+      {% csrf_token %}
+      {{ form }}
+      <button class="btn" type="submit">{% icon "check" %} Simpan password baru</button>
+    </form>
+  </section>
+  <section class="card glass">
+    <h2>{% icon "shield" %} Verifikasi dua langkah (2FA)</h2>
+    {% if panel_user.has_2fa %}
+      <p class="alert alert-success">{% icon "check" %}<span>Aktif. Setiap masuk butuh kode dari aplikasi Authenticator di HP.</span></p>
+    {% else %}
+      <p class="alert">{% icon "alert" %}<span>Belum aktif. Nyalakan ADMIN_REQUIRE_2FA=true di file .env.</span></p>
+    {% endif %}
+    <p class="muted">HP hilang atau ganti HP? Di server, jalankan <code>reset-2fa.bat</code>. Saat masuk berikutnya Anda akan diminta memindai kode QR baru.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{# Menu bawah area akun (HP & tablet). Tombol tengah: Toko. #}
+<nav class="bottom-nav" aria-label="Menu akun">
+  <ul role="list">
+    {% for t in akun_tabs %}
+      {% if t.main %}
+        <li class="bn-center">
+          <a class="bn-item bn-main" href="{{ t.url }}"{% if t.active %} aria-current="page"{% endif %}>
+            <span class="bn-fab" aria-hidden="true">{% icon t.icon %}</span><span>{{ t.label }}</span>
+          </a>
+        </li>
+      {% else %}
+        <li>
+          <a class="bn-item" href="{{ t.url }}"{% if t.active %} aria-current="page"{% endif %}>
+            {% icon t.icon %}<span>{{ t.label }}</span>
+            {% if t.badge %}<b class="bn-badge"><span class="visually-hidden">, </span>{{ t.badge }}<span class="visually-hidden"> belum dibaca</span></b>{% endif %}
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</nav>

@@ -1,0 +1,11 @@
+# Dependensi PRODUKSI. Ubah file ini, lalu jalankan: pip-compile --generate-hashes requirements/base.in
+Django~=5.2.19          # LTS, dukungan keamanan sampai April 2028
+mysqlclient~=2.3        # driver MariaDB, wheel Windows tersedia (tanpa compiler)
+waitress~=3.0           # server produksi yang berjalan di Windows
+whitenoise~=6.12        # menyajikan file statis + cache browser
+argon2-cffi~=25.1       # hashing password Argon2
+pyotp~=2.12             # verifikasi dua langkah (TOTP)
+segno~=1.6              # kode QR untuk aktivasi 2FA
+Pillow~=13.0            # memproses ulang gambar upload
+nh3~=0.3                # penyaring HTML (allowlist)
+python-dotenv~=1.2      # membaca file .env

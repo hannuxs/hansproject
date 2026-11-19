@@ -1,0 +1,34 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="form-title">
+  <h2 id="form-title">{% icon "store" %} {{ page_title }}</h2>
+  <form method="post" class="akun-form" novalidate autocomplete="off">
+    {% csrf_token %}
+    {% if outlet_form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ outlet_form.non_field_errors }}</div></div>{% endif %}
+    <h3 class="form-sub">Data toko</h3>
+    {{ outlet_form.name.as_field_group }}
+    {{ outlet_form.address.as_field_group }}
+    {{ outlet_form.is_active.as_field_group }}
+
+    <h3 class="form-sub">Akun kasir</h3>
+    <p class="field-help">Kasir masuk di <b>{{ store.host }}/kasir</b> dengan nama pengguna dan PIN ini. Simpan baik-baik dan berikan hanya kepada kasir toko ini.</p>
+    {% if cashier_form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ cashier_form.non_field_errors }}</div></div>{% endif %}
+    {{ cashier_form.username.as_field_group }}
+    {{ cashier_form.pin.as_field_group }}
+    {{ cashier_form.pin2.as_field_group }}
+    {% if cashier %}{{ cashier_form.is_active.as_field_group }}{% endif %}
+
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
+      <a class="btn btn-ghost" href="{% url 'toko:outlet' store.subdomain %}">Batal</a>
+    </div>
+  </form>
+  {% if outlet and not outlet.sales.exists and store.outlets.count > 1 %}
+    <form method="post" action="{% url 'toko:outlet-hapus' store.subdomain outlet.pk %}" class="cancel-form" data-confirm="Hapus toko {{ outlet.name }} beserta akun kasirnya?">
+      {% csrf_token %}<button class="link-btn danger" type="submit">Hapus toko ini</button>
+    </form>
+  {% elif outlet %}
+    <p class="field-help center">Toko yang sudah punya transaksi tidak bisa dihapus. Nonaktifkan saja bila tidak dipakai lagi.</p>
+  {% endif %}
+</section>
+{% endblock %}

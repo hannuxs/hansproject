@@ -1,0 +1,19 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass" aria-labelledby="trx-title">
+  <h2 id="trx-title">{% icon "receipt" %} Transaksi</h2>
+  {% include "toko/_filters.html" %}
+  <div class="toko-stats compact">
+    <div class="stat"><span>Penjualan</span><b>{{ report.revenue|rupiah }}</b></div>
+    <div class="stat"><span>Transaksi</span><b>{{ report.count }}</b></div>
+    <div class="stat"><span>Dibatalkan</span><b>{{ report.void_count }}</b></div>
+  </div>
+  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}{% if outlet %} · {{ outlet.name }}{% endif %}</p>
+  {% if page.object_list %}
+    {% include "toko/_sale_list.html" with sales=page.object_list %}
+    {% include "toko/_pager.html" %}
+  {% else %}
+    <p class="empty">Tidak ada transaksi pada periode ini.</p>
+  {% endif %}
+</section>
+{% endblock %}

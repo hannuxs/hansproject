@@ -1,0 +1,64 @@
+# =====================================================================
+#  Caddy: reverse proxy + HTTPS otomatis (Let's Encrypt) untuk Windows
+#  Salin menjadi deploy\caddy\Caddyfile lalu sesuaikan bila perlu.
+#  Unduh caddy.exe (Windows amd64) dari https://caddyserver.com/download
+#  dan taruh di tools\caddy\caddy.exe
+#
+#  DNS di Hostinger (Domain > DNS / Nameservers):
+#    A   @   -> IP publik server
+#    A   www -> IP publik server
+#    A   *   -> IP publik server      (untuk semua toko: <nama>.hansproject.app)
+#  Router meneruskan port 80 dan 443 ke server ini.
+# =====================================================================
+{
+	# Email untuk pemberitahuan sertifikat (opsional, disarankan).
+	# email pemilik@contoh.com
+
+	# Panel admin Caddy hanya bisa diakses dari server ini.
+	admin 127.0.0.1:2019
+
+	# Sertifikat HTTPS untuk setiap toko dibuat saat alamat toko PERTAMA KALI dibuka.
+	# Sebelum membuat sertifikat, Caddy bertanya ke website: "toko ini ada?"
+	# Alamat ngawur ditolak, jadi kuota sertifikat Let's Encrypt tidak terbuang.
+	on_demand_tls {
+		ask http://127.0.0.1:8432/_tls/izin/
+	}
+}
+
+# Potongan pengaturan yang sama untuk domain utama dan semua toko.
+(website) {
+	# Kompresi supaya halaman cepat di internet lambat.
+	encode zstd gzip
+
+	# Jangan sebutkan nama software server.
+	header -Server
+
+	# Alamat izin sertifikat hanya untuk Caddy sendiri, tidak untuk umum.
+	respond /_tls/* 404
+
+	# Website (Waitress) hanya mendengarkan di 127.0.0.1:8432.
+	# Caddy otomatis mengirim X-Forwarded-For / X-Forwarded-Proto yang benar
+	# dan MENGABAIKAN header palsu dari pengunjung.
+	reverse_proxy 127.0.0.1:8432
+
+	# Catatan: log akses (yang berisi IP pengunjung) sengaja TIDAK diaktifkan,
+	# sesuai Kebijakan Privasi. Bila diaktifkan, perbarui Kebijakan Privasi.
+}
+
+# Arahkan www ke domain utama.
+www.hansproject.app {
+	redir https://hansproject.app{uri} permanent
+}
+
+hansproject.app {
+	import website
+}
+
+# Semua toko: warungbudi.hansproject.app, kopiani.hansproject.app, ...
+# Satu aplikasi yang sama (port 8432); toko dikenali dari nama alamatnya.
+*.hansproject.app {
+	tls {
+		on_demand
+	}
+	import website
+}

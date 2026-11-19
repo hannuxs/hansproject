@@ -1,0 +1,24 @@
+{% comment %}
+  Tombol akun pelanggan di header situs: "Daftar / Masuk" atau "Profil" (menuju Dashboard akun).
+  Di halaman akun, tombol ini diganti tombol "Beranda" (lihat akun/_header.html).
+  Parameter:
+    place  : "header" (header, semua ukuran layar) atau "cta" (ajakan penutup; tidak tampil bila sudah login)
+    member : pelanggan yang sedang login. Hanya diisi di halaman /akun/.
+
+  Halaman publik di-cache SAMA untuk semua pengunjung, jadi dirender sebagai
+  "belum login" dengan DUA versi tombol: .when-guest dan .when-member.
+  Bila browser punya cookie penanda hp_masuk=1 (dibuat saat login), site.js
+  menambah kelas "is-member" di <html> dan CSS menampilkan versi "Profil".
+  Tanpa JavaScript tetap aman: tombol "Daftar / Masuk" membuka halaman masuk,
+  yang langsung meneruskan ke Dashboard bila ternyata sudah login.
+{% endcomment %}
+{% if place == "cta" %}
+  {% if not member %}
+    <a class="btn btn-outline-light account-btn when-guest" href="{% url 'akun:masuk' %}">{% icon "login" %}<span>Daftar / Masuk</span></a>
+  {% endif %}
+{% elif member %}
+  <a class="profile-btn" href="{% url 'akun:dashboard' %}" aria-label="Profil {{ member.display_name }}"><span class="bn-avatar" aria-hidden="true">{{ member.initial }}</span><span>Profil</span></a>
+{% else %}
+  <a class="btn btn-sm account-btn when-guest" href="{% url 'akun:masuk' %}">{% icon "login" %}<span class="label-long">Daftar / Masuk</span><span class="label-short">Masuk</span></a>
+  <a class="profile-btn when-member" href="{% url 'akun:dashboard' %}">{% icon "user" %}<span>Profil</span></a>
+{% endif %}

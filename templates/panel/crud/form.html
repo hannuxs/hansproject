@@ -1,0 +1,33 @@
+{% extends "panel/base.html" %}
+{% block content %}
+{% if section.description %}<p class="muted page-intro">{{ section.description }}</p>{% endif %}
+{% if section.detail_template and object %}{% include section.detail_template %}{% endif %}
+<form method="post" enctype="multipart/form-data" class="crud-form" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+  {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+
+  {% if fieldsets %}
+    {% for title, fields in fieldsets %}
+      <fieldset class="card glass">
+        <legend>{{ title }}</legend>
+        <div class="form-grid">{% for field in fields %}{{ field.as_field_group }}{% endfor %}</div>
+      </fieldset>
+    {% endfor %}
+  {% else %}
+    <div class="card glass"><div class="form-grid">{% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}</div></div>
+  {% endif %}
+
+  {% for spec, formset in formsets %}
+    {% include "panel/forms/formset.html" with formset=formset title=spec.title help=spec.help %}
+  {% endfor %}
+
+  <div class="form-actions glass">
+    <button class="btn" type="submit">{% icon "check" %} Simpan</button>
+    {% if not section.singleton %}
+      <button class="btn btn-ghost" type="submit" name="simpan_lanjut" value="1">Simpan &amp; tetap di sini</button>
+      <a class="btn btn-ghost" href="{{ list_url }}">Batal</a>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

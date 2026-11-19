@@ -1,0 +1,14 @@
+<ul class="order-list" role="list">
+  {% for c in chats %}
+    <li>
+      <a class="order-item chat-item{% if c.unread_for_member %} is-unread{% endif %}" href="{% url 'akun:chat' c.pk %}">
+        <span class="order-main">
+          <b>{{ c.get_topic_display }}</b>
+          <span class="muted">Dibuka {{ c.created_at|date:"j M Y" }}{% if c.last_message_at %} · terakhir {{ c.last_message_at|date:"j M, H:i" }}{% endif %}</span>
+        </span>
+        {% if c.unread_for_member %}<span class="status status-wait">Balasan baru</span>{% endif %}
+        <span class="status status-{% if c.is_open %}ok{% else %}off{% endif %}">{{ c.get_status_display }}</span>
+      </a>
+    </li>
+  {% endfor %}
+</ul>

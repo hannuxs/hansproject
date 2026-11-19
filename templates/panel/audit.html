@@ -1,0 +1,29 @@
+{% extends "panel/base.html" %}
+{% block content %}
+<p class="muted page-intro">Catatan siapa mengubah apa dan kapan. Isi data (misalnya password) tidak pernah dicatat.</p>
+<div class="card glass table-card">
+  <table class="data-table">
+    <thead><tr><th scope="col">Waktu</th><th scope="col">Aksi</th><th scope="col">Data</th><th scope="col">Rincian</th><th scope="col">Akun</th></tr></thead>
+    <tbody>
+      {% for log in page_obj %}
+        <tr>
+          <td data-label="Waktu" class="nowrap">{{ log.created_at|date:"j M Y H:i" }}</td>
+          <td data-label="Aksi"><span class="badge badge-soft">{{ log.get_action_display }}</span></td>
+          <td data-label="Data">{{ log.target_type }}: {{ log.target_repr }}</td>
+          <td data-label="Rincian" class="muted">{{ log.detail|default:"–" }}</td>
+          <td data-label="Akun">{{ log.username|default:"sistem" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">Belum ada riwayat.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page_obj.has_other_pages %}
+  <nav class="pager" aria-label="Halaman">
+    {% if page_obj.has_previous %}<a class="btn btn-ghost btn-sm" href="?halaman={{ page_obj.previous_page_number }}">← Lebih baru</a>{% endif %}
+    <span>Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="btn btn-ghost btn-sm" href="?halaman={{ page_obj.next_page_number }}">Lebih lama →</a>{% endif %}
+  </nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{# Data pelanggan di atas form (panel). #}
+<section class="card glass detail-card" aria-label="Data pelanggan">
+  <ul class="kv" role="list">
+    <li><span>Nama</span><b>{{ object.name|default:"–" }}</b></li>
+    <li><span>Nama usaha</span><b>{{ object.business_name|default:"–" }}</b></li>
+    <li><span>Nomor HP</span><b>{{ object.phone_display|default:"–" }}</b></li>
+    <li><span>Email (Google)</span><b>{{ object.email }}</b></li>
+    <li><span>Terdaftar</span><b>{{ object.created_at|date:"j M Y, H:i" }}</b></li>
+    <li><span>Terakhir masuk</span><b>{{ object.last_login_at|date:"j M Y, H:i"|default:"–" }}</b></li>
+  </ul>
+  {% with orders=object.orders.all %}
+    {% if orders %}
+      <p class="field-label">Pesanan</p>
+      <ul class="mini-list" role="list">
+        {% for o in orders %}<li><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> — Paket {{ o.package_name }} — {{ o.get_status_display }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+</section>

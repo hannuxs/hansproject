@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ error_title }} | HANS Project{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="section aurora error-page">
+  <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+  <div class="container">
+    <p class="error-code text-gradient">{{ error_code }}</p>
+    <h1 class="section-title">{{ error_title }}</h1>
+    <p class="section-lead">{{ error_text }}</p>
+    <a class="btn" href="/">{% icon "home" %} Kembali ke beranda</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "kasir/base.html" %}
+{% block title %}Kasir terkunci — {{ store.name }}{% endblock %}
+{% block body %}
+<main class="k-center">
+  <div class="k-card glass">
+    <span class="k-logo k-logo-off" aria-hidden="true">{% icon "lock" %}</span>
+    <h1 class="k-title">Kasir sedang terkunci</h1>
+    {% if store.state_now == "ditangguhkan" %}
+      <p class="k-lead">Aplikasi kasir {{ store.name }} sedang ditangguhkan. Pemilik toko bisa melihat keterangannya di hansproject.app.</p>
+    {% else %}
+      <p class="k-lead">Langganan aplikasi kasir {{ store.name }} sudah habis. Pemilik toko bisa memperpanjangnya di hansproject.app.</p>
+      <p class="k-muted">Data toko tetap aman sampai {{ store.delete_on|date:"j F Y" }}. Setelah diperpanjang, semua data kembali seperti semula.</p>
+    {% endif %}
+    <form method="post" action="{% url 'kasir:keluar' %}">{% csrf_token %}<button class="btn btn-ghost btn-block" type="submit">{% icon "logout" %}<span>Keluar</span></button></form>
+  </div>
+</main>
+{% endblock %}

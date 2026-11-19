@@ -1,0 +1,54 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'toko:daftar' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Toko saya</span></a></p>
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Toko</p>
+    <h1 class="akun-title">Tambah toko</h1>
+    <p class="muted">Setiap toko/cabang punya akun kasir sendiri.</p>
+  </div>
+</header>
+
+{% for store in stores %}
+  <section class="akun-card glass quota-card" aria-labelledby="kuota-{{ store.pk }}">
+    <div class="card-head">
+      <div>
+        <h2 id="kuota-{{ store.pk }}">{% icon "store" %} {{ store.name }}</h2>
+        <p class="muted small">{{ store.host }} · {{ store.outlet_quota_text }}</p>
+      </div>
+      <span class="quota-badge" aria-label="{{ store.outlets_used }} dari {{ store.outlet_limit }} toko dipakai"><b>{{ store.outlets_used }}</b> / {{ store.outlet_limit }}</span>
+    </div>
+    {% if not store.can_edit %}
+      <p class="alert" role="note">{% icon "lock" %}<span>Langganan ini sedang terkunci. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> dulu untuk menambah toko.</span></p>
+    {% elif store.outlets_free %}
+      <p>Masih bisa menambah <b>{{ store.outlets_free }} toko</b> tanpa biaya tambahan.</p>
+      <div class="akun-actions"><a class="btn" href="{% url 'toko:outlet-baru' store.subdomain %}">{% icon "plus" %}<span>Buat toko baru</span></a></div>
+    {% else %}
+      <p>Kuota toko di langganan ini sudah penuh.</p>
+      <div class="akun-actions">
+        {% if addon %}<a class="btn" href="{% url 'toko:beli-toko' store.subdomain %}">{% icon "cart" %}<span>Beli toko tambahan ({{ addon.price|rupiah }}{{ addon.unit }})</span></a>{% endif %}
+        <a class="btn btn-ghost" href="{% url 'toko:perpanjang' store.subdomain %}">{% icon "zap" %}<span>Naik paket</span></a>
+      </div>
+      {% if snap.outlet_tip %}<p class="field-help">Butuh banyak toko? Paket Tumbuh berisi sampai 10 toko, biasanya lebih hemat daripada membeli banyak toko tambahan.</p>{% endif %}
+    {% endif %}
+  </section>
+{% empty %}
+  <section class="akun-card glass empty-state">
+    <span class="empty-icon" aria-hidden="true">{% icon "store" %}</span>
+    <h2>Belum punya aplikasi kasir</h2>
+    <p class="muted">Pesan Paket Tunas (2 toko) atau Tumbuh (10 toko) dulu. Setelah aktif, toko pertama dibuat otomatis.</p>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pilih paket</span></a></div>
+  </section>
+{% endfor %}
+
+{% if stores %}
+  <section class="akun-card glass" aria-labelledby="baru-title">
+    <h2 id="baru-title">{% icon "plus" %} Langganan kasir terpisah</h2>
+    <p class="muted">Untuk usaha lain dengan alamat kasir dan laporan sendiri, pesan paket baru.</p>
+    <div class="akun-actions"><a class="btn btn-ghost" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pesan paket baru</span></a></div>
+  </section>
+{% endif %}
+{% endblock %}

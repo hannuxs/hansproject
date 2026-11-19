@@ -1,0 +1,16 @@
+{% load static %}{
+  "name": "HANS Project",
+  "short_name": "HANS Project",
+  "description": "Aplikasi kasir mulai Rp25 ribu sebulan. Jasa bikin website & aplikasi.",
+  "lang": "id",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#fffbf5",
+  "theme_color": "#fffbf5",
+  "icons": [
+    {"src": "{% static 'img/icon-192.png' %}", "sizes": "192x192", "type": "image/png"},
+    {"src": "{% static 'img/icon-512.png' %}", "sizes": "512x512", "type": "image/png"},
+    {"src": "{% static 'img/icon-maskable-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

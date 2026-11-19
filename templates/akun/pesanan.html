@@ -1,0 +1,120 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'akun:pesanan-list' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua pesanan</span></a></p>
+<div class="akun-card glass">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">Pesanan {{ order.code }}</p>
+      <h1 class="akun-title">{{ order.title }}</h1>
+    </div>
+    <span class="status status-{{ order.status_tone }}">{{ order.get_status_display }}</span>
+  </div>
+  <ul class="kv" role="list">
+    <li><span>Harga</span><b>{{ order.price_text }}</b></li>
+    {% if order.is_renewal and order.store %}
+      <li><span>Toko</span><b>{{ order.store.name }} ({{ order.store.host }})</b></li>
+      {% if order.wants_new_subdomain %}<li><span>Minta ganti alamat ke</span><b>{{ order.subdomain_host }}{% if not order.activated_at %} <span class="muted">(menunggu persetujuan)</span>{% endif %}</b></li>{% endif %}
+    {% elif order.subdomain %}
+      <li><span>Alamat toko</span><b>{{ order.subdomain_host }}</b></li>
+    {% endif %}
+    <li><span>Dipesan</span><b>{{ order.created_at|date:"j F Y, H:i" }}</b></li>
+    {% if order.proof_uploaded_at %}<li><span>Bukti bayar dikirim</span><b>{{ order.proof_uploaded_at|date:"j F Y, H:i" }}</b></li>{% endif %}
+  </ul>
+
+  {% if order.admin_note %}
+    <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ order.admin_note|linebreaksbr }}</p></div>
+  {% endif %}
+
+  {% if order.store and order.activated_at and order.store.state_now != "dihapus" %}
+    <div class="akun-actions">
+      <a class="btn" href="{% url 'toko:ringkasan' order.store.subdomain %}">{% icon "store" %}<span>Kelola toko</span></a>
+      <a class="btn btn-ghost" href="{{ order.store.kasir_url }}" target="_blank" rel="noopener">{% icon "calculator" %}<span>Buka kasir</span></a>
+    </div>
+  {% endif %}
+
+  {% if order.package_category == "kasir" %}
+    <ol class="order-steps" role="list">
+      <li class="done"><span>1</span>Pesanan dibuat</li>
+      <li class="{% if order.status == 'bayar' %}now{% elif order.status != 'batal' %}done{% endif %}"><span>2</span>Bayar &amp; kirim bukti</li>
+      <li class="{% if order.status == 'dicek' %}now{% elif order.status == 'diproses' or order.status == 'aktif' or order.status == 'selesai' %}done{% endif %}"><span>3</span>Kami cek pembayaran</li>
+      <li class="{% if order.status == 'diproses' %}now{% elif order.status == 'aktif' or order.status == 'selesai' %}done{% endif %}"><span>4</span>Aplikasi aktif</li>
+    </ol>
+  {% elif order.status == "konsultasi" %}
+    <p class="next-steps">Kami akan menghubungi Anda untuk membahas kebutuhan website / aplikasi Anda. Perkembangannya akan tampil di halaman ini.</p>
+  {% endif %}
+</div>
+
+{% if order.can_send_proof %}
+  <section class="akun-card glass" aria-labelledby="bayar-title">
+    <h2 id="bayar-title">{% icon "wallet" %} Cara bayar</h2>
+    <p>Bayar sebesar <b>{{ order.price_text }}</b> lewat transfer bank atau scan QRIS, lalu kirim foto bukti bayarnya di bawah.</p>
+    {% if show_payment %}
+      {% if bank_accounts %}
+        <ul class="bank-list" role="list">
+          {% for b in bank_accounts %}<li><span class="muted">{{ b.bank_name }}</span><b class="mono">{{ b.account_number }}</b><span>a.n. {{ b.account_holder }}</span></li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% if site.qris_image %}
+        <figure class="qris"><img src="{{ site.qris_image.url }}" alt="Kode QRIS HANS Project" width="280" height="280" loading="lazy"><figcaption>Scan QRIS dengan aplikasi bank atau dompet digital.</figcaption></figure>
+      {% endif %}
+      <p class="field-help">{% icon "shield" "icon-sm" %} Bayar hanya ke rekening atau QRIS yang tampil di halaman ini.</p>
+    {% else %}
+      <p class="alert" role="note">{% icon "info" %}<span>Info rekening dan QRIS akan kami kirimkan lewat <b>Catatan dari kami</b> di halaman ini.</span></p>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="akun-form proof-form" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="aksi" value="bukti">
+      {% if order.payment_proof %}
+        <p class="proof-current">{% icon "check" "icon-ok" %}<span>Bukti bayar sudah terkirim. <a href="{% url 'akun:bukti' order.code %}" target="_blank" rel="noopener">Lihat</a>. Salah kirim? Kirim ulang di bawah.</span></p>
+      {% endif %}
+      {{ form.proof.as_field_group }}
+      <div class="akun-actions">
+        <button class="btn" type="submit">{% icon "send" %}<span>{% if order.payment_proof %}Kirim ulang bukti bayar{% else %}Kirim bukti bayar{% endif %}</span></button>
+      </div>
+    </form>
+  </section>
+{% endif %}
+
+{% if refund or order.can_request_refund %}
+  <section class="akun-card glass" id="refund" aria-labelledby="refund-title">
+    <h2 id="refund-title">{% icon "wallet" %} Refund (pengembalian dana)</h2>
+    {% if refund %}
+      <div class="card-head">
+        <p class="muted">Diajukan {{ refund.created_at|date:"j F Y, H:i" }}</p>
+        <span class="status status-{{ refund.status_tone }}">{{ refund.get_status_display }}</span>
+      </div>
+      <ol class="order-steps order-steps-3" role="list">
+        <li class="done"><span>1</span>Diajukan</li>
+        <li class="{% if refund.status == 'diproses' %}now{% elif refund.status == 'selesai' %}done{% endif %}"><span>2</span>Sedang diproses</li>
+        <li class="{% if refund.status == 'selesai' %}done{% elif refund.status == 'ditolak' %}now{% endif %}"><span>3</span>{% if refund.status == 'ditolak' %}Ditolak{% else %}Sudah ditransfer{% endif %}</li>
+      </ol>
+      <ul class="kv" role="list">
+        <li><span>Nominal</span><b>{% if refund.amount %}{{ refund.amount|rupiah }}{% else %}Sedang dihitung{% endif %}</b></li>
+        <li><span>Ke rekening</span><b>{{ refund.bank_name }} · {{ refund.account_number }}</b></li>
+        <li><span>Atas nama</span><b>{{ refund.account_holder }}</b></li>
+        {% if refund.processed_at %}<li><span>Selesai diproses</span><b>{{ refund.processed_at|date:"j F Y, H:i" }}</b></li>{% endif %}
+      </ul>
+      {% if refund.admin_note %}<div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ refund.admin_note|linebreaksbr }}</p></div>{% endif %}
+      {% if refund.transfer_proof %}<p class="proof-current">{% icon "check" "icon-ok" %}<span>Bukti transfer refund: <a href="{% url 'akun:refund-bukti' order.code %}" target="_blank" rel="noopener">lihat</a>.</span></p>{% endif %}
+      <p class="field-help">Refund diproses paling lambat 7 hari kerja setelah disetujui. Ada pertanyaan? <a href="{% url 'akun:chat-baru' %}?topik=refund">Kirim chat</a>.</p>
+    {% else %}
+      <p>Pesanan ini sudah dibayar lalu dibatalkan, jadi Anda bisa mengajukan pengembalian dana{% if order.amount %} sebesar <b>{{ order.amount|rupiah }}</b>{% endif %}. Isi rekening tujuan atas nama Anda sendiri.</p>
+      <form method="post" class="akun-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="aksi" value="refund">
+        {% for field in refund_form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+        <div class="akun-actions"><button class="btn" type="submit">{% icon "send" %}<span>Ajukan refund</span></button></div>
+      </form>
+    {% endif %}
+  </section>
+{% endif %}
+
+{% if order.can_cancel %}
+  <form method="post" class="cancel-form" data-confirm="Batalkan pesanan {{ order.code }}?{% if order.is_paid %} Setelah dibatalkan, Anda bisa mengajukan refund.{% endif %}">
+    {% csrf_token %}<input type="hidden" name="aksi" value="batal">
+    <button class="link-btn danger" type="submit">Batalkan pesanan ini</button>
+  </form>
+{% endif %}
+{% endblock %}

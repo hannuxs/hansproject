@@ -1,0 +1,20 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass akun-narrow" aria-labelledby="beli-title">
+  <h2 id="beli-title">{% icon "cart" %} Beli toko tambahan</h2>
+  <p>Sekarang: <b>{{ store.outlets_used }} / {{ store.outlet_limit }}</b> toko ({{ store.outlet_quota_text }}).</p>
+  <ul class="kv" role="list">
+    <li><span>Harga per toko</span><b>{{ addon.price|rupiah }}{{ addon.unit }}</b></li>
+    <li><span>Berlaku</span><b>sampai {{ store.active_until|date:"j F Y" }}, lalu ikut dihitung di setiap perpanjangan</b></li>
+  </ul>
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {{ form.quantity.as_field_group }}
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "cart" %}<span>Buat pesanan</span></button>
+      <a class="btn btn-ghost" href="{% url 'toko:tambah' %}">Batal</a>
+    </div>
+  </form>
+  <p class="field-help">Setelah pesanan dibuat, bayar dan kirim bukti bayar di halaman pesanan. Begitu kami konfirmasi, kuota toko langsung bertambah.</p>
+</section>
+{% endblock %}

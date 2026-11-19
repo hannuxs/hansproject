@@ -1,0 +1,11 @@
+{% comment %}
+  Tombol "Tanya Kami": membuka chat baru dengan HANS Project. Wajib login: halaman /akun/chat/baru/
+  meneruskan ke Daftar / Masuk bila pengunjung belum login.
+  Parameter:
+    topic : topik pertanyaan ("umum", "tambah-toko", "tambah-simpan", "paket", "pesanan")
+    label : tulisan tombol (bawaan "Tanya Kami")
+    style : kelas tambahan tombol, misalnya "btn-ghost btn-sm"
+{% endcomment %}
+<a class="btn ask-btn {{ style }}" href="{% url 'akun:chat-baru' %}?topik={{ topic|default:'umum'|urlencode }}">
+  {% icon "chat" %}<span>{{ label|default:"Tanya Kami" }}</span>
+</a>

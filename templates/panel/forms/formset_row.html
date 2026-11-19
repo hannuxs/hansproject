@@ -1,0 +1,22 @@
+<div class="formset-row{% if form.errors %} has-error{% endif %}" data-formset-row>
+  <span class="row-num" aria-hidden="true">{{ number }}</span>
+  {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+  {% if form.non_field_errors %}<div class="row-errors">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="row-fields">
+    {% for field in form.visible_fields %}
+      {% if field.name == "DELETE" %}
+        <label class="row-delete" for="{{ field.auto_id }}">{{ field }} {% icon "trash" "icon-sm" %} Hapus baris ini</label>
+      {% else %}
+        <div class="field field-{{ field.widget_type }} f-{{ field.name }}{% if field.errors %} has-error{% endif %}">
+          {% if field.widget_type == "checkbox" %}
+            <label class="switch" for="{{ field.auto_id }}">{{ field }}<span class="switch-ui" aria-hidden="true"></span><span>{{ field.label }}</span></label>
+          {% else %}
+            <label class="field-label" for="{{ field.auto_id }}">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {{ field.errors }}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>

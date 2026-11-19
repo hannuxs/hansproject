@@ -1,0 +1,6 @@
+{# Judul bagian. Parameter: eyebrow, title, lead, center (bool), id #}
+<header class="section-head{% if center %} center{% endif %}">
+  {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
+  <h2 class="section-title"{% if id %} id="{{ id }}"{% endif %}>{{ title }}</h2>
+  {% if lead %}<p class="section-lead">{{ lead }}</p>{% endif %}
+</header>

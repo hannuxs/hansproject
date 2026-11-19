@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | HANS Project{% endblock %}
+{% block description %}{{ page.title }} layanan HANS Project (hansproject.app).{% endblock %}
+{% block og_title %}{{ page.title }} | HANS Project{% endblock %}
+{% block canonical %}/{{ page.slug }}/{% endblock %}
+{% block og_url %}/{{ page.slug }}/{% endblock %}
+
+{% block content %}
+<section class="section aurora">
+  <div class="container doc">
+    <article class="doc-card glass">
+      {% if page.is_draft %}
+        <p class="alert draft-banner" role="note">{% icon "alert" %}<span><b>Draf — sedang ditinjau.</b> Isi halaman ini masih bisa berubah sebelum dipakai resmi.</span></p>
+      {% endif %}
+      <p class="eyebrow">Informasi</p>
+      <h1 class="section-title">{{ page.title }}</h1>
+      <p class="doc-meta">Berlaku sejak: {{ site.legal_version|date:"j F Y" }}</p>
+      <div class="prose">{{ page.body|md }}</div>
+    </article>
+  </div>
+</section>
+{% endblock %}

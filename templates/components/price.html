@@ -1,0 +1,7 @@
+{# Blok harga paket. Parameter: pkg #}
+<p class="price">
+  {% if pkg.price_prefix %}<span class="price-prefix">{{ pkg.price_prefix }}</span>{% endif %}
+  <span class="price-amount">{{ pkg.price|rupiah }}</span>
+  {% if pkg.price_suffix %}<span class="price-suffix">{{ pkg.price_suffix }}</span>{% endif %}
+  {% if pkg.monthly_price %}<span class="price-extra">lalu {{ pkg.monthly_price|rupiah }}/bulan</span>{% endif %}
+</p>

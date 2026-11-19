@@ -1,0 +1,24 @@
+<section class="section aurora" id="fitur" aria-labelledby="fitur-title">
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Aplikasi kasir" title="Yang bisa Anda lakukan dengan aplikasi kasir" lead="Catat jualan, hitung uang, cetak struk. Semua dari HP. Paham istilah teknologi? Nyalakan saklar di bawah untuk melihat detailnya." id="fitur-title" %}
+    <div class="toolbar">
+      {% include "components/tech_toggle.html" with id="tech-fitur" %}
+    </div>
+    <div class="grid grid-3">
+      {% for item in snap.highlights %}
+        <article class="card glass feature reveal">
+          <span class="feature-icon">{% icon item.icon %}</span>
+          <h3>{% include "components/two_level.html" %}</h3>
+        </article>
+      {% endfor %}
+    </div>
+    {% if snap.included %}
+      <h3 class="visually-hidden">Termasuk di semua paket kasir</h3>
+      <ul class="included" role="list">
+        {% for item in snap.included %}
+          <li class="included-item glass reveal">{% if item.icon %}{% icon item.icon %}{% endif %}<p>{% include "components/two_level.html" %}</p></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</section>

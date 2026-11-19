@@ -1,0 +1,133 @@
+/* ==========================================================================
+   Dashboard pemilik toko (/akun/toko/...). Melengkapi akun.css.
+   ========================================================================== */
+
+.small { font-size: 0.85rem; }
+.center { text-align: center; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Kepala toko ---------- */
+.toko-head { display: grid; gap: 16px; }
+.toko-id { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.toko-id-text { flex: 1 1 200px; min-width: 0; }
+.toko-id .akun-title { font-size: clamp(1.3rem, 2vw + 0.8rem, 1.7rem); word-break: break-word; }
+.toko-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.toko-url { display: grid; flex: 1 1 220px; min-width: 0; }
+.toko-url .muted { font-size: 0.8rem; }
+.toko-url a { display: inline-flex; align-items: center; gap: 6px; word-break: break-all; text-decoration: none; }
+
+/* ---------- Menu tab ---------- */
+.toko-tabs {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.toko-tabs a {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px;
+  background: var(--glass-strong); color: var(--ink); font-weight: 700; font-size: 0.925rem; text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.toko-tabs a:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--orange-light); }
+.toko-tabs a[aria-current="page"] { background: var(--grad-deep); color: var(--white); box-shadow: none; }
+.toko-tabs .icon { width: 18px; height: 18px; }
+
+/* ---------- Angka ringkas ---------- */
+.toko-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.toko-stats.compact { margin: 14px 0 6px; }
+.stat {
+  display: grid; gap: 4px; padding: 16px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.stat.glass { background: var(--glass-strong); }
+.stat span { font-size: 0.85rem; color: var(--muted); }
+.stat b { font-size: clamp(1.2rem, 1.5vw + 0.8rem, 1.5rem); color: var(--maroon); font-variant-numeric: tabular-nums; word-break: break-word; }
+.stat small { font-size: 0.85rem; color: var(--muted); }
+
+.start-steps { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+.start-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.start-steps li > span {
+  display: grid; place-items: center; flex: none; width: 30px; height: 30px; background: #ece9e6; color: var(--muted); font-weight: 800;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.start-steps li.done > span { background: #dcf2e4; color: #0f5c37; }
+.start-steps li.done b { text-decoration: line-through; color: var(--muted); }
+
+/* ---------- Kepala kartu, filter, tabel ---------- */
+.head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.form-sub { margin-top: 8px; font-size: 1rem; font-weight: 800; color: var(--maroon); }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 12px 0; }
+.filter-bar .field { flex: 1 1 160px; }
+.filter-bar .btn { flex: none; }
+.range-pick { margin-bottom: 8px; }
+.range-pick summary { cursor: pointer; font-weight: 700; color: var(--orange-dark); font-size: 0.925rem; }
+.range-pick .filter-bar { margin-top: 8px; }
+
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.data-table th, .data-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.data-table thead th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.data-table .num { text-align: right; }
+.data-table a { text-decoration: none; }
+.data-table tfoot th { font-weight: 600; color: var(--muted); text-align: right; }
+.data-table .tfoot-total th, .data-table .tfoot-total td { font-size: 1.1rem; font-weight: 800; color: var(--maroon); }
+.row-off { opacity: 0.55; }
+.bar-cell { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+@media (max-width: 560px) {
+  .bar-cell { min-width: 120px; flex-direction: column-reverse; align-items: stretch; gap: 4px; }
+  .bar-cell meter { width: 100%; }
+}
+.bar-cell meter { flex: 1; height: 12px; min-width: 60px; -webkit-appearance: none; appearance: none; background: var(--cream-2); border: 0; }
+.bar-cell meter::-webkit-meter-bar { background: var(--cream-2); border: 0; border-radius: 0; height: 12px; }
+.bar-cell meter::-webkit-meter-optimum-value { background: var(--grad-brand); }
+.bar-cell meter::-moz-meter-bar { background: var(--orange); }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
+
+.order-item.is-void { opacity: 0.6; }
+.sale-total { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Kategori ---------- */
+.cat-list { display: grid; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+.cat-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.cat-list li.is-editing { box-shadow: inset 0 0 0 2px var(--orange); }
+.cat-actions { display: flex; gap: 14px; }
+.cat-actions form { display: contents; }
+
+/* ---------- Outlet ---------- */
+.outlet-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+.outlet-item {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px;
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+}
+.outlet-item.is-off { opacity: 0.65; }
+.outlet-main { display: grid; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.outlet-main .muted { font-size: 0.875rem; }
+.outlet-main > span { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mono-sm { font-family: var(--mono); }
+.warn-text { color: #9a4a00; font-weight: 700; }
+
+/* ---------- Laporan ---------- */
+.toko-cols { display: grid; gap: 18px; }
+@media (min-width: 860px) { .toko-cols { grid-template-columns: 1fr 1fr; } }
+.rank-list { display: grid; gap: 8px; margin: 12px 0 0; padding-left: 1.4em; }
+.rank-list li { padding-left: 4px; }
+.rank-list li > * { margin-right: 8px; }
+.rank-list li span:first-child { font-weight: 700; }
+
+/* ---------- Detail transaksi ---------- */
+.void-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.void-box summary { cursor: pointer; font-weight: 700; color: #b91c1c; }
+
+/* ---------- Kuota toko (cabang) ---------- */
+.quota-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.quota-row > span:nth-child(2) { flex: 1 1 160px; }
+.quota-badge {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 6px 12px; flex: none;
+  background: var(--grad-deep); color: var(--white); font-size: 1.05rem; font-variant-numeric: tabular-nums;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.quota-badge b { font-size: 1.35rem; }
+.quota-card .card-head { align-items: flex-start; }
+.toko-stats.compact.two { grid-template-columns: 1fr 1fr; }
+.quote-box { padding: 12px 14px; background: var(--cream-2); }
+.quote-box .kv { margin: 6px 0 0; }
+.toko-stats.compact .stat b { font-size: clamp(1rem, 1vw + 0.85rem, 1.25rem); white-space: nowrap; word-break: normal; }

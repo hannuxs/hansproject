@@ -1,0 +1,24 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'akun:chat-list' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua chat</span></a></p>
+<div class="akun-card glass">
+  <p class="eyebrow">Chat baru</p>
+  <h1 class="akun-title">Ada yang bisa kami bantu?</h1>
+  <p class="akun-lead">Tulis pertanyaan atau keperluan Anda. Boleh lampirkan gambar, misalnya screenshot. Balasan kami muncul di obrolan ini.</p>
+  {% if open_count >= max_open %}
+    <p class="alert" role="note">{% icon "info" %}<span>Anda sudah punya {{ open_count }} obrolan aktif. <a href="{% url 'akun:chat-list' %}">Lanjutkan di sana</a>.</span></p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+    {{ form.topic.as_field_group }}
+    {{ form.text.as_field_group }}
+    {{ form.image.as_field_group }}
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "send" %}<span>Kirim</span></button>
+      <a class="btn btn-ghost" href="{% url 'akun:chat-list' %}">Batal</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

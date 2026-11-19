@@ -1,0 +1,27 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/chat.css' %}"><script src="{% static 'js/chat.js' %}" defer></script>{% endblock %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block section_class %} akun-chat{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'akun:chat-list' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua chat</span></a></p>
+<section class="chat-card akun-card glass" aria-labelledby="chat-title">
+  <header class="chat-head">
+    <span class="avatar chat-avatar" aria-hidden="true">H</span>
+    <div>
+      <h1 id="chat-title">HANS Project</h1>
+      <p class="muted small">{{ conversation.get_topic_display }} · dibuka {{ conversation.created_at|date:"j M Y" }}</p>
+    </div>
+    <span class="status status-{% if conversation.is_open %}ok{% else %}off{% endif %}">{{ conversation.get_status_display }}</span>
+  </header>
+  {% include "components/chat_thread.html" with viewer="member" poll_url=request.path|add:"baru/" %}
+  {% if conversation.is_open %}
+    {% include "components/chat_composer.html" %}
+  {% else %}
+    <div class="chat-closed">
+      <p>{% icon "check" "icon-ok" %} Obrolan ini sudah <b>selesai</b>{% if conversation.closed_at %} sejak {{ conversation.closed_at|date:"j M Y, H:i" }}{% endif %}. Isinya tetap tersimpan di riwayat.</p>
+      <a class="btn btn-sm" href="{% url 'akun:chat-baru' %}?topik={{ conversation.topic }}">{% icon "plus" %}<span>Buka obrolan baru</span></a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

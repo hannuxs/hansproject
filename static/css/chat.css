@@ -1,0 +1,99 @@
+/* ==========================================================================
+   Chat pelanggan <-> HANS Project (dipakai halaman akun & panel).
+   ========================================================================== */
+.chat-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+
+/* Halaman chat pelanggan: kartu chat mengisi layar yang tersisa (di antara header dan menu bawah),
+   sehingga kotak tulis selalu terlihat dan tidak tertutup menu bawah HP. */
+.akun-chat { min-height: 0; padding-block: 12px; }
+.akun-chat .akun-wrap { gap: 10px; }
+.akun-chat .chat-card {
+  height: calc(100dvh - var(--header-h) - 72px - env(safe-area-inset-bottom) - 72px);
+  min-height: 360px;
+}
+@media (min-width: 900px) { .akun-chat .chat-card { height: calc(100dvh - var(--header-h) - 96px); } }
+.akun-chat .chat-thread { flex: 1; height: auto; min-height: 120px; }
+.akun-chat .chat-head { flex: none; }
+.akun-chat .chat-composer, .akun-chat .chat-closed { flex: none; }
+.chat-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--glass-strong); }
+.chat-head > div { flex: 1; min-width: 0; }
+.chat-head h1, .chat-head h2 { font-size: 1.1rem; font-weight: 800; color: var(--maroon); }
+.chat-avatar { width: 42px; height: 42px; font-size: 1.1rem; }
+
+.chat-thread {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px;
+  height: clamp(280px, calc(100dvh - 360px), 620px); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--cream);
+}
+.chat-thread:focus-visible { outline: 3px solid var(--maroon); outline-offset: -3px; }
+/* Saat halaman dibuka, langsung tampil pesan terakhir (fallback JS di chat.js). */
+.chat-thread > .bubble:last-of-type { scroll-initial-target: nearest; }
+.chat-empty { margin: auto; }
+
+.chat-day { align-self: center; margin: 6px 0; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.chat-day span { padding: 4px 10px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+
+.bubble {
+  position: relative; display: grid; gap: 4px; max-width: min(78%, 520px); padding: 8px 12px 6px;
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--line); scroll-margin: 16px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.bubble.mine {
+  align-self: flex-end; background: #ffe9d6; box-shadow: inset 0 0 0 1px #f6cfab;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.bubble.theirs { align-self: flex-start; }
+.bubble:target { box-shadow: inset 0 0 0 2px var(--orange); }
+.bubble-who { font-size: 0.75rem; font-weight: 800; color: var(--orange-dark); }
+.bubble.mine .bubble-who { color: var(--maroon); }
+.bubble-text { overflow-wrap: anywhere; line-height: 1.45; }
+.bubble-quote {
+  display: grid; gap: 1px; padding: 6px 8px; border-left: 3px solid var(--orange); background: rgba(255, 255, 255, 0.6);
+  color: var(--ink); font-size: 0.85rem; text-decoration: none;
+}
+.bubble-quote span { display: flex; align-items: center; gap: 4px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bubble-quote:hover { color: var(--ink); background: var(--white); }
+.bubble-image { display: block; }
+.bubble-image img { display: block; max-width: 100%; max-height: 280px; width: auto; height: auto; background: var(--cream-2); }
+.bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 0.75rem; color: var(--muted); }
+.bubble-reply {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 6px; border: 0; background: none;
+  color: var(--orange-dark); font: inherit; font-weight: 700; cursor: pointer;
+}
+.bubble-reply:hover { text-decoration: underline; }
+.bubble-reply:focus-visible { outline: 2px solid var(--maroon); outline-offset: 1px; }
+
+/* Kotak tulis */
+.chat-composer { display: grid; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--glass-strong); }
+.composer-bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--white); box-shadow: inset 3px 0 0 var(--orange), inset 0 0 0 1px var(--line); font-size: 0.875rem; }
+.composer-bar[hidden] { display: none; }
+.composer-bar > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-bar img { width: 44px; height: 44px; object-fit: cover; flex: none; }
+.composer-x { display: grid; place-items: center; width: 32px; height: 32px; border: 0; background: none; cursor: pointer; color: var(--muted); }
+.composer-x:hover { color: var(--ink); }
+.composer-row { display: flex; align-items: flex-end; gap: 8px; }
+.composer-attach {
+  display: grid; place-items: center; flex: none; width: 46px; height: 46px; background: var(--white); color: var(--orange-dark);
+  cursor: pointer; box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.composer-attach:hover { box-shadow: inset 0 0 0 2px var(--orange-light); }
+.composer-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.composer-row:has(.composer-file:focus-visible) .composer-attach { outline: 3px solid var(--maroon); outline-offset: 2px; }
+.composer-row textarea {
+  flex: 1; min-width: 0; width: 100%; min-height: 46px; max-height: 8lh; padding: 11px 12px; resize: none;
+  border: 1px solid var(--line-strong); background: var(--white); font: inherit; line-height: 1.4;
+  field-sizing: content; /* tumbuh mengikuti isi (browser lama: tinggi tetap + scroll) */
+}
+.composer-row textarea:focus { outline: none; border-color: var(--orange-dark); box-shadow: 0 0 0 3px rgba(242, 107, 15, 0.2); }
+.composer-send { flex: none; min-height: 46px; width: 52px; padding: 0; }
+.composer-send:disabled { --btn-bg: #8a817c; cursor: progress; }
+.chat-composer .alert { margin: 0; }
+.chat-composer .alert[hidden] { display: none; }
+
+.chat-closed { display: grid; gap: 10px; justify-items: start; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--cream-2); }
+.chat-close-form { padding: 0 14px 14px; }
+
+/* Panel */
+.chat-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chat-admin-grid { display: grid; gap: 18px; align-items: start; }
+@media (min-width: 1100px) { .chat-admin-grid { grid-template-columns: minmax(0, 1fr) 320px; } }

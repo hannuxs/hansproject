@@ -1,0 +1,28 @@
+{% extends "akun/base.html" %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<div class="akun-card glass">
+  {% if first_time %}
+    <p class="eyebrow">Satu langkah lagi</p>
+    <h1 class="akun-title">Lengkapi data diri</h1>
+    <p class="akun-lead">Data ini kami perlukan untuk aktivasi aplikasi dan layanan pelanggan. Hanya diisi sekali.</p>
+  {% else %}
+    <p class="eyebrow">Profil</p>
+    <h1 class="akun-title">Ubah data diri</h1>
+  {% endif %}
+
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+    <div class="field">
+      <span class="field-label">Email (dari Google)</span>
+      <p class="readonly">{{ member.email }}</p>
+    </div>
+    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
+      {% if not first_time %}<a class="btn btn-ghost" href="{% url 'akun:profil' %}">Batal</a>{% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

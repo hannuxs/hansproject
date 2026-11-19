@@ -1,0 +1,85 @@
+<section class="section aurora" id="harga" aria-labelledby="harga-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Harga aplikasi kasir" title="Pilih paket yang cocok untuk usaha Anda" lead="Bayar bulanan. Pilih paket, lalu tekan Pesan Sekarang." id="harga-title" center=True %}
+    <div class="toolbar">
+      <span class="muted">Semua paket sudah termasuk: bisa dipakai 24 jam, dari HP atau laptop, catatan aman di server.</span>
+      {% include "components/tech_toggle.html" with id="tech-harga" %}
+    </div>
+
+    <div class="plans">
+      {% for pkg in snap.pos_packages %}
+        <article class="plan {% if pkg.is_highlighted %}plan-hl{% else %}glass{% endif %} reveal" aria-labelledby="plan-{{ pkg.code }}">
+          {% if pkg.badge %}<span class="badge">{% icon "star" "icon-sm" %}{{ pkg.badge }}</span>{% endif %}
+          <div class="plan-head">
+            <span class="plan-emoji" aria-hidden="true">{{ pkg.icon }}</span>
+            <h3 class="plan-name" id="plan-{{ pkg.code }}"><small>Paket</small>{{ pkg.name }}</h3>
+          </div>
+          {% if pkg.tagline %}<p class="plan-for"><b>Cocok untuk:</b> {{ pkg.tagline }}</p>{% endif %}
+          {% include "components/price.html" %}
+          {% if pkg.is_highlighted %}{% include "components/order_button.html" with style="btn-light" %}{% else %}{% include "components/order_button.html" with style="" %}{% endif %}
+          {% if pkg.includes_from %}<p class="plan-inherit">Semua yang ada di Paket {{ pkg.includes_from.name }}, ditambah:</p>{% endif %}
+          <ul class="plan-features" role="list">
+            {% for item in pkg.features.all %}
+              <li>{% icon "check" %}{% include "components/two_level.html" %}</li>
+            {% endfor %}
+          </ul>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="addons">
+      {% if snap.outlet_addons %}
+        {% with addon=snap.outlet_addons.0 %}
+        <article class="card glass addon reveal">
+          <h3>{% icon "store" %} {{ addon.name }}</h3>
+          <p class="price"><span class="price-amount">{{ addon.price|rupiah }}</span><span class="price-suffix">{{ addon.unit }}</span></p>
+          {% if addon.description %}<p>{{ addon.description }}</p>{% endif %}
+          {% with tip=snap.outlet_tip %}
+            {% if tip %}
+              <p class="tip">💡 Tips hemat: Paket {{ tip.base.name }} + {{ tip.extra_outlets }} toko tambahan ({{ tip.total_outlets }} toko) = {{ tip.base_total|rupiah }}/bulan. Lebih hemat naik ke Paket {{ tip.upgrade.name }}: {{ tip.upgrade.price|rupiah }}/bulan untuk {{ tip.upgrade.outlet_count }} toko.</p>
+            {% endif %}
+          {% endwith %}
+          {% include "components/ask_button.html" with topic="tambah-toko" label="Tanya tambah toko" style="btn-ghost btn-sm" %}
+        </article>
+        {% endwith %}
+      {% endif %}
+
+      {% if snap.storage_addons %}
+        <article class="card glass addon reveal">
+          <h3>{% icon "database" %} Tambah tempat simpan</h3>
+          <p>Kalau tempat simpan sudah penuh. Berlaku untuk semua paket.</p>
+          <table class="storage-table">
+            <caption class="visually-hidden">Harga tambahan tempat simpan</caption>
+            <tbody>
+              {% for addon in snap.storage_addons %}
+                <tr><th scope="row">{{ addon.name }}</th><td>{{ addon.price|rupiah }}{{ addon.unit }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% include "components/ask_button.html" with topic="tambah-simpan" label="Tanya tambah tempat simpan" style="btn-ghost btn-sm" %}
+        </article>
+      {% endif %}
+
+      {% if snap.calculator.packages and snap.calculator.outletPrice %}
+        <article class="card glass addon calc reveal" data-calc>
+          <h3>{% icon "calculator" %} Hitung paket paling hemat</h3>
+          <div class="calc-live">
+            <label for="calc-toko">Berapa toko/cabang yang Anda punya?</label>
+            <div class="calc-input">
+              <button type="button" data-step="-1" aria-label="Kurangi">−</button>
+              <input id="calc-toko" type="number" inputmode="numeric" min="1" max="99" value="3">
+              <button type="button" data-step="1" aria-label="Tambah">+</button>
+            </div>
+            <div class="calc-result" data-calc-out aria-live="polite"></div>
+          </div>
+          <p class="calc-noscript">
+            {% for p in snap.calculator.packages %}Paket {{ p.name }}: {{ p.price|rupiah }}/bulan untuk {{ p.outlets }} toko. {% endfor %}
+            Toko tambahan {{ snap.calculator.outletPrice|rupiah }} per toko, per bulan.
+          </p>
+          {{ snap.calculator|json_script:"calc-data" }}
+        </article>
+      {% endif %}
+    </div>
+  </div>
+</section>

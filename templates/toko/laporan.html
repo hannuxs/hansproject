@@ -1,0 +1,63 @@
+{% extends "toko/base.html" %}
+{% block toko %}
+<section class="akun-card glass" aria-labelledby="lap-title">
+  <div class="card-head">
+    <h2 id="lap-title">{% icon "chart" %} Laporan penjualan</h2>
+    <div class="head-actions">
+      <a class="btn btn-sm btn-ghost" href="{% url 'toko:laporan-unduh' store.subdomain %}?{{ query }}">{% icon "file" %}<span>Unduh transaksi (Excel/CSV)</span></a>
+      <a class="btn btn-sm btn-ghost" href="{% url 'toko:laporan-unduh' store.subdomain %}?{% if query %}{{ query }}&amp;{% endif %}jenis=barang">{% icon "file" %}<span>Unduh per barang</span></a>
+    </div>
+  </div>
+  {% include "toko/_filters.html" %}
+  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}{% if outlet %} · {{ outlet.name }}{% endif %}</p>
+
+  <div class="toko-stats">
+    <div class="stat"><span>Penjualan</span><b>{{ report.revenue|rupiah }}</b></div>
+    <div class="stat"><span>Transaksi</span><b>{{ report.count }}</b></div>
+    <div class="stat"><span>Rata-rata per transaksi</span><b>{{ report.average|rupiah }}</b></div>
+    <div class="stat"><span>Total diskon</span><b>{{ report.discount|rupiah }}</b></div>
+  </div>
+  {% if report.void_count %}<p class="muted small">{{ report.void_count }} transaksi dibatalkan tidak dihitung.</p>{% endif %}
+</section>
+
+{% if report.by_day|length > 1 %}
+<section class="akun-card glass" aria-labelledby="harian-title">
+  <h2 id="harian-title">{% icon "chart" %} Per hari</h2>
+  <div class="table-wrap">
+    <table class="data-table bars">
+      <thead><tr><th scope="col">Tanggal</th><th scope="col" class="num">Transaksi</th><th scope="col">Penjualan</th></tr></thead>
+      <tbody>
+        {% for d in report.by_day %}
+          <tr>
+            <td class="nowrap">{{ d.day|date:"D, j M" }}</td>
+            <td class="num">{{ d.count }}</td>
+            <td><span class="bar-cell"><meter min="0" max="{{ peak|default:1 }}" value="{{ d.total }}">{{ d.total|rupiah }}</meter><span class="num">{{ d.total|rupiah }}</span></span></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="top-title">
+    <h2 id="top-title">{% icon "star" %} Barang terlaris</h2>
+    {% if report.top_products %}
+      <ol class="rank-list">
+        {% for p in report.top_products %}<li><span>{{ p.name }}</span><b>{{ p.qty }} terjual</b><span class="muted">{{ p.total|rupiah }}</span></li>{% endfor %}
+      </ol>
+    {% else %}<p class="empty">Belum ada penjualan.</p>{% endif %}
+  </section>
+  <section class="akun-card glass" aria-labelledby="cara-title">
+    <h2 id="cara-title">{% icon "wallet" %} Cara bayar</h2>
+    {% if report.by_method %}
+      <ul class="kv" role="list">{% for m in report.by_method %}<li><span>{{ m.label }} ({{ m.count }})</span><b>{{ m.total|rupiah }}</b></li>{% endfor %}</ul>
+    {% else %}<p class="empty">Belum ada penjualan.</p>{% endif %}
+    {% if report.by_outlet|length > 1 %}
+      <h3 class="form-sub">Per toko</h3>
+      <ul class="kv" role="list">{% for o in report.by_outlet %}<li><span>{{ o.label }} ({{ o.count }})</span><b>{{ o.total|rupiah }}</b></li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+# Dependensi PENGEMBANGAN (tidak dipasang di server).
+-c base.txt
+-r base.in
+pip-tools
+pip-audit
+bandit
+coverage

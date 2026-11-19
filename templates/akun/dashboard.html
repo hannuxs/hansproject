@@ -1,0 +1,142 @@
+{% extends "akun/base.html" %}
+{% load static l10n %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block akun %}
+{% comment %}
+  Dashboard: halaman pertama setelah masuk. Memantau SEMUA toko & outlet sekaligus.
+  Ruang pengumuman hanya muncul bila ada pengumuman aktif dari panel (tanpa tombol tutup).
+{% endcomment %}
+{% if announcements %}
+  <section class="announce-list" aria-label="Pengumuman dari HANS Project">
+    {% for a in announcements %}
+      <article class="announce-box tone-{{ a.tone }}">
+        <span class="announce-icon" aria-hidden="true">{% if a.tone == "penting" %}{% icon "alert" %}{% elif a.tone == "promo" %}{% icon "sparkles" %}{% else %}{% icon "info" %}{% endif %}</span>
+        <div class="announce-body">
+          <p class="announce-kind">{{ a.get_tone_display }}</p>
+          <h2>{{ a.title }}</h2>
+          {% if a.body %}<div class="prose">{{ a.body|md }}</div>{% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
+
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Dashboard</p>
+    <h1 class="akun-title">Halo, {{ member.display_name }}</h1>
+    <p class="muted">{% now "l, j F Y" %}{% if overview.outlets %} · {{ overview.outlets|length }} toko{% endif %}</p>
+  </div>
+  {% if overview.stores %}<a class="btn btn-sm btn-ghost" href="{% url 'toko:daftar' %}">{% icon "store" %}<span>Kelola toko</span></a>{% endif %}
+</header>
+
+{% if overview.alerts or open_orders or open_refunds or unread_chats %}
+<section class="akun-card glass" aria-labelledby="perlu-title">
+  <h2 id="perlu-title">{% icon "alert" %} Perlu perhatian</h2>
+  <ul class="todo-list" role="list">
+    {% if unread_chats %}<li><span class="status status-wait">Chat</span><a href="{% url 'akun:chat-list' %}">{{ unread_chats }} obrolan punya balasan baru dari kami</a></li>{% endif %}
+    {% for store, tone, text in overview.alerts %}
+      <li><span class="status status-{{ tone }}">{{ store.name }}</span><a href="{% url 'toko:ringkasan' store.subdomain %}">{{ text }}</a></li>
+    {% endfor %}
+    {% for o in open_orders %}
+      <li><span class="status status-{{ o.status_tone }}">{{ o.get_status_display }}</span><a href="{% url 'akun:pesanan' o.code %}">{{ o.title }} ({{ o.code }})</a></li>
+    {% endfor %}
+    {% for r in open_refunds %}
+      <li><span class="status status-{{ r.status_tone }}">Refund {{ r.get_status_display|lower }}</span><a href="{% url 'akun:pesanan' r.order.code %}#refund">{{ r.order.title }} ({{ r.order.code }})</a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if overview.stores %}
+  <section class="toko-stats" aria-label="Penjualan semua toko">
+    <div class="stat glass"><span>Penjualan hari ini</span><b>{{ overview.today.revenue|rupiah }}</b><small>{{ overview.today.count }} transaksi · kemarin {{ overview.yesterday.revenue|rupiah }}</small></div>
+    <div class="stat glass"><span>7 hari terakhir</span><b>{{ overview.week.revenue|rupiah }}</b><small>{{ overview.week.count }} transaksi</small></div>
+    <div class="stat glass"><span>Bulan ini</span><b>{{ overview.month.revenue|rupiah }}</b><small>{{ overview.month.count }} transaksi</small></div>
+    <div class="stat glass"><span>Rata-rata per transaksi</span><b>{{ overview.month.average|rupiah }}</b><small>bulan ini</small></div>
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="tren-title">
+    <div class="card-head">
+      <h2 id="tren-title">{% icon "chart" %} Penjualan 14 hari terakhir</h2>
+      <span class="muted small">Semua toko</span>
+    </div>
+    {% if overview.trend_peak %}
+      <figure class="trend-chart">
+        <svg viewBox="0 0 {{ chart.width|unlocalize }} {{ chart.height|unlocalize }}" role="img" aria-labelledby="tren-title tren-desc">
+          <desc id="tren-desc">Grafik batang penjualan per hari. Angka lengkap ada di tabel di bawah grafik.</desc>
+          <line class="trend-base" x1="0" y1="{{ chart.base|unlocalize }}" x2="{{ chart.width|unlocalize }}" y2="{{ chart.base|unlocalize }}"></line>
+          {% for b in chart.bars %}
+            <g class="trend-bar{% if b.is_peak %} is-peak{% endif %}" tabindex="0">
+              <title>{{ b.day|date:"D, j M" }}: {{ b.total|rupiah }}</title>
+              <rect class="trend-hit" x="{{ b.hit_x|unlocalize }}" y="0" width="{{ chart.slot|unlocalize }}" height="{{ chart.base|unlocalize }}"></rect>
+              {% if b.path %}<path d="{{ b.path }}"></path>{% endif %}
+              {% if b.peak_text %}<text class="trend-label" x="{{ b.label_x|unlocalize }}" y="{{ b.label_y|unlocalize }}" text-anchor="middle">{{ b.peak_text }}</text>{% endif %}
+            </g>
+          {% endfor %}
+        </svg>
+        <figcaption class="trend-dates" aria-hidden="true">{% for b in chart.bars %}{% if b.show_date %}<span>{{ b.day|date:"j M" }}</span>{% endif %}{% endfor %}</figcaption>
+      </figure>
+    {% else %}
+      <p class="empty">Belum ada penjualan dalam 14 hari terakhir.</p>
+    {% endif %}
+    <details class="table-toggle">
+      <summary>Lihat sebagai tabel</summary>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th scope="col">Tanggal</th><th scope="col" class="num">Penjualan</th></tr></thead>
+          <tbody>{% for d in overview.trend %}<tr><td>{{ d.day|date:"D, j M Y" }}</td><td class="num">{{ d.total|rupiah }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="outlet-title">
+    <h2 id="outlet-title">{% icon "store" %} Per toko</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th scope="col">Toko</th><th scope="col" class="num">Hari ini</th><th scope="col" class="num">Bulan ini</th><th scope="col">Keadaan</th></tr></thead>
+        <tbody>
+          {% for row in overview.outlets %}
+            <tr{% if not row.outlet.is_active %} class="row-off"{% endif %}>
+              <td><a href="{% url 'toko:ringkasan' row.store.subdomain %}"><b>{{ row.outlet.name }}</b></a><br><span class="muted small">{{ row.store.name }}{% if not row.outlet.is_active %} · nonaktif{% endif %}</span></td>
+              <td class="num">{{ row.today_total|rupiah }}<br><span class="muted small">{{ row.today_count }} trx</span></td>
+              <td class="num">{{ row.month_total|rupiah }}<br><span class="muted small">{{ row.month_count }} trx</span></td>
+              <td><span class="status status-{{ row.store.state_tone }}">{{ row.store.state_label }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="toko-cols">
+    <section class="akun-card glass" aria-labelledby="top-title">
+      <h2 id="top-title">{% icon "star" %} Terlaris bulan ini</h2>
+      {% if overview.top_products %}
+        <ol class="rank-list">{% for p in overview.top_products %}<li><span>{{ p.name }}</span><b>{{ p.qty }} terjual</b><span class="muted small">{{ p.sale__store__name }}</span></li>{% endfor %}</ol>
+      {% else %}<p class="empty">Belum ada penjualan bulan ini.</p>{% endif %}
+    </section>
+    <section class="akun-card glass" aria-labelledby="baru-title">
+      <h2 id="baru-title">{% icon "receipt" %} Transaksi terbaru</h2>
+      {% if overview.recent %}
+        <ul class="mini-list" role="list">
+          {% for s in overview.recent %}
+            <li><a href="{% url 'toko:transaksi-detail' s.store.subdomain s.pk %}"><span><b>{{ s.total|rupiah }}</b><span class="muted small">{{ s.store.name }} · {{ s.outlet.name }}</span></span><span class="muted small">{{ s.created_at|date:"j M, H:i" }}</span></a></li>
+          {% endfor %}
+        </ul>
+      {% else %}<p class="empty">Belum ada transaksi.</p>{% endif %}
+    </section>
+  </div>
+{% else %}
+  <section class="akun-card glass empty-state" aria-labelledby="mulai-title">
+    <span class="empty-icon" aria-hidden="true">{% icon "calculator" %}</span>
+    <h2 id="mulai-title">Belum ada toko</h2>
+    <p class="muted">Pesan Paket Tunas atau Tumbuh untuk mendapatkan aplikasi kasir. Setelah aktif, penjualan semua toko Anda tampil di sini.</p>
+    <div class="akun-actions">
+      <a class="btn" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pilih paket kasir</span></a>
+      <a class="btn btn-ghost" href="{% url 'akun:pesanan-list' %}">{% icon "cart" %}<span>Pesanan saya</span></a>
+    </div>
+  </section>
+{% endif %}
+{% endblock %}
