@@ -14,5 +14,10 @@ def order_qr_svg(order) -> str:
     url = verify_url(order)
     if not url:
         return ""
-    svg = segno.make(url, error="m").svg_inline(scale=4, dark="#3B1A12", light="#ffffff", border=2)
+    # omitsize=True: tanpa width/height tetap, segno memberi viewBox sehingga QR MENGECIL mengikuti
+    # kotaknya (bukan terpotong). Alamat produksi lebih panjang -> QR lebih rapat -> harus bisa diskalakan.
+    # border=4 = zona tenang standar QR agar mudah dipindai kamera HP.
+    svg = segno.make(url, error="m").svg_inline(
+        dark="#3B1A12", light="#ffffff", border=4, omitsize=True, svgclass="qr-svg",
+    )
     return mark_safe(svg)  # nosec B308 B703 - SVG dibuat segno dari URL milik sendiri

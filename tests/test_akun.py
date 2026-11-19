@@ -444,6 +444,7 @@ class OrderItemsAndVerifyTests(SeededTestCase):
     def test_qr_links_to_public_verify_page(self):
         page = self.client.get(f"/akun/pesanan/{self.order.code}/")
         self.assertContains(page, "<svg")
+        self.assertContains(page, "viewBox=")  # QR harus bisa mengecil mengikuti kotaknya, bukan terpotong
         self.assertContains(page, f"/cek/{self.order.verify_token}/")
         self.assertContains(page, "data-print")
         public = Client(HTTP_HOST="testserver").get(f"/cek/{self.order.verify_token}/")

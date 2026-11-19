@@ -66,7 +66,7 @@ def provisioning_uri(username: str, secret: str) -> str:
 
 def qr_svg(uri: str) -> str:
     """Kode QR sebagai SVG inline (tanpa atribut style, aman untuk CSP)."""
-    return segno.make(uri, error="m").svg_inline(scale=5, dark="#3B1A12", light="#ffffff", border=2)
+    return segno.make(uri, error="m").svg_inline(dark="#3B1A12", light="#ffffff", border=4, omitsize=True)
 
 
 def _normalize(code: str) -> str:
