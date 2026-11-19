@@ -14,6 +14,10 @@ if not exist "%PY%" (
   exit /b 1
 )
 for %%D in (logs run media private) do if not exist "%ROOT%\%%D" mkdir "%ROOT%\%%D"
+rem File statis (CSS/JS) disiapkan ulang setiap start, supaya versi terbaru selalu
+rem tersaji walau pembaruan tidak lewat update.bat. Versi lama tidak dihapus.
+echo [%date% %time%] HANS Project: menyiapkan file statis...
+"%PY%" manage.py collectstatic --noinput --verbosity 0 || exit /b 1
 echo [%date% %time%] HANS Project: memeriksa konfigurasi...
 "%PY%" manage.py check --deploy --fail-level ERROR || exit /b 1
 echo [%date% %time%] HANS Project: Waitress mulai
