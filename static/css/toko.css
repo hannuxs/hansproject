@@ -131,3 +131,14 @@
 .quote-box { padding: 12px 14px; background: var(--cream-2); }
 .quote-box .kv { margin: 6px 0 0; }
 .toko-stats.compact .stat b { font-size: clamp(1rem, 1vw + 0.85rem, 1.25rem); white-space: nowrap; word-break: normal; }
+
+
+/* Menu toko di HP: grid 3 x 2, semua menu langsung terlihat (tidak perlu digeser). */
+@media (max-width: 699.98px) {
+  .toko-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; overflow: visible; mask: none; animation: none; }
+  .toko-tabs a {
+    flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 8px 4px;
+    font-size: 0.8rem; line-height: 1.2; text-align: center;
+  }
+  .toko-tabs .icon { width: 20px; height: 20px; }
+}

@@ -4,7 +4,7 @@
     {% include "components/section_head.html" with eyebrow="Untuk yang paham teknologi" title="Detail teknis semua paket" lead="Perbandingan lengkap dengan istilah teknis. Ketuk untuk membuka." id="teknis-title" center=True %}
     <details class="tech-details glass">
       <summary>Lihat tabel detail teknis {% icon "chevron-down" %}</summary>
-      <div class="table-wrap">
+      <div class="table-wrap scroll-hint-x">
         <table class="compare">
           <caption class="visually-hidden">Perbandingan teknis Paket {% for p in snap.comparison_columns %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</caption>
           <thead>

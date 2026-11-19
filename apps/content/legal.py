@@ -200,6 +200,7 @@ Semua cookie di bawah ini diperlukan agar layanan berjalan. Tidak ada cookie pih
 - **Bank atau penyedia QRIS Anda**, saat Anda membayar. Pembayaran diproses oleh bank atau penyedia tersebut sesuai kebijakan mereka. Kami hanya melihat bukti bayar yang Anda kirim.
 - **Instagram (Meta)**, bila Anda menghubungi kami lewat DM. Percakapan itu tunduk pada kebijakan privasi Instagram.
 - **Instansi berwenang**, hanya bila diwajibkan peraturan atau perintah hukum.
+- **Siapa pun yang memegang kode QR / tautan bukti pesanan Anda** (misalnya dari dokumen yang Anda cetak atau bagikan) bisa membuka halaman cek keaslian. Halaman itu hanya menampilkan kode, layanan, status, tanggal, rincian harga, serta nama dan nama usaha yang **disamarkan**. Tautannya memakai kode acak yang tidak bisa ditebak dan tidak muncul di mesin pencari.
 - Bila usaha HANS Project beralih ke pihak lain, kami memberi tahu Anda sebelum data dipindahkan.
 
 Kami tidak menjual, menyewakan, atau memberikan data Anda untuk kepentingan pemasaran pihak lain.

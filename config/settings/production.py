@@ -60,6 +60,10 @@ if _problems:
 # Semua subdomain toko (warungbudi.hansproject.app, ...) diizinkan.
 ALLOWED_HOSTS = [*ALLOWED_HOSTS, f".{STORE_BASE_DOMAIN}"]
 
+# Verifikasi dua langkah (Authenticator) untuk panel SELALU wajib di server produksi,
+# apa pun isi ADMIN_REQUIRE_2FA di .env.
+ADMIN_REQUIRE_2FA = True
+
 # HTTPS wajib (domain .app memang selalu HTTPS).
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", True)
 SECURE_HSTS_SECONDS = env_int("HSTS_SECONDS", 31536000)

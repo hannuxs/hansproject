@@ -35,6 +35,20 @@ class AccessTests(SeededTestCase):
         self.assertRedirects(r, reverse("panel:otp-verify"))
         self.assertEqual(self.client.get(reverse("panel:dashboard")).status_code, 302)
 
+    def test_development_mode_password_only_even_with_authenticator(self):
+        """Komputer pengembangan (ADMIN_REQUIRE_2FA=false): tidak diminta kode Authenticator."""
+        from django.test import override_settings
+
+        user = make_admin(with_2fa=True)
+        with override_settings(ADMIN_REQUIRE_2FA=False):
+            r = self.client.post(reverse("panel:login"), {"username": user.username, "password": PASSWORD})
+            self.assertEqual(r["Location"], reverse("panel:dashboard"))
+            self.assertEqual(self.client.get(reverse("panel:dashboard")).status_code, 200)
+
+    def test_production_always_requires_2fa(self):
+        source = (settings.BASE_DIR / "config" / "settings" / "production.py").read_text(encoding="utf-8")
+        self.assertRegex(source, r"(?m)^ADMIN_REQUIRE_2FA = True$")
+
     def test_first_login_forces_2fa_setup(self):
         user = make_admin()
         r = self.client.post(reverse("panel:login"), {"username": user.username, "password": PASSWORD})

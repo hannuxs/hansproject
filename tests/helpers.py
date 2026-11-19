@@ -11,6 +11,8 @@ from apps.accounts.models import TwoFactorDevice
 from apps.content.seeding import seed
 
 PASSWORD = "Kata-Sandi-Uji-Yang-Panjang-2026"
+# Formulir pesanan di panel memuat formset "Rincian harga" (kosong).
+ORDER_FORMSET_EMPTY = {"rincian-TOTAL_FORMS": "0", "rincian-INITIAL_FORMS": "0"}
 
 
 class SeededTestCase(TestCase):

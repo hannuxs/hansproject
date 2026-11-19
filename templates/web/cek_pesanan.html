@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Halaman publik dari kode QR di bukti pesanan. Siapa pun yang memegang QR bisa memastikan
+  pesanan benar terdaftar. Data pribadi disamarkan; halaman tidak diindeks & tidak di-cache.
+{% endcomment %}
+{% block title %}Cek keaslian pesanan {{ order.code }} | HANS Project{% endblock %}
+{% block description %}Verifikasi pesanan HANS Project.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block canonical %}{{ request.path }}{% endblock %}
+{% block og_url %}{{ request.path }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% static 'css/akun.css' %}"><link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block content %}
+<section class="section aurora akun">
+  <div class="container akun-wrap akun-narrow">
+    <article class="akun-card glass verify-page" aria-labelledby="cek-title">
+      <span class="verify-ok" aria-hidden="true">{% icon "check" %}</span>
+      <p class="eyebrow">Cek keaslian</p>
+      <h1 class="akun-title" id="cek-title">Pesanan terdaftar di HANS Project</h1>
+      <p class="muted">Data di bawah ini berasal langsung dari sistem kami. Cocokkan dengan dokumen yang Anda pegang.</p>
+      <ul class="kv" role="list">
+        <li><span>Kode pesanan</span><b>{{ order.code }}</b></li>
+        <li><span>Layanan</span><b>{{ order.title }}</b></li>
+        <li><span>Status</span><b>{{ order.get_status_display }}</b></li>
+        <li><span>Dipesan</span><b>{{ order.created_at|date:"j F Y, H:i" }}</b></li>
+        <li><span>Pemesan</span><b>{{ buyer }}</b></li>
+        {% if order.customer_business %}<li><span>Usaha</span><b>{{ business }}</b></li>{% endif %}
+        {% if order.item_list %}
+          <li><span>Total Semua</span><b>{{ order.item_sum|rupiah }}</b></li>
+        {% else %}
+          <li><span>Harga</span><b>{{ order.price_text }}</b></li>
+        {% endif %}
+      </ul>
+      {% if order.item_list %}
+        <div class="table-wrap scroll-hint-x">
+          <table class="data-table items-table">
+            <thead><tr><th scope="col">Rincian</th><th scope="col" class="num">Harga</th></tr></thead>
+            <tbody>{% for item in order.item_list %}<tr><td>{{ item.name }}</td><td class="num">{{ item.amount|rupiah }}<span class="muted">{{ item.suffix }}</span></td></tr>{% endfor %}</tbody>
+            <tfoot><tr class="tfoot-total"><th scope="row">Total Semua</th><td class="num">{{ order.item_sum|rupiah }}</td></tr></tfoot>
+          </table>
+        </div>
+      {% endif %}
+      <p class="field-help">Nama pemesan sengaja disamarkan untuk melindungi data pribadi. Ragu? Tanyakan lewat DM Instagram <a href="{{ site.instagram_profile_url }}" target="_blank" rel="noopener">@{{ site.instagram_username }}</a>.</p>
+      <div class="akun-actions no-print">
+        <button class="btn btn-sm btn-ghost" type="button" data-print>{% icon "printer" %}<span>Cetak</span></button>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}

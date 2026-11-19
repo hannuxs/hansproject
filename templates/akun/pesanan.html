@@ -1,4 +1,6 @@
 {% extends "akun/base.html" %}
+{% load static %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
 {% block wrap_class %} akun-narrow{% endblock %}
 {% block akun %}
 <p class="back-link"><a href="{% url 'akun:pesanan-list' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua pesanan</span></a></p>
@@ -11,7 +13,11 @@
     <span class="status status-{{ order.status_tone }}">{{ order.get_status_display }}</span>
   </div>
   <ul class="kv" role="list">
-    <li><span>Harga</span><b>{{ order.price_text }}</b></li>
+    {% if order.item_list %}
+      <li><span>Total Semua</span><b>{{ order.item_sum|rupiah }}</b></li>
+    {% else %}
+      <li><span>Harga</span><b>{{ order.price_text }}</b></li>
+    {% endif %}
     {% if order.is_renewal and order.store %}
       <li><span>Toko</span><b>{{ order.store.name }} ({{ order.store.host }})</b></li>
       {% if order.wants_new_subdomain %}<li><span>Minta ganti alamat ke</span><b>{{ order.subdomain_host }}{% if not order.activated_at %} <span class="muted">(menunggu persetujuan)</span>{% endif %}</b></li>{% endif %}
@@ -21,6 +27,28 @@
     <li><span>Dipesan</span><b>{{ order.created_at|date:"j F Y, H:i" }}</b></li>
     {% if order.proof_uploaded_at %}<li><span>Bukti bayar dikirim</span><b>{{ order.proof_uploaded_at|date:"j F Y, H:i" }}</b></li>{% endif %}
   </ul>
+
+  {% if order.item_list %}
+    <section class="items-box" aria-labelledby="rincian-title">
+      <h2 id="rincian-title" class="items-title">{% icon "list" %} Rincian harga</h2>
+      <div class="table-wrap scroll-hint-x">
+        <table class="data-table items-table">
+          <thead><tr><th scope="col">Rincian</th><th scope="col" class="num">Harga</th></tr></thead>
+          <tbody>
+            {% for item in order.item_list %}
+              <tr>
+                <td><b>{{ item.name }}</b>{% if item.note %}<br><span class="muted small">{{ item.note }}</span>{% endif %}</td>
+                <td class="num">{{ item.amount|rupiah }}<span class="muted">{{ item.suffix }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="tfoot-total"><th scope="row">Total Semua</th><td class="num">{{ order.item_sum|rupiah }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  {% endif %}
 
   {% if order.admin_note %}
     <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ order.admin_note|linebreaksbr }}</p></div>
@@ -40,15 +68,38 @@
       <li class="{% if order.status == 'dicek' %}now{% elif order.status == 'diproses' or order.status == 'aktif' or order.status == 'selesai' %}done{% endif %}"><span>3</span>Kami cek pembayaran</li>
       <li class="{% if order.status == 'diproses' %}now{% elif order.status == 'aktif' or order.status == 'selesai' %}done{% endif %}"><span>4</span>Aplikasi aktif</li>
     </ol>
-  {% elif order.status == "konsultasi" %}
-    <p class="next-steps">Kami akan menghubungi Anda untuk membahas kebutuhan website / aplikasi Anda. Perkembangannya akan tampil di halaman ini.</p>
+  {% elif order.needs_consultation %}
+    <div class="consult-box">
+      <span class="consult-icon" aria-hidden="true">{% icon "chat" %}</span>
+      <div class="consult-text">
+        <b>Konsultasi lewat chat</b>
+        <span class="muted small">Bahas kebutuhan website / aplikasi Anda langsung dengan tim kami di ruang obrolan pesanan ini.</span>
+      </div>
+      {% if consultation %}
+        <a class="btn" href="{% url 'akun:chat' consultation.pk %}">{% icon "chat" %}<span>Buka obrolan konsultasi</span>{% if consultation.unread_for_member %}<b class="nav-badge">baru</b>{% endif %}</a>
+      {% else %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="aksi" value="chat"><button class="btn" type="submit">{% icon "chat" %}<span>Buka obrolan konsultasi</span></button></form>
+      {% endif %}
+    </div>
   {% endif %}
 </div>
+
+<section class="akun-card glass verify-card" aria-labelledby="keaslian-title">
+  <div class="verify-qr" aria-hidden="true">{{ qr_svg }}</div>
+  <div class="verify-text">
+    <h2 id="keaslian-title">{% icon "shield" %} Bukti pesanan</h2>
+    <p class="muted small">Scan kode QR untuk memastikan pesanan {{ order.code }} benar terdaftar di HANS Project.</p>
+    <p class="small verify-link"><a href="{{ verify_url }}" target="_blank" rel="noopener">{{ verify_url }}</a></p>
+    <div class="akun-actions no-print">
+      <button class="btn btn-sm" type="button" data-print>{% icon "printer" %}<span>Cetak</span></button>
+    </div>
+  </div>
+</section>
 
 {% if order.can_send_proof %}
   <section class="akun-card glass" aria-labelledby="bayar-title">
     <h2 id="bayar-title">{% icon "wallet" %} Cara bayar</h2>
-    <p>Bayar sebesar <b>{{ order.price_text }}</b> lewat transfer bank atau scan QRIS, lalu kirim foto bukti bayarnya di bawah.</p>
+    <p>Bayar sebesar <b>{% if order.item_list %}{{ order.item_sum|rupiah }}{% else %}{{ order.price_text }}{% endif %}</b> lewat transfer bank atau scan QRIS, lalu kirim foto bukti bayarnya di bawah.</p>
     {% if show_payment %}
       {% if bank_accounts %}
         <ul class="bank-list" role="list">

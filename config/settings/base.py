@@ -24,6 +24,9 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")
 SITE_URL = env_str("SITE_URL", "https://hansproject.app").rstrip("/")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS") or [SITE_URL]
 
+# fields.W161: "versi S&K" (SiteSettings.legal_version) memang sengaja bertanggal tetap.
+SILENCED_SYSTEM_CHECKS = ["fields.W161"]
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

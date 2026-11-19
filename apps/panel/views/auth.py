@@ -101,7 +101,8 @@ class LoginView(View):
             return _render(request, self.template_name, ctx, status=400)
 
         security.record_attempt(username, ip, success=True)
-        if not settings.ADMIN_REQUIRE_2FA and not user.has_2fa:
+        # 2FA tidak diwajibkan (hanya komputer pengembangan): cukup password, walau akun punya Authenticator.
+        if not settings.ADMIN_REQUIRE_2FA:
             request.session[PENDING_NEXT] = next_url
             return _complete_login(request, user)
 

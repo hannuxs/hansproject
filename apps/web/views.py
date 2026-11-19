@@ -88,7 +88,7 @@ def legal_page(request, slug: str):
 def robots_txt(request):
     # Alamat panel sengaja TIDAK ditulis di sini (supaya tidak ketahuan).
     # Panel dilindungi header X-Robots-Tag: noindex.
-    body = f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /akun/\n\nSitemap: {settings.SITE_URL}/sitemap.xml\n"
+    body = f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /akun/\nDisallow: /cek/\n\nSitemap: {settings.SITE_URL}/sitemap.xml\n"
     response = HttpResponse(body, content_type="text/plain; charset=utf-8")
     patch_cache_control(response, public=True, max_age=86400)
     return response
@@ -167,6 +167,34 @@ def contact_click(request):
         except IntegrityError:  # dibuat bersamaan oleh request lain
             ContactClick.objects.filter(date=today, target=target).update(count=F("count") + 1)
     return HttpResponse(status=204)
+
+
+def _mask(text: str) -> str:
+    """'Sari Wulandari' -> 'Sa** Wu******' (cukup untuk dikenali pemiliknya, tidak membuka data lengkap)."""
+    return " ".join(w[:2] + "*" * max(1, len(w) - 2) for w in (text or "").split()) or "–"
+
+
+@require_safe
+def cek_pesanan(request, token: str):
+    """Halaman publik dari kode QR: memastikan pesanan benar terdaftar di HANS Project."""
+    from apps.members.models import Order
+
+    if not 10 <= len(token) <= 40 or not ratelimit.allow(f"cek:{ip_hash(request)}", limit=60, window=600):
+        raise Http404
+    order = Order.objects.filter(verify_token=token).select_related("member").first()
+    if order is None:
+        raise Http404
+    snap = services.get_snapshot()
+    response = HttpResponse(render_to_string("web/cek_pesanan.html", {
+        "order": order,
+        "buyer": _mask(order.customer_name),
+        "business": _mask(order.customer_business),
+        "snap": snap,
+        "site": snap.settings,
+    }, request=request))
+    response["Cache-Control"] = "no-store, max-age=0"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 ALLOWED_MEDIA_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}

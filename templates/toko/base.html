@@ -45,7 +45,7 @@
   <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ store.admin_note|linebreaksbr }}</p></div>
 {% endif %}
 
-<nav class="toko-tabs" aria-label="Menu toko">
+<nav class="toko-tabs scroll-hint-x" aria-label="Menu toko">
   {% for tab in tabs %}
     <a href="{{ tab.url }}"{% if tab.active %} aria-current="page"{% endif %}>{% icon tab.icon %}<span>{{ tab.label }}</span></a>
   {% endfor %}

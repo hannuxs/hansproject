@@ -24,7 +24,7 @@ from apps.content.models import (
     Testimonial,
 )
 from apps.core.images import PHOTO, QR_CODE, RECEIPT, ImageRule, process_image
-from apps.members.models import Member, Order, Refund
+from apps.members.models import Member, Order, OrderItem, Refund
 
 
 class PanelFormRenderer(TemplatesSetting):
@@ -283,6 +283,16 @@ class OrderAdminForm(forms.ModelForm):
         if commit:
             order.save()
         return order
+
+
+OrderItemFormSet = inlineformset_factory(
+    Order, OrderItem, fields=["name", "amount", "period", "note"],
+    extra=1, can_delete=True, max_num=40, validate_max=True,
+    widgets={
+        "period": forms.TextInput(attrs={"placeholder": "mis. 1 tahun, 3 bulan, 14 hari"}),
+        "note": forms.TextInput(attrs={"placeholder": "opsional"}),
+    },
+)
 
 
 class RefundAdminForm(ImageUploadMixin, forms.ModelForm):

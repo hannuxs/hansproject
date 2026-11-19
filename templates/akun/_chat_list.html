@@ -3,7 +3,7 @@
     <li>
       <a class="order-item chat-item{% if c.unread_for_member %} is-unread{% endif %}" href="{% url 'akun:chat' c.pk %}">
         <span class="order-main">
-          <b>{{ c.get_topic_display }}</b>
+          <b>{{ c.title }}</b>
           <span class="muted">Dibuka {{ c.created_at|date:"j M Y" }}{% if c.last_message_at %} · terakhir {{ c.last_message_at|date:"j M, H:i" }}{% endif %}</span>
         </span>
         {% if c.unread_for_member %}<span class="status status-wait">Balasan baru</span>{% endif %}

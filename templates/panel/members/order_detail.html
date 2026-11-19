@@ -31,6 +31,10 @@
   {% elif object.package_category == "kasir" %}
     <p class="muted">Pelanggan belum mengirim bukti bayar.</p>
   {% endif %}
+  {% if object.verify_token %}<p class="field-help">Halaman keaslian (dari QR di bukti pesanan): <a href="{{ object.verify_path }}" target="_blank" rel="noopener">{{ object.verify_path }}</a></p>{% endif %}
+  {% with c=object.consultation_chat %}
+    {% if c %}<p><a class="btn btn-sm" href="{% url 'panel:chat' c.pk %}">{% icon "chat" %} Buka obrolan konsultasi ({{ c.get_status_display|lower }})</a></p>{% endif %}
+  {% endwith %}
   {% with r=object.refund_or_none %}
     {% if r %}
       <p class="field-label">Refund</p>

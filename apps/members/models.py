@@ -22,6 +22,11 @@ def new_order_code() -> str:
     return "HP-" + "".join(secrets.choice(ORDER_CODE_ALPHABET) for _ in range(6))
 
 
+def new_verify_token() -> str:
+    """Kode acak untuk halaman publik "cek keaslian pesanan" (tidak bisa ditebak dari kode pesanan)."""
+    return secrets.token_urlsafe(18)
+
+
 phone_validator = RegexValidator(r"^62\d{8,13}$", "Nomor HP tidak valid.")
 
 
@@ -141,6 +146,9 @@ class Order(models.Model):
         "pos.Store", null=True, blank=True, on_delete=models.SET_NULL, related_name="orders", verbose_name="toko"
     )
     activated_at = models.DateTimeField("diaktifkan", null=True, blank=True, editable=False)
+    verify_token = models.CharField(
+        "kode keaslian", max_length=32, unique=True, null=True, editable=False, default=new_verify_token
+    )
     quantity = models.PositiveSmallIntegerField(
         "jumlah", default=1, help_text="Untuk pesanan tambahan toko: berapa toko/cabang yang ditambah."
     )
@@ -181,6 +189,24 @@ class Order(models.Model):
         if self.is_addon:
             return f"Tambah {self.quantity} toko"
         return f"Paket {self.package_name}"
+
+    # --- Rincian harga (diisi admin per pesanan, mis. Paket Rimba) ---
+    @property
+    def item_list(self) -> list:
+        if not hasattr(self, "_item_list"):
+            self._item_list = list(self.items.all()) if self.pk else []
+        return self._item_list
+
+    @property
+    def item_sum(self) -> int:
+        """Total semua rincian = nominal yang dibayar pelanggan."""
+        return sum(item.amount for item in self.item_list)
+
+    @property
+    def verify_path(self) -> str:
+        from django.urls import reverse
+
+        return reverse("web:cek-pesanan", args=[self.verify_token]) if self.verify_token else ""
 
     @property
     def is_addon(self) -> bool:
@@ -247,6 +273,15 @@ class Order(models.Model):
             return None
 
     @property
+    def needs_consultation(self) -> bool:
+        """Pesanan jasa (mis. Paket Rimba) yang dibahas lewat obrolan konsultasi."""
+        return not self.is_pos and self.status in (self.STATUS_CONSULT, self.STATUS_PROCESS)
+
+    @property
+    def consultation_chat(self):
+        return self.chats.order_by("-pk").first() if self.pk else None
+
+    @property
     def can_request_refund(self) -> bool:
         """Pesanan yang sudah dibayar lalu dibatalkan (oleh pelanggan atau admin) bisa diajukan refund."""
         return self.status == self.STATUS_CANCELLED and self.is_paid and self.refund_or_none is None
@@ -261,8 +296,37 @@ class Order(models.Model):
         return "wait"
 
 
+class OrderItem(models.Model):
+    """Satu baris rincian harga pesanan, diketik admin (mis. Domain Rp250.000/tahun)."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    name = models.CharField("rincian", max_length=120, help_text="Contoh: Domain .com, Database, Konsultasi.")
+    amount = models.PositiveIntegerField("harga (Rp)")
+    period = models.CharField(
+        "periode", max_length=40, blank=True, default="",
+        help_text="Diketik bebas, mis. 1 tahun, 3 bulan, 14 hari. Kosongkan bila sekali bayar.",
+    )
+    note = models.CharField("keterangan", max_length=200, blank=True)
+    sort = models.PositiveSmallIntegerField("urutan", default=0)
+
+    class Meta:
+        db_table = "hp_member_order_item"
+        ordering = ["sort", "id"]
+        verbose_name = "rincian harga"
+        verbose_name_plural = "rincian harga"
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def suffix(self) -> str:
+        """' / 3 bulan' (kosong bila sekali bayar)."""
+        return f" / {self.period}" if self.period else ""
+
+
 TOPICS = [
     ("umum", "Pertanyaan umum"),
+    ("konsultasi", "Konsultasi pesanan"),
     ("kasir", "Aplikasi kasir"),
     ("pesanan", "Pesanan saya"),
     ("refund", "Refund / pengembalian dana"),
@@ -332,6 +396,10 @@ class Conversation(models.Model):
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="chats", verbose_name="pelanggan")
     topic = models.CharField("topik", max_length=20, choices=TOPICS, default="umum")
+    # Obrolan konsultasi yang terikat ke satu pesanan (mis. Paket Rimba). Tidak dihitung batas obrolan aktif.
+    order = models.ForeignKey(
+        Order, null=True, blank=True, on_delete=models.SET_NULL, related_name="chats", verbose_name="pesanan"
+    )
     status = models.CharField("status", max_length=8, choices=STATUSES, default=STATUS_OPEN, db_index=True)
     created_at = models.DateTimeField("dibuat", default=timezone.now)
     closed_at = models.DateTimeField("ditutup", null=True, blank=True)
@@ -347,7 +415,13 @@ class Conversation(models.Model):
         verbose_name_plural = "obrolan"
 
     def __str__(self) -> str:
-        return f"Obrolan #{self.pk} — {self.get_topic_display()}"
+        return f"Obrolan #{self.pk} — {self.title}"
+
+    @property
+    def title(self) -> str:
+        if self.order_id:
+            return f"Konsultasi {self.order.code} · {self.order.title}"
+        return self.get_topic_display()
 
     @property
     def is_open(self) -> bool:

@@ -27,6 +27,32 @@
     syncConsent();
   }
 
+  /* Penanda geser ke samping (.scroll-hint-x). Browser tanpa scroll-driven animation: hitung dari posisi geser. */
+  var hints = Array.prototype.slice.call(document.querySelectorAll(".scroll-hint-x"));
+  if (hints.length && !(window.CSS && CSS.supports && CSS.supports("animation-timeline", "scroll()"))) {
+    var updateHint = function (el) {
+      var max = el.scrollWidth - el.clientWidth;
+      el.classList.toggle("more-start", el.scrollLeft > 2);
+      el.classList.toggle("more-end", el.scrollLeft < max - 2);
+    };
+    hints.forEach(function (el) {
+      updateHint(el);
+      el.addEventListener("scroll", function () { updateHint(el); }, { passive: true });
+    });
+    window.addEventListener("resize", function () { hints.forEach(updateHint); });
+  }
+  /* Menu toko yang digeser: pastikan menu aktif terlihat (hanya menggeser menunya, bukan halaman). */
+  var activeTab = document.querySelector(".toko-tabs [aria-current]");
+  if (activeTab) {
+    var tabs = activeTab.parentNode;
+    if (tabs.scrollWidth > tabs.clientWidth) tabs.scrollLeft = Math.max(0, activeTab.offsetLeft - tabs.offsetLeft - 24);
+  }
+
+  /* Tombol cetak biasa: <button data-print> (tampilan cetak diatur CSS @media print). */
+  document.addEventListener("click", function (ev) {
+    if (ev.target.closest && ev.target.closest("[data-print]")) window.print();
+  });
+
   /* Formulir yang perlu konfirmasi, mis. batalkan pesanan: <form data-confirm="..."> */
   document.addEventListener("submit", function (ev) {
     var msg = ev.target.getAttribute && ev.target.getAttribute("data-confirm");

@@ -20,7 +20,7 @@ from apps.content.models import LEGAL_VERSION_DEFAULT
 from apps.members import auth, google
 from apps.members.models import Member, MemberSession, Order
 
-from .helpers import SeededTestCase, login_fully, make_admin
+from .helpers import ORDER_FORMSET_EMPTY, SeededTestCase, login_fully, make_admin
 
 CLIENT_ID = settings.GOOGLE_CLIENT_ID
 
@@ -400,7 +400,7 @@ class OrderTests(PrivateMediaMixin, SeededTestCase):
         page = admin.get(reverse("panel:pesanan-update", args=[order.pk]))
         self.assertContains(page, "Warung Budi")
         self.assertEqual(admin.get(reverse("panel:pesanan-bukti", args=[order.pk])).status_code, 200)
-        admin.post(reverse("panel:pesanan-update", args=[order.pk]), {"status": "aktif", "admin_note": "Link aplikasi: https://contoh"})
+        admin.post(reverse("panel:pesanan-update", args=[order.pk]), {"status": "aktif", "admin_note": "Link aplikasi: https://contoh", **ORDER_FORMSET_EMPTY})
         page = self.client.get(f"/akun/pesanan/{order.code}/")
         self.assertContains(page, "Aktif")
         self.assertContains(page, "Link aplikasi")

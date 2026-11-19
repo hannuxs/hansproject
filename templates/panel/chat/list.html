@@ -17,7 +17,7 @@
         {% for c in page.object_list %}
           <tr>
             <td data-label="Pelanggan"><a class="row-link" href="{% url 'panel:chat' c.pk %}">{{ c.member.display_name }}</a>{% if c.unread_for_admin %} <span class="badge">Baru</span>{% endif %}<br><span class="muted">{{ c.member.business_name }}</span></td>
-            <td data-label="Topik">{{ c.get_topic_display }}</td>
+            <td data-label="Topik">{% if c.order %}<a href="{% url 'panel:pesanan-update' c.order_id %}">{{ c.order.code }}</a> · {{ c.order.title }}{% else %}{{ c.get_topic_display }}{% endif %}</td>
             <td data-label="Pesan terakhir">{{ c.last_message_at|date:"j M Y, H:i"|default:"–" }}<br><span class="muted">dari {% if c.last_sender == "admin" %}kita{% else %}pelanggan{% endif %}</span></td>
             <td data-label="Status">{{ c.get_status_display }}</td>
           </tr>

@@ -82,7 +82,7 @@
     {% endif %}
     <details class="table-toggle">
       <summary>Lihat sebagai tabel</summary>
-      <div class="table-wrap">
+      <div class="table-wrap scroll-hint-x">
         <table class="data-table">
           <thead><tr><th scope="col">Tanggal</th><th scope="col" class="num">Penjualan</th></tr></thead>
           <tbody>{% for d in overview.trend %}<tr><td>{{ d.day|date:"D, j M Y" }}</td><td class="num">{{ d.total|rupiah }}</td></tr>{% endfor %}</tbody>
@@ -93,7 +93,7 @@
 
   <section class="akun-card glass" aria-labelledby="outlet-title">
     <h2 id="outlet-title">{% icon "store" %} Per toko</h2>
-    <div class="table-wrap">
+    <div class="table-wrap scroll-hint-x">
       <table class="data-table">
         <thead><tr><th scope="col">Toko</th><th scope="col" class="num">Hari ini</th><th scope="col" class="num">Bulan ini</th><th scope="col">Keadaan</th></tr></thead>
         <tbody>

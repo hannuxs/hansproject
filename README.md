@@ -83,6 +83,7 @@ Semua setelan teknis ada di file **`.env`** (buka dengan Notepad). Setiap baris 
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Koneksi MariaDB |
 | `MARIADB_BIN_DIR` | Folder program MariaDB, untuk backup (kosongkan = dicari otomatis) |
 | `ADMIN_SESSION_MINUTES` | Admin otomatis keluar setelah sekian menit tidak aktif |
+| `ADMIN_REQUIRE_2FA` | Kode Authenticator saat masuk panel. **Server produksi selalu wajib** (setelan ini diabaikan). Komputer pengembangan: bawaan `false` (cukup password); isi `true` untuk mencoba alur 2FA |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Kunci login Google untuk pelanggan (lihat bagian di bawah). Client Secret itu **rahasia** |
 | `SERVER_PORT` | Port website di komputer ini. Bawaan **8432** |
 | `STORE_BASE_DOMAIN` | Domain alamat toko kasir: `<nama>.hansproject.app`. Semua subdomain toko otomatis diizinkan. Di komputer pengembangan kosongkan (otomatis `localhost`) |
@@ -174,10 +175,14 @@ Setelah masuk, pelanggan berada di **area akun** dengan menu sendiri: menu atas 
 | **Dashboard** (halaman pertama) | Pengumuman dari panel (bila ada), hal yang perlu perhatian (balasan chat baru, masa aktif hampir habis, belum ada akun kasir, pesanan & refund berjalan), penjualan **semua toko & outlet** (hari ini, 7 hari, bulan ini, rata-rata), grafik 14 hari, tabel per toko & outlet, barang terlaris, transaksi terbaru |
 | **Pesanan** | Pesanan berjalan, riwayat, dan status **refund** |
 | **Toko** (tombol tengah) | Semua toko + ringkasan penjualan; masuk ke dashboard tiap toko |
-| **Chat** | Obrolan dengan HANS Project: gelembung pesan, kirim teks/gambar, balas pesan tertentu. Obrolan yang ditutup admin menjadi **Selesai** (tidak bisa dibalas, tetap ada di riwayat); keperluan baru = obrolan baru. Maksimal 3 obrolan aktif |
+| **Chat** | (Pesanan jasa seperti Paket Rimba otomatis punya **obrolan konsultasi** yang terikat ke pesanannya: tombol *Buka obrolan konsultasi* di halaman pesanan; obrolan yang sama muncul di Chat Pelanggan panel dengan kode pesanannya, dan tidak dihitung batas 3 obrolan aktif.) Obrolan dengan HANS Project: gelembung pesan, kirim teks/gambar, balas pesan tertentu. Obrolan yang ditutup admin menjadi **Selesai** (tidak bisa dibalas, tetap ada di riwayat); keperluan baru = obrolan baru. Maksimal 3 obrolan aktif |
 | **Akun** | Data diri, keluar (juga dari semua perangkat), dan waktu persetujuan S&K |
 
 **Tambah toko (cabang):** satu langganan kasir berisi beberapa toko sesuai paket (Tunas 2, Tumbuh 10) ditambah toko tambahan yang dibeli. Menu **Toko** menampilkan jumlahnya, misalnya **1 / 3** (Paket Tunas 2 + tambahan 1). Tombol **Tambah toko** membuka halaman khusus: bila kuota masih ada, pelanggan langsung membuat toko baru (dengan akun kasirnya); bila penuh, pelanggan bisa **membeli toko tambahan** (harga dari Biaya Tambahan → Tambah toko/cabang) atau naik paket. Pembelian toko tambahan menjadi pesanan jenis *Tambahan toko*; saat Anda ubah menjadi **Aktif**, kuota langsung bertambah. Toko tambahan ikut dihitung di setiap perpanjangan (contoh: Tunas + 2 toko = Rp25.000 + 2 × Rp15.000 = Rp55.000/bulan). Tombol **Pesan paket** di akun membuka halaman pilih paket di dalam akun (langganan baru dengan alamat kasir sendiri).
+
+**Rincian harga per pesanan:** di panel → Pesanan → ubah, bagian **Rincian harga**, Anda bisa mengetik baris harga sendiri berisi nama, harga, periode (diketik bebas, mis. "1 tahun", "3 bulan", "14 hari"; kosongkan bila sekali bayar), dan keterangan. Contoh: Pembuatan website Rp349.000 (periode kosong), Domain Rp250.000 / 1 tahun, Database Rp150.000 / 3 bulan. Bila diisi, rincian ini menggantikan teks harga paket di halaman pesanan pelanggan, dan **Total Semua** (nominal yang dibayar & dasar refund) = jumlah semua baris. Cocok untuk Paket Rimba: setelah konsultasi, isi rincian lalu ubah status menjadi *Menunggu pembayaran*.
+
+**Bukti pesanan & QR keaslian:** setiap pesanan punya kode QR menuju halaman publik `/cek/<kode-acak>/` yang menampilkan kode, layanan, status, tanggal, rincian harga, dan nama pemesan yang disamarkan (tidak diindeks Google). Tombol **Cetak** di halaman pesanan mencetak bukti pesanan rapi (tanpa menu & tombol) memakai fitur cetak bawaan browser.
 
 **Refund:** pelanggan bisa membatalkan pesanan yang **sudah dibayar tetapi belum aktif**; Anda juga bisa membatalkan pesanan apa pun di panel (misalnya karena kesalahan kita). Pesanan yang sudah dibayar lalu dibatalkan menampilkan formulir **Ajukan refund** (rekening atas nama pelanggan). Proses di menu **Refund**: transfer, unggah bukti, ubah status. Nominal awal = harga saat dipesan; ubah bila pengembalian sebagian (per hari).
 

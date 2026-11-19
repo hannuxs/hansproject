@@ -13,7 +13,7 @@ from apps.members.models import ChatMessage, Conversation, Order, Refund
 from apps.pos import services
 from apps.pos.models import Product
 
-from .helpers import SeededTestCase, login_fully, make_admin
+from .helpers import ORDER_FORMSET_EMPTY, SeededTestCase, login_fully, make_admin
 from .test_members import PrivateMediaMixin, login_member, make_member, png_upload
 from .test_pos import make_cashier, make_store
 
@@ -332,7 +332,7 @@ class StoreQuotaTests(SeededTestCase):
         self.assertEqual((order.amount, order.quantity, order.store), (15000, 1, self.store))
         self.assertEqual(order.title, "Tambah 1 toko")
         self.assertEqual(self.client.get(url)["Location"], f"/akun/pesanan/{order.code}/")  # satu pesanan terbuka saja
-        self.admin.post(reverse("panel:pesanan-update", args=[order.pk]), {"status": "aktif", "admin_note": ""})
+        self.admin.post(reverse("panel:pesanan-update", args=[order.pk]), {"status": "aktif", "admin_note": "", **ORDER_FORMSET_EMPTY})
         self.store.refresh_from_db()
         self.assertEqual((self.store.extra_outlets, self.store.outlet_limit), (1, 3))
         self.assertContains(self.client.get("/akun/toko/"), "<b>1</b> / 3")
@@ -353,3 +353,111 @@ class StoreQuotaTests(SeededTestCase):
     def test_chat_page_fits_screen(self):
         conv = Conversation.objects.create(member=self.member)
         self.assertContains(self.client.get(f"/akun/chat/{conv.pk}/"), "akun-chat")
+
+
+class ConsultationChatTests(SeededTestCase):
+    """Pesanan jasa (Paket Rimba): tombol ke ruang obrolan konsultasi yang sama di akun & panel."""
+
+    def setUp(self):
+        super().setUp()
+        self.member = make_member()
+        login_member(self.client, self.member)
+
+    def test_rimba_order_opens_linked_chat(self):
+        self.client.post("/akun/pesan/rimba/")
+        order = Order.objects.get()
+        self.assertEqual(order.status, Order.STATUS_CONSULT)
+        conv = Conversation.objects.get(order=order)
+        self.assertEqual((conv.member, conv.topic), (self.member, "konsultasi"))
+        self.assertIn(order.code, conv.messages.get().text)  # pesan pembuka dari HANS Project
+        page = self.client.get(f"/akun/pesanan/{order.code}/")
+        self.assertContains(page, "Buka obrolan konsultasi")
+        self.assertContains(page, f'href="/akun/chat/{conv.pk}/"')
+        self.assertNotContains(page, "Kami akan menghubungi Anda")
+        chat_page = self.client.get(f"/akun/chat/{conv.pk}/")
+        self.assertContains(chat_page, f"Pesanan {order.code}")
+        admin = Client(HTTP_HOST="testserver")
+        login_fully(admin, make_admin(with_2fa=True))
+        self.assertContains(admin.get(reverse("panel:chat-list") + "?filter=semua"), order.code)
+        self.assertContains(admin.get(reverse("panel:pesanan-update", args=[order.pk])), "Buka obrolan konsultasi")
+
+    def test_old_order_without_chat_gets_one_from_button(self):
+        from apps.content.models import Package
+
+        pkg = Package.objects.get(code="rimba")
+        order = Order.objects.create(member=self.member, package=pkg, package_name="Rimba", package_category="jasa",
+                                     price_text=pkg.price_text, status=Order.STATUS_CONSULT)
+        page = self.client.get(f"/akun/pesanan/{order.code}/")
+        self.assertContains(page, 'name="aksi" value="chat"')
+        r = self.client.post(f"/akun/pesanan/{order.code}/", {"aksi": "chat"})
+        conv = Conversation.objects.get(order=order)
+        self.assertEqual(r["Location"], f"/akun/chat/{conv.pk}/")
+        self.client.post(f"/akun/pesanan/{order.code}/", {"aksi": "chat"})
+        self.assertEqual(Conversation.objects.filter(order=order).count(), 1)  # tidak dobel
+
+    def test_consultation_chat_not_counted_in_open_limit(self):
+        self.client.post("/akun/pesan/rimba/")
+        for text in ["Satu", "Dua", "Tiga"]:
+            r = self.client.post("/akun/chat/baru/", {"topic": "umum", "text": text})
+            self.assertEqual(r.status_code, 302)
+        self.assertEqual(Conversation.objects.filter(member=self.member, status="terbuka").count(), 4)
+
+    def test_store_menu_has_scroll_hint_and_grid(self):
+        store = make_store(self.member)
+        page = self.client.get(reverse("toko:ringkasan", args=[store.subdomain]))
+        self.assertContains(page, 'class="toko-tabs scroll-hint-x"')
+
+
+class OrderItemsAndVerifyTests(SeededTestCase):
+    """Rincian harga manual (Paket Rimba), QR keaslian ke halaman publik, dan tombol cetak."""
+
+    def setUp(self):
+        super().setUp()
+        self.member = make_member(name="Sari Wulandari")
+        login_member(self.client, self.member)
+        self.client.post("/akun/pesan/rimba/")
+        self.order = Order.objects.get()
+        self.admin = Client(HTTP_HOST="testserver")
+        login_fully(self.admin, make_admin(with_2fa=True))
+
+    def save_items(self, rows, status="bayar"):
+        data = {"status": status, "admin_note": "", "rincian-TOTAL_FORMS": str(len(rows)), "rincian-INITIAL_FORMS": "0"}
+        for i, (name, amount, period) in enumerate(rows):
+            data.update({f"rincian-{i}-name": name, f"rincian-{i}-amount": str(amount), f"rincian-{i}-period": period,
+                         f"rincian-{i}-note": ""})
+        return self.admin.post(reverse("panel:pesanan-update", args=[self.order.pk]), data)
+
+    def test_admin_types_price_lines(self):
+        self.assertContains(self.admin.get(reverse("panel:pesanan-update", args=[self.order.pk])), "Rincian harga")
+        r = self.save_items([("Pembuatan website", 349000, ""), ("Domain .com", 250000, "1 tahun"), ("Database", 50000, "3 bulan"), ("Konsultasi", 2000, "14 hari")])
+        self.assertEqual(r.status_code, 302)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.amount, 651000)
+        page = self.client.get(f"/akun/pesanan/{self.order.code}/")
+        for text in ["Domain .com", "Rp250.000", " / 1 tahun", " / 3 bulan", " / 14 hari", "Total Semua", "Rp651.000"]:
+            self.assertContains(page, text)
+        self.assertNotContains(page, "Tagihan pertama")
+        self.assertEqual([i.name for i in self.order.items.all()], ["Pembuatan website", "Domain .com", "Database", "Konsultasi"])
+        self.assertNotContains(page, "mulai Rp349.000 biaya pembuatan")
+        self.assertContains(page, "Bayar sebesar <b>Rp651.000</b>")  # status Menunggu pembayaran
+
+    def test_qr_links_to_public_verify_page(self):
+        page = self.client.get(f"/akun/pesanan/{self.order.code}/")
+        self.assertContains(page, "<svg")
+        self.assertContains(page, f"/cek/{self.order.verify_token}/")
+        self.assertContains(page, "data-print")
+        public = Client(HTTP_HOST="testserver").get(f"/cek/{self.order.verify_token}/")
+        self.assertContains(public, "Pesanan terdaftar di HANS Project")
+        self.assertContains(public, self.order.code)
+        self.assertContains(public, "Sa** Wu******")
+        self.assertNotContains(public, "Sari Wulandari")
+        self.assertNotContains(public, self.member.email)
+        self.assertIn("noindex", public["X-Robots-Tag"])
+        self.assertEqual(Client(HTTP_HOST="testserver").get(f"/cek/{self.order.code}/").status_code, 404)  # kode pesanan saja tidak cukup
+        self.assertEqual(Client(HTTP_HOST="testserver").get("/cek/kode-asal-asalan-123/").status_code, 404)
+
+    def test_tokens_unique_per_order(self):
+        self.client.post("/akun/pesan/tunas/", {"subdomain": "tokounik"})
+        tokens = list(Order.objects.values_list("verify_token", flat=True))
+        self.assertEqual(len(set(tokens)), len(tokens))
+        self.assertTrue(all(len(t) >= 20 for t in tokens))

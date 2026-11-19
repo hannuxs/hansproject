@@ -185,6 +185,17 @@ ORDERS = Section(
         Column("get_status_display", "Status"),
         Column("created_at", "Dipesan", "muted"),
     ],
+    inlines=[
+        InlineSpec(
+            "rincian", "Rincian harga", forms.OrderItemFormSet,
+            help=(
+                "Opsional, terutama untuk Paket Rimba. Bila diisi, rincian ini menggantikan teks harga paket di halaman "
+                "pesanan, dan Total Semua (yang dibayar pelanggan) = jumlah semua rincian. Periode diketik bebas, "
+                "kosongkan bila sekali bayar. Contoh: Pembuatan website Rp349.000 (periode kosong), "
+                "Domain .com Rp250.000 (1 tahun), Database Rp150.000 (3 bulan). Baris tampil sesuai urutan diisi."
+            ),
+        )
+    ],
     can_create=False,
     can_delete=False,
     orderable=False,

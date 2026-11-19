@@ -10,7 +10,7 @@
     <span class="avatar chat-avatar" aria-hidden="true">H</span>
     <div>
       <h1 id="chat-title">HANS Project</h1>
-      <p class="muted small">{{ conversation.get_topic_display }} · dibuka {{ conversation.created_at|date:"j M Y" }}</p>
+      <p class="muted small">{% if conversation.order %}<a href="{% url 'akun:pesanan' conversation.order.code %}">Pesanan {{ conversation.order.code }} · {{ conversation.order.title }}</a>{% else %}{{ conversation.get_topic_display }}{% endif %} · dibuka {{ conversation.created_at|date:"j M Y" }}</p>
     </div>
     <span class="status status-{% if conversation.is_open %}ok{% else %}off{% endif %}">{{ conversation.get_status_display }}</span>
   </header>

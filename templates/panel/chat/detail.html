@@ -9,7 +9,7 @@
       <span class="avatar chat-avatar" aria-hidden="true">{{ conversation.member.initial }}</span>
       <div>
         <h2 id="chat-title">{{ conversation.member.display_name }}</h2>
-        <p class="muted">{{ conversation.get_topic_display }} · dibuka {{ conversation.created_at|date:"j M Y, H:i" }}</p>
+        <p class="muted">{% if conversation.order %}<a href="{% url 'panel:pesanan-update' conversation.order_id %}">Pesanan {{ conversation.order.code }} · {{ conversation.order.title }}</a>{% else %}{{ conversation.get_topic_display }}{% endif %} · dibuka {{ conversation.created_at|date:"j M Y, H:i" }}</p>
       </div>
       <span class="badge {% if not conversation.is_open %}badge-soft{% endif %}">{{ conversation.get_status_display }}</span>
     </header>

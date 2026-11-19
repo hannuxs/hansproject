@@ -16,6 +16,7 @@ from pathlib import Path  # noqa: E402
 
 PRIVATE_MEDIA_ROOT = Path(tempfile.gettempdir()) / "hansproject-test-private"
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+ADMIN_REQUIRE_2FA = True  # tes memakai alur 2FA seperti server produksi
 LOGGING = build_logging(LOG_DIR, "CRITICAL", False)
 INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "whitenoise.runserver_nostatic"]  # noqa: F405
 

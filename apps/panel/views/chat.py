@@ -32,7 +32,7 @@ class ChatListView(PanelAccessMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         current = self.request.GET.get("filter", "perlu-dibalas")
         current = current if current in dict(FILTERS) else "perlu-dibalas"
-        qs = Conversation.objects.select_related("member")
+        qs = Conversation.objects.select_related("member", "order")
         if current == "perlu-dibalas":
             qs = qs.filter(status=Conversation.STATUS_OPEN, last_sender=ChatMessage.SENDER_MEMBER)
         elif current in (Conversation.STATUS_OPEN, Conversation.STATUS_CLOSED):

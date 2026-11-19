@@ -10,11 +10,11 @@
   </div>
   <ul class="kv" role="list">
     <li><span>Waktu</span><b>{{ sale.created_at|date:"j F Y, H:i" }}</b></li>
-    <li><span>Outlet</span><b>{{ sale.outlet.name }}</b></li>
+    <li><span>Toko</span><b>{{ sale.outlet.name }}</b></li>
     <li><span>Kasir</span><b>{{ sale.cashier_name }}</b></li>
     <li><span>Cara bayar</span><b>{{ sale.get_method_display }}</b></li>
   </ul>
-  <div class="table-wrap">
+  <div class="table-wrap scroll-hint-x">
     <table class="data-table">
       <thead><tr><th scope="col">Barang</th><th scope="col" class="num">Jumlah</th><th scope="col" class="num">Harga</th><th scope="col" class="num">Total</th></tr></thead>
       <tbody>

@@ -24,7 +24,7 @@ from apps.core.privacy import ip_hash
 from apps.pos import services as pos_services
 from apps.pos.forms import NewStoreOrderForm
 
-from . import auth, charts, chat, files, google
+from . import auth, charts, chat, files, google, qr
 from .forms import ChatMessageForm, ChatStartForm, PaymentProofForm, ProfileForm, RefundRequestForm
 from .models import TOPIC_KEYS, ChatMessage, Conversation, Member, Order, Refund
 from .navigation import akun_tabs
@@ -374,6 +374,8 @@ def pesan(request, code: str):
                 status=Order.STATUS_PAYMENT if package.is_pos else Order.STATUS_CONSULT,
             )
             log.info("Pesanan baru %s (paket %s) oleh pelanggan #%s.", order.code, package.code, member.pk)
+            if order.needs_consultation:
+                chat.order_chat(order)  # ruang obrolan konsultasi langsung tersedia (akun & panel)
             return redirect(_with_query(reverse("akun:pesanan", args=[order.code]), ok="dibuat"))
     stores = list(member.stores.not_deleted()) if package.is_pos else []
     return _render(
@@ -416,6 +418,8 @@ def pesanan(request, code: str):
                 files.replace_proof(order, form.cleaned_data["proof"])
                 log.info("Bukti bayar dikirim untuk pesanan %s.", order.code)
                 return redirect(_with_query(reverse("akun:pesanan", args=[order.code]), ok="bukti"))
+        elif action == "chat" and order.needs_consultation:
+            return redirect("akun:chat", pk=chat.order_chat(order).pk)
         elif action == "refund" and order.can_request_refund:
             refund_form = RefundRequestForm(request.POST)
             if refund_form.is_valid():
@@ -436,6 +440,9 @@ def pesanan(request, code: str):
             "order": order,
             "form": form,
             "refund": order.refund_or_none,
+            "consultation": order.consultation_chat if order.needs_consultation else None,
+            "qr_svg": qr.order_qr_svg(order),
+            "verify_url": qr.verify_url(order),
             "refund_form": refund_form,
             "show_payment": show_payment,
             "bank_accounts": snap.bank_accounts if show_payment else [],
@@ -474,14 +481,14 @@ def _own_chat(request, pk: int) -> Conversation:
 @require_safe
 @auth.member_required
 def chat_list(request):
-    chats = list(request.member.chats.all())
+    chats = list(request.member.chats.select_related("order"))
     return _render(
         request,
         "akun/chat_list.html",
         {
             "open_chats": [c for c in chats if c.is_open],
             "closed_chats": [c for c in chats if not c.is_open],
-            "can_open": sum(1 for c in chats if c.is_open) < Conversation.MAX_OPEN,
+            "can_open": sum(1 for c in chats if c.is_open and not c.order_id) < Conversation.MAX_OPEN,
             "page_title": "Chat",
         },
         tab="chat",
@@ -494,7 +501,7 @@ def chat_baru(request):
     member = request.member
     topic = request.GET.get("topik", "umum")
     form = ChatStartForm(request.POST or None, request.FILES or None, initial={"topic": topic if topic in TOPIC_KEYS else "umum"})
-    open_count = member.chats.filter(status=Conversation.STATUS_OPEN).count()
+    open_count = member.chats.filter(status=Conversation.STATUS_OPEN, order__isnull=True).count()
     if request.method == "POST" and form.is_valid():
         if open_count >= Conversation.MAX_OPEN:
             form.add_error(None, "Anda masih punya beberapa obrolan yang terbuka. Lanjutkan di obrolan itu, ya.")

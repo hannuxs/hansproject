@@ -81,3 +81,23 @@ def render_messages(messages, *, viewer: str, request=None) -> str:
         {"messages": messages, "viewer": viewer, "conversation": conversation, "show_days": False},
         request=request,
     )
+
+
+INTRO = (
+    "Terima kasih sudah memesan {title} ({code}). Ceritakan kebutuhan Anda di sini: tujuan website/aplikasi, "
+    "fitur yang diinginkan, contoh yang Anda suka, dan target selesai. Boleh kirim gambar atau sketsa. "
+    "Kami balas di obrolan ini."
+)
+
+
+def order_chat(order) -> Conversation:
+    """Obrolan konsultasi untuk satu pesanan: dipakai bila masih terbuka, dibuat baru bila belum ada/sudah selesai.
+
+    Obrolan yang sama tampil di menu Chat pelanggan dan di Chat Pelanggan (panel).
+    """
+    existing = order.chats.filter(status=Conversation.STATUS_OPEN).order_by("-pk").first()
+    if existing:
+        return existing
+    conversation = Conversation.objects.create(member=order.member, topic="konsultasi", order=order)
+    post_message(conversation, sender=ChatMessage.SENDER_ADMIN, text=INTRO.format(title=order.title, code=order.code))
+    return conversation

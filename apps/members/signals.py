@@ -8,10 +8,10 @@
   bersama datanya.
 """
 from django.db.models import Q
-from django.db.models.signals import post_delete, pre_delete
+from django.db.models.signals import post_delete, post_save, pre_delete
 from django.dispatch import receiver
 
-from .models import ChatMessage, Member, Order, Refund
+from .models import ChatMessage, Member, Order, OrderItem, Refund
 
 
 def _paid(qs):
@@ -50,3 +50,13 @@ def delete_refund_proof(sender, instance: Refund, **kwargs):
 @receiver(post_delete, sender=ChatMessage)
 def delete_chat_image(sender, instance: ChatMessage, **kwargs):
     _delete_file(instance.image)
+
+
+@receiver(post_save, sender=OrderItem)
+@receiver(post_delete, sender=OrderItem)
+def sync_order_amount(sender, instance: OrderItem, **kwargs):
+    """Nominal tagihan pesanan = jumlah rincian harga (bila rinciannya diisi admin)."""
+    items = OrderItem.objects.filter(order_id=instance.order_id)
+    if items.exists():
+        total = sum(items.values_list("amount", flat=True))
+        Order.objects.filter(pk=instance.order_id).update(amount=total)

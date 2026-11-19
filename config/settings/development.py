@@ -5,6 +5,9 @@ from .base import *  # noqa: F401,F403
 from .base import BASE_DIR, LOG_DIR, LOG_LEVEL, build_logging
 
 DEBUG = env_bool("DEBUG", True)
+# Komputer pengembangan: masuk panel cukup dengan password (tanpa kode Authenticator).
+# Server produksi SELALU mewajibkan 2FA (lihat production.py). Nyalakan lagi: ADMIN_REQUIRE_2FA=true di .env.
+ADMIN_REQUIRE_2FA = env_bool("ADMIN_REQUIRE_2FA", False)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 SITE_URL = env_str("SITE_URL", "http://127.0.0.1:8432").rstrip("/")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS") or [SITE_URL]

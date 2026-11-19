@@ -15,4 +15,5 @@ urlpatterns = [
     path("favicon.ico", views.favicon),
     path("api/klik/", views.contact_click, name="contact-click"),
     path("sehat/", views.health, name="health"),
+    path("cek/<str:token>/", views.cek_pesanan, name="cek-pesanan"),
 ]

@@ -170,7 +170,7 @@ class ActivationTests(SeededTestCase):
         return Order.objects.latest("created_at")
 
     def activate(self, order, **extra):
-        data = {"status": "aktif", "admin_note": ""}
+        data = {"status": "aktif", "admin_note": "", "rincian-TOTAL_FORMS": "0", "rincian-INITIAL_FORMS": "0"}
         data.update(extra)
         return self.admin.post(reverse("panel:pesanan-update", args=[order.pk]), data)
 

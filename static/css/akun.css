@@ -241,3 +241,46 @@ html:not(.js) .consent-dialog { position: static; width: 100%; max-width: 440px;
 .pick-price b { font-size: 1.15rem; color: var(--maroon); }
 .pick-card .check-list { margin: 0; }
 .pick-card .btn { margin-top: auto; }
+
+/* Tombol obrolan konsultasi di halaman pesanan jasa (Paket Rimba). */
+.consult-box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-top: 18px; padding: 14px 16px; background: var(--cream-2); box-shadow: inset 4px 0 0 var(--orange); }
+.consult-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; background: var(--grad-deep); color: var(--white); }
+.consult-text { display: grid; gap: 2px; flex: 1 1 200px; }
+.consult-box .btn { flex: 1 1 auto; }
+.consult-box form { display: contents; }
+
+/* ---------- Rincian harga & bukti pesanan (QR) ---------- */
+.items-box { margin-top: 18px; }
+.items-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 800; color: var(--maroon); }
+.items-table td .muted { font-size: 0.85em; }
+.verify-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
+.verify-qr { flex: none; width: 132px; line-height: 0; background: var(--white); padding: 6px; box-shadow: inset 0 0 0 1px var(--line); }
+.verify-qr svg { width: 100%; height: auto; }
+.verify-text { display: grid; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.verify-text h2 { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 800; color: var(--maroon); }
+.verify-link a { word-break: break-all; }
+.verify-text .akun-actions { margin-top: 4px; }
+
+/* ---------- Cetak (tombol "Cetak" = cetak bawaan browser) ---------- */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; }
+  body { padding: 0 !important; color: #000; }
+  .site-header, .bottom-nav, .site-footer, .announce, .skip-link, .back-link, .no-print,
+  .cancel-form, .proof-form, .consult-box form, .consult-box .btn, .akun-actions, .alert, .logout-all { display: none !important; }
+  .section, .akun { padding: 0 !important; min-height: 0 !important; }
+  .aurora::before, .aurora::after { display: none !important; }
+  .akun-card, .glass { background: #fff !important; box-shadow: none !important; clip-path: none !important; border: 1px solid #ccc; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; break-inside: avoid; }
+  .akun-wrap { gap: 10px; }
+  .scroll-hint-x { mask: none !important; animation: none !important; overflow: visible !important; }
+  .status { border: 1px solid #000; background: #fff !important; color: #000 !important; }
+  a { color: #000; text-decoration: none; }
+  .verify-qr { width: 120px; }
+  .akun-wrap::before {
+    content: "HANS Project · Bukti Pesanan · hansproject.app"; display: block; padding-bottom: 6px;
+    border-bottom: 2px solid #000; font-weight: 800; font-size: 14pt;
+  }
+}
+.verify-page { display: grid; gap: 12px; }
+.verify-ok { display: grid; place-items: center; width: 56px; height: 56px; background: #dcf2e4; color: #0f5c37; }
+.verify-ok .icon { width: 30px; height: 30px; }
