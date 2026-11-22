@@ -1,6 +1,7 @@
 """Login kasir di subdomain toko (``<toko>.hansproject.app/kasir/``).
 
-- Nama pengguna + PIN 6 angka, dibuat pemilik toko di hansproject.app.
+- Satu toko = satu akun kasir: nama pengguna + PIN 6 angka, dibuat pemilik toko di
+  hansproject.app. Akun yang sama boleh masuk di banyak perangkat sekaligus.
 - PIN disimpan sebagai hash (Argon2), tidak pernah disimpan apa adanya.
 - 5 kali salah: akun terkunci 15 menit. Ditambah batas percobaan per alamat IP.
 - Cookie ``hp_kasir`` TANPA atribut Domain, jadi hanya berlaku di subdomain
@@ -62,11 +63,7 @@ class LoginResult:
 def authenticate(store: Store, username: str, pin: str) -> LoginResult:
     generic = "Nama pengguna atau PIN salah."
     username = (username or "").strip().lower()
-    cashier = (
-        Cashier.objects.select_related("outlet")
-        .filter(store=store, username=username, is_active=True, outlet__is_active=True)
-        .first()
-    )
+    cashier = Cashier.objects.filter(store=store, username=username, is_active=True, store__is_active=True).first()
     if cashier is None:
         _dummy_check(pin)
         return LoginResult(error=generic)
@@ -119,13 +116,13 @@ def get_cashier(request, store: Store) -> Cashier | None:
     if 20 <= len(token) <= 100:
         now = timezone.now()
         session = (
-            CashierSession.objects.select_related("cashier__outlet", "cashier__store")
+            CashierSession.objects.select_related("cashier")
             .filter(
                 key_hash=_hash(token),
                 expires_at__gt=now,
                 cashier__store=store,
                 cashier__is_active=True,
-                cashier__outlet__is_active=True,
+                cashier__store__is_active=True,
             )
             .first()
         )

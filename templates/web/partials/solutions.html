@@ -1,0 +1,38 @@
+{% comment %}
+  Daftar solusi HANS Project. Solusi baru cukup ditambah satu kartu di sini (+ halamannya sendiri).
+  Sengaja ringkas: penjelasan lengkap ada di halaman tiap solusi.
+{% endcomment %}
+<section class="section solutions-section" id="solusi" aria-labelledby="solusi-title">
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Solusi kami" title="Pilih yang Anda butuhkan" id="solusi-title" center=True %}
+    <ul class="solutions" role="list">
+      <li class="card glass solution reveal">
+        <div class="solution-top"><span class="sol-icon" aria-hidden="true">{% icon "calculator" %}</span><span class="badge">Tersedia</span></div>
+        <h3><a class="stretched" href="{% url 'web:kasir' %}">Aplikasi Kasir</a></h3>
+        <p>Hitung belanja, cetak struk, dan rekap jualan otomatis untuk warung, kafe, dan toko.</p>
+        <p class="solution-price">{% if snap.start_price %}Mulai <b>{{ snap.start_price|rupiah_short }}</b>/bulan{% else %}&nbsp;{% endif %}</p>
+        <span class="solution-more" aria-hidden="true">Selengkapnya {% icon "arrow-right" "icon-sm" %}</span>
+      </li>
+      <li class="card glass solution reveal">
+        <div class="solution-top"><span class="sol-icon" aria-hidden="true">{% icon "database" %}</span><span class="badge">Tersedia</span></div>
+        <h3><a class="stretched" href="{% url 'web:sim' %}">Sistem Informasi Manajemen <abbr title="Sistem Informasi Manajemen">(SIM)</abbr></a></h3>
+        <p>Data rapi, surat online, dan cetak dari mana saja. Kini untuk RT, RW, kelurahan/desa, dan kecamatan.</p>
+        <p class="solution-price">{% if snap.sim_start_price %}Mulai <b>{{ snap.sim_start_price|rupiah_short }}</b>/bulan{% else %}Harga segera diumumkan{% endif %}</p>
+        <span class="solution-more" aria-hidden="true">Selengkapnya {% icon "arrow-right" "icon-sm" %}</span>
+      </li>
+      <li class="card glass solution reveal">
+        <div class="solution-top"><span class="sol-icon" aria-hidden="true">{% icon "code" %}</span><span class="badge badge-soft">Jasa</span></div>
+        <h3><a class="stretched" href="{% url 'web:jasa' %}">Website &amp; Aplikasi</a></h3>
+        <p>Website atau aplikasi Android/iOS yang dibuat khusus untuk usaha atau instansi Anda.</p>
+        <p class="solution-price">{% with pkg=snap.service_packages.0 %}{% if pkg %}{{ pkg.price_prefix }} <b>{{ pkg.price|rupiah_short }}</b>{% else %}&nbsp;{% endif %}{% endwith %}</p>
+        <span class="solution-more" aria-hidden="true">Selengkapnya {% icon "arrow-right" "icon-sm" %}</span>
+      </li>
+      <li class="card glass solution is-soon reveal">
+        <div class="solution-top"><span class="sol-icon" aria-hidden="true">{% icon "ticket" %}</span><span class="badge badge-soft">Segera hadir</span></div>
+        <h3>Tiket Online</h3>
+        <p>Jual tiket speedboat, konser, dan acara lainnya secara online. Sedang kami siapkan.</p>
+        <p class="solution-price"><a href="{% url 'akun:chat-baru' %}?topik=tiket">Ceritakan kebutuhan Anda</a></p>
+      </li>
+    </ul>
+  </div>
+</section>

@@ -1,14 +1,20 @@
 from django.conf import settings
 from django.urls import include, path, re_path
 
+from apps.pos import views_kasir as pos_views
 from apps.web import views as web_views
 
 urlpatterns = [
     path("", include("apps.web.urls")),
     path("akun/toko/", include("apps.pos.urls_owner")),
+    path("akun/sim/", include("apps.sim.urls_owner")),
+    # Halaman warga SIM (tanpa login): /w/<kode>/, /surat/lacak/..., /surat/cek/...
+    path("", include("apps.sim.urls_public")),
     path("akun/", include("apps.members.urls")),
     # Alamat panel diatur dari .env (ADMIN_URL_PATH), bukan /admin.
     path(f"{settings.ADMIN_URL_PATH}/", include("apps.panel.urls")),
+    # Palet warna halaman toko (untuk pratinjau & editor di domain utama; subdomain punya rute sendiri).
+    re_path(r"^_tema/v(?P<version>[0-9]{1,3})/(?P<color>[0-9a-f]{6})\.css$", pos_views.tema_css, name="tema"),
     re_path(r"^media/(?P<path>uploads/[A-Za-z0-9/_-]+\.(?:webp|png|jpg))$", web_views.media_file, name="media"),
 ]
 

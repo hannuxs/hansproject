@@ -1,0 +1,58 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% comment %}
+  Dashboard pengurus instansi SIM (Sistem Informasi Manajemen) (hansproject.app/akun/sim/<kode>/...). Pribadi: no-store & noindex.
+{% endcomment %}
+{% block title %}{{ page_title }} | SIM | HANS Project{% endblock %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}"><link rel="stylesheet" href="{% static 'css/sim.css' %}"><script src="{% static 'js/sim.js' %}" defer></script>{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'sim:daftar' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua instansi</span></a></p>
+
+<header class="akun-card glass toko-head">
+  <div class="toko-id">
+    <span class="avatar" aria-hidden="true">{{ w.level_label|slice:":2"|upper }}</span>
+    <div class="toko-id-text">
+      <h1 class="akun-title">{{ w.label }}</h1>
+      <p class="muted">Paket {{ w.package_name|default:"SIM" }} · aktif sampai {{ w.active_until|date:"j M Y" }}{% if w.parent %} · tergabung di {{ w.parent.short_label }}{% endif %}</p>
+    </div>
+    <span class="status status-{{ w.state_tone }}">{{ w.state_label }}</span>
+  </div>
+  <div class="toko-links">
+    <div class="toko-url">
+      <span class="muted">Halaman warga (bagikan ke warga)</span>
+      <a href="{{ w.public_path }}" target="_blank" rel="noopener"><b>{{ SITE_URL|cut:"https://"|cut:"http://" }}{{ w.public_path }}</b> {% icon "external" "icon-sm" %}</a>
+    </div>
+    <a class="btn btn-sm" href="{% url 'sim:surat-pilih' w.kode %}">{% icon "file" %}<span>Buat surat</span></a>
+    <a class="btn btn-sm btn-ghost" href="{% url 'sim:perpanjang' w.kode %}">{% icon "clock" %}<span>Perpanjang</span></a>
+  </div>
+</header>
+
+{% with state=w.state_now %}
+  {% if state == "tenggang" %}
+    <p class="alert" role="status">{% icon "alert" %}<span>Masa aktif sudah habis pada {{ w.active_until|date:"j F Y" }}. Semua fitur masih jalan sampai <b>{{ w.grace_until|date:"j F Y" }}</b>. <a href="{% url 'sim:perpanjang' w.kode %}">Perpanjang sekarang</a>.</span></p>
+  {% elif state == "terkunci" %}
+    <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Wilayah terkunci karena langganan belum diperpanjang: pengajuan surat online ditutup dan data tidak bisa diubah (masih bisa dilihat & diunduh). Data dihapus permanen setelah <b>{{ w.delete_on|date:"j F Y" }}</b>. <a href="{% url 'sim:perpanjang' w.kode %}">Perpanjang</a> sebelum tanggal itu dan semua data kembali seperti semula.</span></p>
+  {% elif state == "ditangguhkan" %}
+    <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Wilayah ini sedang ditangguhkan oleh admin HANS Project. Hubungi kami lewat <a href="{% url 'akun:chat-baru' %}?topik=sim">Chat</a>.</span></p>
+  {% elif state == "aktif" and w.days_left <= 7 %}
+    <p class="alert" role="status">{% icon "clock" %}<span>Masa aktif tinggal {{ w.days_left }} hari (sampai {{ w.active_until|date:"j F Y" }}). <a href="{% url 'sim:perpanjang' w.kode %}">Perpanjang</a> supaya layanan warga tidak berhenti.</span></p>
+  {% endif %}
+{% endwith %}
+{% if renewal %}
+  <p class="alert" role="status">{% icon "cart" %}<span>Ada perpanjangan yang sedang berjalan ({{ renewal.code }}, {{ renewal.get_status_display|lower }}). <a href="{% url 'akun:pesanan' renewal.code %}">Lihat pesanan</a>.</span></p>
+{% endif %}
+{% if w.admin_note %}
+  <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ w.admin_note|linebreaksbr }}</p></div>
+{% endif %}
+
+<nav class="toko-tabs scroll-hint-x" aria-label="Menu wilayah">
+  {% for tab in tabs %}
+    <a href="{{ tab.url }}"{% if tab.active %} aria-current="page"{% endif %}>{% icon tab.icon %}<span>{{ tab.label }}</span>
+      {% if tab.key == "surat" and inbox.surat %}<b class="nav-badge"><span class="visually-hidden">, </span>{{ inbox.surat }}<span class="visually-hidden"> menunggu</span></b>{% endif %}
+      {% if tab.key == "jaringan" and inbox.ketahui|add:inbox.gabung %}<b class="nav-badge"><span class="visually-hidden">, </span>{{ inbox.ketahui|add:inbox.gabung }}<span class="visually-hidden"> menunggu</span></b>{% endif %}
+    </a>
+  {% endfor %}
+</nav>
+
+{% block sim %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+{% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
+
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="atas-title">
+    <h2 id="atas-title">{% icon "arrow-up" %} Wilayah di atas Anda</h2>
+    {% if w.parent %}
+      <ul class="chain" role="list">
+        {% for a in ancestors %}<li><b>{{ a.short_label }}</b><span class="muted small">{{ a.get_level_display }}</span></li>{% endfor %}
+      </ul>
+      <p class="muted small">Surat yang perlu “diketahui” otomatis dikirim ke {{ w.parent.short_label }}. Pengumuman dari wilayah di atas yang diteruskan tampil di halaman warga Anda.</p>
+      {% if w.can_edit %}
+        <form method="post" data-confirm="Putuskan hubungan dengan {{ w.parent.short_label }}?">{% csrf_token %}<input type="hidden" name="aksi" value="keluar"><button class="btn btn-sm btn-ghost" type="submit">{% icon "x" %}<span>Putuskan hubungan</span></button></form>
+      {% endif %}
+    {% elif w.join_request %}
+      <p>Menunggu persetujuan <b>{{ w.join_request.short_label }}</b>.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="aksi" value="batal-gabung"><button class="btn btn-sm btn-ghost" type="submit">{% icon "x" %}<span>Batalkan permintaan</span></button></form>
+    {% elif w.parent_level %}
+      <p class="muted">Minta kode undangan dari pengurus {% if w.level == "rt" %}RW{% elif w.level == "rw" %}kelurahan/desa{% else %}kecamatan{% endif %} Anda (mereka juga harus memakai SIM Wilayah HANS Project), lalu masukkan di sini.</p>
+      {% if w.can_edit %}
+        <form method="post" class="akun-form" novalidate>
+          {% csrf_token %}<input type="hidden" name="aksi" value="gabung">
+          {% for field in join_form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+          <button class="btn btn-sm" type="submit">{% icon "link" %}<span>Minta bergabung</span></button>
+        </form>
+      {% endif %}
+    {% else %}
+      <p class="muted">Kecamatan adalah tingkat tertinggi untuk SIM pemerintahan & kemasyarakatan.</p>
+    {% endif %}
+  </section>
+
+  {% if w.level != "rt" %}
+  <section class="akun-card glass" aria-labelledby="undang-title">
+    <h2 id="undang-title">{% icon "users" %} Undang wilayah di bawah Anda</h2>
+    <p class="muted">Bagikan kode ini ke pengurus {% if w.level == "rw" %}RT{% elif w.level == "kelurahan" %}RW{% else %}kelurahan/desa{% endif %}. Mereka memasukkannya di menu Jaringan, lalu Anda menyetujuinya di sini.</p>
+    <p class="join-code mono" aria-label="Kode undangan">{{ w.join_code }}</p>
+    {% if w.can_edit %}
+      <form method="post" data-confirm="Buat kode baru? Kode lama langsung tidak berlaku (wilayah yang sudah tergabung tidak terpengaruh).">{% csrf_token %}<input type="hidden" name="aksi" value="kode-baru"><button class="btn btn-sm btn-ghost" type="submit">{% icon "history" %}<span>Buat kode baru</span></button></form>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+
+{% if requests %}
+<section class="akun-card glass" aria-labelledby="req-title">
+  <h2 id="req-title">{% icon "alert" %} Permintaan bergabung ({{ requests|length }})</h2>
+  <ul class="mini-list" role="list">
+    {% for r in requests %}
+      <li>
+        <span><b>{{ r.label }}</b><span class="muted small">Pengurus: {{ r.ketua_nama|default:"–" }}</span></span>
+        {% if w.can_edit %}
+          <span class="row-actions">
+            <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="aksi" value="terima"><input type="hidden" name="wilayah" value="{{ r.pk }}"><button class="btn btn-sm" type="submit">{% icon "check" %}<span>Terima</span></button></form>
+            <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="aksi" value="tolak"><input type="hidden" name="wilayah" value="{{ r.pk }}"><button class="btn btn-sm btn-ghost" type="submit">{% icon "x" %}<span>Tolak</span></button></form>
+          </span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if children %}
+<section class="akun-card glass" aria-labelledby="bawah-title">
+  <h2 id="bawah-title">{% icon "link" %} Wilayah tergabung ({{ children|length }})</h2>
+  <p class="muted small">Angka rekap saja (termasuk wilayah di bawahnya lagi). Data pribadi warga tetap hanya bisa dibuka pengurus masing-masing.</p>
+  <div class="table-wrap scroll-hint-x">
+    <table class="data-table">
+      <thead><tr><th scope="col">Wilayah</th><th scope="col" class="num">KK</th><th scope="col" class="num">Warga</th><th scope="col" class="num">Surat bulan ini</th><th scope="col">Keadaan</th><th scope="col"><span class="visually-hidden">Aksi</span></th></tr></thead>
+      <tbody>
+        {% for c in children %}
+          <tr>
+            <td><b>{{ c.short_label }}</b><br><span class="muted small">{{ c.ketua_nama|default:"" }}</span></td>
+            <td class="num">{{ c.stats.kk }}</td>
+            <td class="num">{{ c.stats.jiwa }}</td>
+            <td class="num">{{ c.stats.surat_bulan_ini }}</td>
+            <td><span class="status status-{{ c.state_tone }}">{{ c.state_label }}</span></td>
+            <td>{% if w.can_edit %}<form method="post" class="inline-form" data-confirm="Lepas {{ c.short_label }} dari jaringan Anda?">{% csrf_token %}<input type="hidden" name="aksi" value="lepas"><input type="hidden" name="wilayah" value="{{ c.pk }}"><button class="btn btn-sm btn-ghost" type="submit">{% icon "x" %}<span>Lepas</span></button></form>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if ack_list %}
+<section class="akun-card glass" aria-labelledby="ack-title">
+  <h2 id="ack-title">{% icon "file" %} Surat untuk diketahui</h2>
+  <ul class="mini-list" role="list">
+    {% for s in ack_list %}
+      <li><a href="{% url 'sim:ketahui' w.kode s.pk %}"><span><b>{{ s.jenis_nama }}</b><span class="muted small">{{ s.wilayah.short_label }} · {{ s.nama_masked }} · No. {{ s.nomor }}</span></span><span class="status status-{% if s.mengetahui == 'menunggu' %}wait{% elif s.mengetahui == 'diketahui' %}ok{% else %}off{% endif %}">{{ s.get_mengetahui_display }}</span></a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

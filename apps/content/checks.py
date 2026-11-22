@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import BankAccount, LegalPage, SiteSettings
+from .models import BankAccount, LegalPage, Package, SiteSettings
 
 
 @dataclass
@@ -24,6 +24,11 @@ def placeholder_reminders() -> list[Reminder]:
         items.append(Reminder("Info rekening bank masih contoh.", "panel:pengaturan"))
     if not site.qris_image:
         items.append(Reminder("Gambar QRIS belum diunggah.", "panel:pengaturan"))
+    for pkg in Package.objects.filter(is_active=True, price=0).exclude(category=Package.CATEGORY_SERVICE):
+        items.append(Reminder(
+            f"Harga {pkg.product_short} Paket {pkg.name} belum diisi: tampil \"Segera diumumkan\" dan belum bisa dipesan.",
+            "panel:paket-list",
+        ))
     for page in LegalPage.objects.filter(is_draft=True):
         items.append(Reminder(f"Halaman '{page.title}' masih draf. Tinjau lalu matikan tanda draf.", "panel:legal-list"))
     return items

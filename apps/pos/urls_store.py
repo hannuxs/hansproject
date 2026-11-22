@@ -1,5 +1,5 @@
 """URL untuk subdomain toko (dipilih otomatis oleh StoreHostMiddleware)."""
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from apps.web import views as web_views
 
@@ -15,6 +15,9 @@ kasir_patterns = [
     path("kasir/bayar/", views.bayar, name="bayar"),
     path("kasir/riwayat/", views.riwayat, name="riwayat"),
     path("kasir/struk/<int:pk>/", views.struk, name="struk"),
+    re_path(r"^_tema/v(?P<version>[0-9]{1,3})/(?P<color>[0-9a-f]{6})\.css$", views.tema_css, name="tema"),
+    # Gambar halaman toko (logo, sampul, barang unggulan) dari alamat toko sendiri (CSP img-src 'self').
+    re_path(r"^media/(?P<path>uploads/toko/[A-Za-z0-9/_-]+\.(?:webp|png|jpg))$", web_views.media_file, name="media"),
 ]
 
 urlpatterns = [path("", include((kasir_patterns, "kasir")))]

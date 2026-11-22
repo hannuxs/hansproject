@@ -24,10 +24,10 @@ PACKAGES = [
             ("Cetak struk untuk pembeli", "Cetak struk (printer thermal)", "receipt", True),
             ("Bisa kasih diskon dan promo", "Pengaturan diskon & promo", "tag", True),
             ("Catatan jualan harian, mingguan, bulanan dibuat otomatis", "Laporan & rekap penjualan otomatis", "chart", True),
-            ("Toko Anda punya alamat di internet sendiri, contoh: warungbudi.hansproject.app", "Subdomain *.hansproject.app", "globe", True),
+            ("Setiap toko punya alamat kasir sendiri di internet, contoh: warungbudi.hansproject.app", "Subdomain *.hansproject.app per toko", "globe", True),
             ("Halaman promosi toko sendiri (lihat bagian Halaman Promosi Toko)", "Landing page toko dengan editor terbatas", "layout", False),
             ("Tempat simpan catatan yang cukup untuk usaha kecil", "Penyimpanan 1 GB", "database", False),
-            ("Untuk 2 toko, masing-masing toko punya akun sendiri", "2 outlet, 1 akun login per outlet", "store", False),
+            ("Untuk 2 toko, masing-masing punya alamat kasir, barang, laporan, dan akun kasir sendiri", "2 toko, 1 subdomain & 1 akun kasir per toko", "store", False),
             ("1 kali per bulan boleh minta ganti tampilan (logo, warna, tulisan di struk)", "1 revisi tampilan per bulan", "palette", False),
             ("Bisa tanya-tanya lewat DM Instagram di jam kerja", "Support via DM Instagram (jam kerja)", "chat", False),
         ],
@@ -52,7 +52,7 @@ PACKAGES = [
                 "Progressive Web App (PWA), bisa diinstal dari browser", "smartphone", False,
             ),
             ("Tempat simpan catatan lebih besar", "Penyimpanan 5 GB", "database", False),
-            ("Untuk sampai 10 toko atau cabang", "10 outlet, 1 akun login per outlet", "store", False),
+            ("Untuk sampai 10 toko atau cabang, masing-masing terpisah", "10 toko, 1 subdomain & 1 akun kasir per toko", "store", False),
             (
                 "Boleh minta 3 tambahan kemampuan baru di aplikasi per tahun, dikerjakan lebih dulu",
                 "3 request fitur/modifikasi prioritas per tahun", "zap", False,
@@ -108,7 +108,7 @@ INCLUDED = [
 ]
 
 ADDONS = [
-    ("outlet", "Tambah toko/cabang", 15000, "/toko/bulan", "Berlaku untuk Paket Tunas dan Tumbuh."),
+    ("outlet", "Tambah toko/cabang", 15000, "/toko/bulan", "Berlaku untuk Paket Tunas dan Tumbuh. Setiap toko tambahan punya alamat kasir & akun kasir sendiri."),
     ("storage", "+1 GB", 10000, "/bulan", ""),
     ("storage", "+5 GB", 35000, "/bulan", ""),
     ("storage", "+10 GB", 60000, "/bulan", ""),
@@ -118,14 +118,14 @@ ADDONS = [
 COMPARISON = [
     ("Jenis", {"tunas": "Aplikasi kasir (POS)", "tumbuh": "Aplikasi kasir (POS)", "rimba": "Custom development"}),
     ("Penyimpanan", {"tunas": "1 GB", "tumbuh": "5 GB", "rimba": "10 GB"}),
-    ("Outlet", {"tunas": "2", "tumbuh": "10", "rimba": "Sesuai kebutuhan"}),
-    ("Akun login", {"tunas": "1 per outlet", "tumbuh": "1 per outlet", "rimba": "Sesuai kebutuhan"}),
-    ("Alamat web", {"tunas": "Subdomain", "tumbuh": "Subdomain", "rimba": "Custom domain"}),
+    ("Jumlah toko", {"tunas": "2", "tumbuh": "10", "rimba": "Sesuai kebutuhan"}),
+    ("Akun kasir", {"tunas": "1 per toko, bisa di banyak perangkat", "tumbuh": "1 per toko, bisa di banyak perangkat", "rimba": "Sesuai kebutuhan"}),
+    ("Alamat web", {"tunas": "Subdomain per toko", "tumbuh": "Subdomain per toko", "rimba": "Custom domain"}),
     ("Halaman promosi toko", {"tunas": "Ya (editor terbatas)", "tumbuh": "Ya (editor terbatas)", "rimba": "Custom penuh"}),
     ("Aplikasi HP", {"tunas": "–", "tumbuh": "PWA", "rimba": "Android & iOS (Play Store / App Store)"}),
     ("Modifikasi", {"tunas": "1 revisi tampilan/bln", "tumbuh": "3 request fitur prioritas/thn", "rimba": "Bebas sesuai kontrak"}),
     ("Support", {"tunas": "Jam kerja", "tumbuh": "Prioritas", "rimba": "Dedicated"}),
-    ("Tambah outlet", {"tunas": "Rp15.000/outlet/bln", "tumbuh": "Rp15.000/outlet/bln", "rimba": "–"}),
+    ("Tambah toko", {"tunas": "Rp15.000/toko/bln", "tumbuh": "Rp15.000/toko/bln", "rimba": "–"}),
     ("Tambah penyimpanan", {"tunas": "Mulai Rp10.000/bln", "tumbuh": "Mulai Rp10.000/bln", "rimba": "Mulai Rp10.000/bln"}),
 ]
 
@@ -198,6 +198,118 @@ FAQS = [
         False,  # disembunyikan sampai pemilik mengisi kebijakannya
     ),
 ]
+
+# ---------------------------------------------------------------------------
+# Sistem Informasi Manajemen (SIM): paket Tunas & Tumbuh, sama seperti Aplikasi Kasir.
+# Harga Rp0 = belum ditentukan pemilik: tampil "Harga segera diumumkan" dan belum bisa
+# dipesan sampai harganya diisi di panel (Paket & Harga).
+# Bagian pertama yang tersedia: SIM untuk RT, RW, kelurahan/desa, dan kecamatan.
+# ---------------------------------------------------------------------------
+SIM_PACKAGES = [
+    {
+        "code": "sim-tunas",
+        "category": "sim",
+        "name": "Tunas",
+        "icon": "🌱",
+        "tagline": "RT, RW, dan organisasi kecil yang mulai merapikan data dan surat.",
+        "price": 0,
+        "price_suffix": "/bulan",
+        "scan_limit": 100,
+        "order": 40,
+        "features": [
+            ("Foto KK/KTP lama langsung tersimpan, teksnya dibaca otomatis jadi data", "Scan dokumen + OCR (hasil diperiksa dulu)", "scan", True),
+            ("Cari data dalam hitungan detik, tidak perlu membongkar map fotokopi", "Pencarian nama / NIK / No. KK", "search", True),
+            ("Warga minta surat lewat HP kapan saja, lalu memantau statusnya", "Pengajuan surat online + kode lacak", "smartphone", True),
+            ("Format surat siap pakai dan bisa diubah sendiri, nomor surat otomatis", "Template surat fleksibel + penomoran otomatis", "file", True),
+            ("Ketik dan cetak surat dari HP atau komputer mana saja, tanpa tulis tangan", "Cetak A4 dari browser / simpan PDF", "printer", True),
+            ("Setiap surat punya kode QR untuk cek keaslian", "QR verifikasi keaslian", "qr", False),
+            ("Terhubung dengan tingkat di atasnya, misalnya RT ke RW, RW ke kelurahan", "Hierarki instansi + kode undangan & persetujuan", "link", False),
+            ("Pengumuman untuk warga di halaman instansi", "Halaman publik + pengumuman", "megaphone", False),
+            ("Sampai 100 foto dokumen dibaca otomatis setiap bulan", "Kuota OCR 100 dokumen/bulan", "scan", False),
+            ("Tempat simpan yang cukup untuk satu RT/RW", "Penyimpanan 1 GB", "database", False),
+            ("Bisa tanya-tanya lewat DM Instagram di jam kerja", "Support via DM Instagram (jam kerja)", "chat", False),
+        ],
+    },
+    {
+        "code": "sim-tumbuh",
+        "category": "sim",
+        "name": "Tumbuh",
+        "icon": "🌿",
+        "tagline": "Kelurahan/desa, kecamatan, dan instansi dengan data serta surat yang lebih banyak.",
+        "price": 0,
+        "price_suffix": "/bulan",
+        "scan_limit": 1000,
+        "badge": "Untuk instansi besar",
+        "is_highlighted": True,
+        "includes_code": "sim-tunas",
+        "order": 50,
+        "features": [
+            ("Sampai 1.000 foto dokumen dibaca otomatis setiap bulan", "Kuota OCR 1.000 dokumen/bulan", "scan", False),
+            ("Tempat simpan lebih besar", "Penyimpanan 5 GB", "database", False),
+            ("Rekap jumlah warga dari semua RT/RW yang tergabung, tanpa membuka data pribadinya", "Rekap berjenjang + pengumuman ke semua unit di bawahnya", "chart", False),
+            ("Boleh minta 3 tambahan kemampuan atau format khusus per tahun, dikerjakan lebih dulu", "3 request fitur/modifikasi prioritas per tahun", "zap", False),
+            ("Pertanyaan Anda dijawab lebih dulu", "Customer service prioritas", "headset", False),
+        ],
+    },
+]
+
+# Nilai tabel perbandingan untuk paket SIM (digabung ke baris yang sama dengan kasir).
+SIM_COMPARISON = [
+    ("Jenis", {"sim-tunas": "Sistem Informasi Manajemen", "sim-tumbuh": "Sistem Informasi Manajemen"}),
+    ("Cocok untuk", {"sim-tunas": "RT, RW", "sim-tumbuh": "Kelurahan/desa, kecamatan"}),
+    ("Scan dokumen otomatis (OCR)", {"sim-tunas": "100 dokumen/bln", "sim-tumbuh": "1.000 dokumen/bln"}),
+    ("Penyimpanan", {"sim-tunas": "1 GB", "sim-tumbuh": "5 GB"}),
+    ("Surat online & QR keaslian", {"sim-tunas": "Ya", "sim-tumbuh": "Ya"}),
+    ("Terhubung antar tingkat", {"sim-tunas": "Ya", "sim-tumbuh": "Ya + rekap unit di bawahnya"}),
+    ("Modifikasi", {"sim-tunas": "1 revisi format/bln", "sim-tumbuh": "3 request fitur prioritas/thn"}),
+    ("Support", {"sim-tunas": "Jam kerja", "sim-tumbuh": "Prioritas"}),
+]
+
+SIM_FAQS = [
+    (
+        "Apa itu SIM?",
+        "SIM adalah singkatan dari **Sistem Informasi Manajemen**: aplikasi untuk mencatat, mencari, dan mengolah data "
+        "sebuah instansi atau organisasi, lalu memakainya untuk pekerjaan sehari-hari seperti membuat surat.\n\n"
+        "Yang tersedia sekarang: SIM untuk **RT, RW, kelurahan/desa, dan kecamatan**. SIM untuk bidang lain "
+        "(misalnya klinik/rumah sakit, sekolah, organisasi) sedang kami siapkan.",
+        True, "umum",
+    ),
+    (
+        "Data warga di SIM aman? Siapa yang bisa melihatnya?",
+        "Data warga hanya bisa dibuka oleh pengurus instansi itu sendiri lewat akunnya. Tingkat di atasnya "
+        "(misalnya RW atau kelurahan) hanya melihat **angka rekap**, bukan data pribadi. Foto KK/KTP disimpan di tempat "
+        "pribadi tanpa alamat publik, dan dibaca di server kami sendiri (tidak dikirim ke layanan lain).",
+        True, "sim",
+    ),
+    (
+        "Apakah hasil baca foto KK/KTP selalu benar?",
+        "Belum tentu. Hasil baca otomatis adalah **draf**: pengurus memeriksa dan membetulkannya dulu sebelum disimpan "
+        "jadi data. Foto yang terang, lurus, dan tidak buram memberi hasil paling baik.",
+        True, "sim",
+    ),
+    (
+        "Warga perlu daftar akun untuk minta surat?",
+        "Tidak. Warga membuka halaman instansi, mengisi formulir pengajuan, lalu mendapat **kode lacak** untuk memantau "
+        "status suratnya. Pengurus memeriksa, lalu mencetak atau mengizinkan warga mencetak sendiri.",
+        True, "sim",
+    ),
+    (
+        "Format surat di daerah saya berbeda, bisa diubah?",
+        "Bisa. Semua format surat (domisili, pengantar, SKTM, berkelakuan baik, dan lainnya) bisa diubah, dihapus, atau "
+        "ditambah sendiri oleh pengurus, termasuk kop, nomor surat, dan kolom isiannya.",
+        True, "sim",
+    ),
+]
+
+# Topik FAQ bawaan: pertanyaan yang khusus satu solusi tampil di halaman solusinya.
+FAQ_TOPICS = {
+    "Karyawan saya perlu akun sendiri?": "kasir",
+    "Toko saya lebih dari 2, bagaimana?": "kasir",
+    "Apakah halaman promosi toko bisa dipakai untuk terima pesanan online?": "kasir",
+    "Apakah aplikasi Paket Tumbuh ada di Play Store?": "kasir",
+    "Berapa biaya bikin website atau aplikasi?": "jasa",
+    'Apa bedanya "ganti tampilan" dan "tambahan kemampuan baru"?': "kasir",
+}
 
 BANK_PLACEHOLDER = ("BANK CONTOH (ganti di panel)", "0000000000", "NAMA PEMILIK REKENING")
 

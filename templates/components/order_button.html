@@ -6,7 +6,14 @@
 
   Belum login -> halaman /akun/pesan/<kode>/ meneruskan ke Daftar / Masuk,
   lalu kembali ke konfirmasi pesanan paket ini setelah berhasil masuk.
+  Paket yang harganya belum ditentukan (Rp0) belum bisa dipesan: tombolnya "Tanya harga".
 {% endcomment %}
+{% if pkg.is_priced %}
 <a class="btn btn-block order-btn {{ style }}" href="{% url 'akun:pesan' pkg.code %}">
-  {% icon "cart" %}<span>Pesan Sekarang</span><span class="visually-hidden"> Paket {{ pkg.name }}</span>
+  {% icon "cart" %}<span>Pesan Sekarang</span><span class="visually-hidden"> Paket {{ pkg.name }} {{ pkg.product_label }}</span>
 </a>
+{% else %}
+<a class="btn btn-block order-btn {{ style }}" href="{% url 'akun:chat-baru' %}?topik={{ pkg.category|urlencode }}">
+  {% icon "chat" %}<span>Tanya harga</span><span class="visually-hidden"> Paket {{ pkg.name }} {{ pkg.product_label }}</span>
+</a>
+{% endif %}

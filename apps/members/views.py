@@ -11,6 +11,7 @@ from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from django.core import signing
 from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.http import Http404, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -23,8 +24,9 @@ from apps.core import ratelimit
 from apps.core.privacy import ip_hash
 from apps.pos import services as pos_services
 from apps.pos.forms import NewStoreOrderForm
+from apps.sim.forms import SimOrderForm
 
-from . import auth, charts, chat, files, google, qr
+from . import auth, chat, files, google, qr
 from .forms import ChatMessageForm, ChatStartForm, PaymentProofForm, ProfileForm, RefundRequestForm
 from .models import TOPIC_KEYS, ChatMessage, Conversation, Member, Order, Refund
 from .navigation import akun_tabs
@@ -242,9 +244,9 @@ def persetujuan(request):
 @require_safe
 @auth.member_required
 def dashboard(request):
+    """Halaman pertama setelah masuk: ringkasan SEMUA layanan (kasir, SIM, jasa) + yang perlu perhatian."""
     member = request.member
-    stores = list(member.stores.not_deleted().select_related("package"))
-    data = pos_services.overview(stores)
+    services_ = _member_services(member)
     open_orders = list(member.orders.filter(status__in=Order.OPEN_STATUSES)[:5])
     refunds = list(Refund.objects.filter(order__member=member).exclude(status=Refund.STATUS_DONE).select_related("order")[:5])
     return _render(
@@ -252,14 +254,63 @@ def dashboard(request):
         "akun/dashboard.html",
         {
             "announcements": list(Announcement.visible()),
-            "overview": data,
-            "chart": charts.trend_bars(data.trend, data.trend_peak),
+            "svc": services_,
             "open_orders": open_orders,
             "open_refunds": refunds,
             "unread_chats": chat.unread_for_member(member),
             "page_title": "Dashboard",
         },
         tab="dashboard",
+    )
+
+
+class _Services:
+    """Ringkasan layanan milik satu pelanggan (dipakai Dashboard & menu Layanan)."""
+
+    def __init__(self, member):
+        self.stores = list(member.stores.not_deleted().select_related("subscription__package"))
+        self.kasir = pos_services.overview(self.stores) if self.stores else None
+        self.wilayah = list(member.wilayah_set.not_deleted().select_related("parent").annotate(
+            menunggu=Count("surat_set", filter=Q(surat_set__status="diajukan"), distinct=True),
+        ))
+        self.surat_menunggu = sum(w.menunggu for w in self.wilayah)
+        self.jasa_orders = list(member.orders.filter(package_category=Package.CATEGORY_SERVICE).exclude(
+            status__in=(Order.STATUS_CANCELLED, Order.STATUS_DONE)
+        ))
+        self.pending = list(member.orders.filter(order_type=Order.TYPE_NEW, status__in=Order.OPEN_STATUSES).exclude(
+            package_category=Package.CATEGORY_SERVICE
+        ))
+        self.sim_alerts = []
+        for w in self.wilayah:
+            state = w.state()
+            if state in ("tenggang", "terkunci", "ditangguhkan"):
+                self.sim_alerts.append((w, w.state_label, w.state_tone, {
+                    "tenggang": f"Masa aktif habis {w.active_until:%d/%m/%Y}. Pengajuan surat online tetap dibuka sampai {w.grace_until:%d/%m/%Y}.",
+                    "terkunci": f"Langganan terkunci. Data dihapus permanen setelah {w.delete_on:%d/%m/%Y} bila tidak diperpanjang.",
+                    "ditangguhkan": "Langganan ditangguhkan admin. Lihat catatan di halaman instansi.",
+                }[state]))
+            elif state == "aktif" and w.days_left <= 7:
+                self.sim_alerts.append((w, "Segera habis", "wait", f"Masa aktif tinggal {w.days_left} hari."))
+
+    @property
+    def count(self) -> int:
+        return bool(self.stores) + bool(self.wilayah) + bool(self.jasa_orders)
+
+
+def _member_services(member) -> _Services:
+    return _Services(member)
+
+
+@require_safe
+@auth.member_required
+def layanan(request):
+    """Menu "Layanan": semua solusi milik pelanggan di satu tempat (kasir, SIM, website & aplikasi)."""
+    member = request.member
+    return _render(
+        request,
+        "akun/layanan.html",
+        {"svc": _member_services(member), "page_title": "Layanan saya"},
+        tab="layanan",
     )
 
 
@@ -298,6 +349,7 @@ def profil(request):
         "akun/profil.html",
         {
             "store_count": member.stores.not_deleted().count(),
+            "wilayah_count": member.wilayah_set.not_deleted().count(),
             "order_count": member.orders.count(),
             "chat_count": member.chats.count(),
             "page_title": "Akun saya",
@@ -330,17 +382,26 @@ def pesanan_list(request):
 @require_safe
 @auth.member_required
 def pesan_pilih(request):
-    """Pilih paket dari dalam akun (tombol "Pesan paket")."""
+    """Pesan layanan dari dalam akun: 1) pilih solusi, 2) pilih paketnya (``?layanan=kasir|sim|jasa``)."""
     snap = services.get_snapshot()
-    stores = list(request.member.stores.not_deleted())
+    choices = {
+        "kasir": ("Aplikasi Kasir", "calculator", snap.pos_packages),
+        "sim": ("Sistem Informasi Manajemen (SIM)", "database", snap.sim_packages),
+        "jasa": ("Website & Aplikasi", "code", snap.service_packages),
+    }
+    key = request.GET.get("layanan", "")
+    chosen = choices.get(key)
     return _render(
         request,
         "akun/pesan_pilih.html",
         {
-            "pos_packages": snap.pos_packages,
-            "service_packages": snap.service_packages,
-            "has_store": bool(stores),
-            "page_title": "Pesan paket",
+            "choice": key if chosen else "",
+            "choice_label": chosen[0] if chosen else "",
+            "packages": chosen[2] if chosen else [],
+            "snap": snap,
+            "has_store": request.member.stores.not_deleted().exists() if key == "kasir" else False,
+            "has_wilayah": request.member.wilayah_set.not_deleted().exists() if key == "sim" else False,
+            "page_title": f"Pesan {chosen[0]}" if chosen else "Pesan layanan",
         },
         tab="pesanan",
     )
@@ -350,19 +411,24 @@ def pesan_pilih(request):
 @auth.member_required
 def pesan(request, code: str):
     package = get_object_or_404(Package.objects.prefetch_related("notes"), code=code, is_active=True)
+    if not package.is_priced:  # harga belum ditentukan pemilik: belum bisa dipesan
+        return redirect(_with_query(reverse("akun:pesan-pilih"), layanan=package.category))
     member = request.member
     existing = member.orders.filter(
         package=package, order_type=Order.TYPE_NEW, status__in=Order.OPEN_STATUSES
     ).first()
     # Paket kasir: pelanggan memilih alamat toko (<nama>.hansproject.app).
     store_form = NewStoreOrderForm(request.POST or None) if package.is_pos else None
+    # Paket SIM: pelanggan mengisi data wilayahnya (tingkat, nomor RT/RW, kelurahan, ...).
+    sim_form = SimOrderForm(request.POST or None) if package.is_sim else None
+    extra_form = store_form or sim_form
     error = ""
     if request.method == "POST":
         if existing:
             return redirect("akun:pesanan", code=existing.code)
         if member.orders.filter(status__in=Order.OPEN_STATUSES).count() >= MAX_OPEN_ORDERS:
             error = "Anda masih punya beberapa pesanan yang belum selesai. Selesaikan atau batalkan dulu salah satunya."
-        elif store_form is None or store_form.is_valid():
+        elif extra_form is None or extra_form.is_valid():
             order = Order.objects.create(
                 member=member,
                 package=package,
@@ -371,7 +437,8 @@ def pesan(request, code: str):
                 price_text=package.price_text,
                 amount=package.price,
                 subdomain=store_form.cleaned_data["subdomain"] if store_form else "",
-                status=Order.STATUS_PAYMENT if package.is_pos else Order.STATUS_CONSULT,
+                details=sim_form.details() if sim_form else {},
+                status=Order.STATUS_PAYMENT if (package.is_pos or package.is_sim) else Order.STATUS_CONSULT,
             )
             log.info("Pesanan baru %s (paket %s) oleh pelanggan #%s.", order.code, package.code, member.pk)
             if order.needs_consultation:
@@ -386,16 +453,18 @@ def pesan(request, code: str):
             "existing": existing,
             "error": error,
             "store_form": store_form,
+            "sim_form": sim_form,
             "stores": stores,
-            "page_title": f"Pesan Paket {package.name}",
+            "wilayah_list": list(member.wilayah_set.not_deleted()) if package.is_sim else [],
+            "page_title": f"Pesan {package.product_short} · Paket {package.name}",
         },
-        status=400 if (error or (store_form is not None and store_form.errors)) else 200,
+        status=400 if (error or (extra_form is not None and extra_form.errors)) else 200,
         tab="pesanan",
     )
 
 
 def _own_order(request, code: str) -> Order:
-    return get_object_or_404(Order.objects.select_related("package", "store"), code=code, member=request.member)
+    return get_object_or_404(Order.objects.select_related("package", "store", "wilayah"), code=code, member=request.member)
 
 
 @require_http_methods(["GET", "HEAD", "POST"])
@@ -441,8 +510,8 @@ def pesanan(request, code: str):
             "form": form,
             "refund": order.refund_or_none,
             "consultation": order.consultation_chat if order.needs_consultation else None,
-            "qr_svg": qr.order_qr_svg(order),
-            "verify_url": qr.verify_url(order),
+            "qr_svg": qr.order_qr_svg(order) if order.has_verified_proof else "",
+            "verify_url": qr.verify_url(order) if order.has_verified_proof else "",
             "refund_form": refund_form,
             "show_payment": show_payment,
             "bank_accounts": snap.bank_accounts if show_payment else [],

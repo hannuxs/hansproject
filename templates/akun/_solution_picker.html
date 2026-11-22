@@ -1,0 +1,7 @@
+{% comment %} Pilihan solusi saat memesan (Dashboard kosong, menu Layanan, halaman Pesan layanan). {% endcomment %}
+<ul class="solution-pick" role="list">
+  <li><a class="glass" href="{% url 'akun:pesan-pilih' %}?layanan=kasir"><span class="sol-icon" aria-hidden="true">{% icon "calculator" %}</span><span><b>Aplikasi Kasir</b><small>Untuk warung, kafe, dan toko</small></span>{% icon "arrow-right" "icon-sm" %}</a></li>
+  <li><a class="glass" href="{% url 'akun:pesan-pilih' %}?layanan=sim"><span class="sol-icon" aria-hidden="true">{% icon "database" %}</span><span><b>Sistem Informasi Manajemen (SIM)</b><small>Untuk RT, RW, kelurahan/desa, kecamatan</small></span>{% icon "arrow-right" "icon-sm" %}</a></li>
+  <li><a class="glass" href="{% url 'akun:pesan-pilih' %}?layanan=jasa"><span class="sol-icon" aria-hidden="true">{% icon "code" %}</span><span><b>Website &amp; Aplikasi</b><small>Dibuat khusus, konsultasi gratis</small></span>{% icon "arrow-right" "icon-sm" %}</a></li>
+  <li class="is-soon"><a class="glass" href="{% url 'akun:chat-baru' %}?topik=tiket"><span class="sol-icon" aria-hidden="true">{% icon "ticket" %}</span><span><b>Tiket Online</b><small>Segera hadir · ceritakan kebutuhan Anda</small></span>{% icon "chat" "icon-sm" %}</a></li>
+</ul>

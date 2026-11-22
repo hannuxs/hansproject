@@ -1,0 +1,21 @@
+{% extends "warga/base.html" %}
+{% block warga %}
+<p class="back-link"><a href="{{ w.public_path }}">{% icon "arrow-right" "icon-sm flip" %}<span>{{ w.short_label }}</span></a></p>
+<section class="akun-card glass" aria-labelledby="f-title">
+  <p class="eyebrow">{{ w.label }}</p>
+  <h1 class="akun-title" id="f-title">{{ jenis.nama }}</h1>
+  {% if jenis.keterangan %}<p class="akun-lead">{{ jenis.keterangan }}</p>{% endif %}
+  <p class="alert" role="note">{% icon "info" %}<span>Isi sesuai KTP/KK. Pengurus mencocokkan data Anda sebelum surat diterbitkan. Setelah dikirim, <b>simpan kode lacak</b> yang muncul.</span></p>
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% for field in form.visible_fields %}
+      {% if field.name == "website" %}
+        <div class="hp-field" aria-hidden="true"><label for="{{ field.auto_id }}">Jangan diisi</label>{{ field }}</div>
+      {% else %}
+        {{ field.as_field_group }}
+      {% endif %}
+    {% endfor %}
+    <div class="akun-actions"><button class="btn" type="submit">{% icon "send" %}<span>Kirim pengajuan</span></button></div>
+  </form>
+</section>
+{% endblock %}

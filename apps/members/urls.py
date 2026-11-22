@@ -12,6 +12,7 @@ urlpatterns = [
     path("google/callback/", views.google_callback, name="google-callback"),
     path("persetujuan/", views.persetujuan, name="persetujuan"),
     path("profil/", views.profil, name="profil"),
+    path("layanan/", views.layanan, name="layanan"),
     path("data-diri/", views.lengkapi, name="lengkapi"),
     path("pesan/", views.pesan_pilih, name="pesan-pilih"),
     path("pesan/<slug:code>/", views.pesan, name="pesan"),

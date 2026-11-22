@@ -1,0 +1,51 @@
+{% extends "toko/base.html" %}
+{% comment %}
+  Akun kasir toko: SATU akun per toko (nama pengguna + PIN dari pemilik),
+  boleh masuk di banyak perangkat sekaligus. Pemilik bisa mengeluarkan semua perangkat.
+{% endcomment %}
+{% block toko %}
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="kasir-title">
+    <h2 id="kasir-title">{% icon "user" %} {% if cashier %}Akun kasir{% else %}Buat akun kasir{% endif %}</h2>
+    <p class="muted">Kasir masuk di <a href="{{ store.kasir_url }}" target="_blank" rel="noopener">{{ store.host }}/kasir</a>. Satu akun ini bisa dipakai di banyak HP, tablet, atau laptop sekaligus. Berikan hanya kepada kasir toko ini.</p>
+    <form method="post" class="akun-form" novalidate autocomplete="off">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+      {{ form.username.as_field_group }}
+      {{ form.pin.as_field_group }}
+      {{ form.pin2.as_field_group }}
+      {% if cashier %}{{ form.is_active.as_field_group }}{% endif %}
+      {% if store.can_edit %}
+        <div class="akun-actions"><button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button></div>
+      {% endif %}
+    </form>
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="perangkat-title">
+    <h2 id="perangkat-title">{% icon "smartphone" %} Perangkat yang sedang masuk</h2>
+    {% if cashier %}
+      {% if cashier.is_locked %}<p class="alert" role="status">{% icon "lock" %}<span>Akun terkunci sementara karena PIN salah 5 kali. Terbuka otomatis {{ cashier.locked_until|timeuntil }} lagi, atau ganti PIN sekarang.</span></p>{% endif %}
+      <ul class="kv" role="list">
+        <li><span>Jumlah perangkat</span><b>{{ sessions|length }}</b></li>
+        <li><span>Terakhir masuk</span><b>{{ cashier.last_login_at|date:"j M Y, H:i"|default:"belum pernah" }}</b></li>
+      </ul>
+      {% if sessions %}
+        <ul class="mini-list" role="list">
+          {% for s in sessions %}<li><span>Perangkat {{ forloop.counter }}</span><span class="muted small">masuk {{ s.created_at|date:"j M, H:i" }} · aktif {{ s.last_seen_at|timesince }} lalu</span></li>{% endfor %}
+        </ul>
+        {% if store.can_edit %}
+          <form method="post" data-confirm="Keluarkan kasir dari SEMUA perangkat? Kasir harus masuk lagi dengan PIN.">
+            {% csrf_token %}<input type="hidden" name="aksi" value="keluar-semua">
+            <div class="akun-actions"><button class="btn btn-sm btn-ghost" type="submit">{% icon "logout" %}<span>Keluarkan semua perangkat</span></button></div>
+          </form>
+        {% endif %}
+        <p class="field-help">HP kasir hilang atau PIN bocor? Ganti PIN di samping. Semua perangkat langsung keluar.</p>
+      {% else %}
+        <p class="empty">Belum ada perangkat yang masuk.</p>
+      {% endif %}
+    {% else %}
+      <p class="empty">Buat akun kasir dulu.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

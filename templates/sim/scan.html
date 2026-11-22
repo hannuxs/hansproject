@@ -1,0 +1,51 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="up-title">
+  <h2 id="up-title">{% icon "scan" %} Foto KK / KTP jadi data</h2>
+  <p class="muted">Potret KK atau KTP (asli maupun fotokopi) dengan HP. Gambar disimpan aman (tidak punya alamat publik) dan teksnya dibaca otomatis. Hasil bacaan adalah <b>draf</b>: periksa dan betulkan sebelum disimpan sebagai data warga.</p>
+  {% if not ocr_ready %}
+    <p class="alert" role="note">{% icon "info" %}<span>Mesin pembaca teks (Tesseract OCR) belum terpasang di server, jadi teks belum bisa dibaca otomatis. Gambar tetap tersimpan dan data bisa diisi manual sambil melihat gambarnya.</span></p>
+  {% endif %}
+  {% if scan_limit is not None %}<p class="muted small">Kuota baca otomatis bulan ini: <b>{{ scan_used }} / {{ scan_limit }}</b> dokumen (Paket {{ w.package_name }}).</p>{% endif %}
+  {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
+  {% if w.can_edit %}
+    <form method="post" enctype="multipart/form-data" class="akun-form" novalidate data-scan-form>
+      {% csrf_token %}
+      {% for field in form.visible_fields %}
+        {% if field.name == "gambar" %}
+          <div class="field{% if field.errors %} has-error{% endif %}">
+            <label class="field-label" for="{{ field.auto_id }}">{{ field.label }} <span class="req" aria-hidden="true">*</span></label>
+            <input type="file" name="{{ field.html_name }}" id="{{ field.auto_id }}" accept="image/jpeg,image/png,image/webp" required data-resize="2600">
+            <p class="field-help">{{ field.help_text }} Maks. 6 MB; foto besar dari HP otomatis dikecilkan sebelum dikirim.</p>
+            {{ field.errors }}
+          </div>
+        {% else %}
+          {{ field.as_field_group }}
+        {% endif %}
+      {% endfor %}
+      <div class="akun-actions"><button class="btn" type="submit">{% icon "scan" %}<span>Unggah &amp; baca</span></button></div>
+      <p class="muted small" data-scan-status hidden aria-live="polite">Mengirim &amp; membaca gambar… (bisa sampai 1 menit)</p>
+    </form>
+  {% endif %}
+</section>
+
+<section class="akun-card glass" aria-labelledby="list-title">
+  <h2 id="list-title">{% icon "image" %} Dokumen tersimpan ({{ page.paginator.count }})</h2>
+  {% if page.object_list %}
+    <ul class="scan-grid" role="list">
+      {% for d in page.object_list %}
+        <li>
+          <a href="{% url 'sim:scan-detail' w.kode d.pk %}">
+            <img src="{% url 'sim:scan-gambar' w.kode d.pk %}" alt="{{ d }}" loading="lazy">
+            <span><b>{{ d }}</b><span class="muted small">{{ d.get_jenis_display }} · {{ d.created_at|date:"j M Y" }}{% if d.kk %} · KK {{ d.kk.kepala_nama }}{% endif %}</span></span>
+            <span class="status status-{% if d.ocr_status == 'selesai' %}ok{% elif d.ocr_status == 'menunggu' %}wait{% else %}off{% endif %}">{{ d.get_ocr_status_display }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "sim/_pager.html" %}
+  {% else %}
+    <p class="empty">Belum ada dokumen.</p>
+  {% endif %}
+</section>
+{% endblock %}

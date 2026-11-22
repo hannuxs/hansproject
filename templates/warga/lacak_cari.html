@@ -1,0 +1,12 @@
+{% extends "warga/base.html" %}
+{% block warga %}
+<section class="akun-card glass" aria-labelledby="l-title">
+  <h1 class="akun-title" id="l-title">{% icon "search" %} Lacak surat</h1>
+  <p class="muted">Masukkan kode lacak yang Anda dapat setelah mengajukan surat.</p>
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    <div class="akun-actions"><button class="btn" type="submit">{% icon "search" %}<span>Lacak</span></button></div>
+  </form>
+</section>
+{% endblock %}

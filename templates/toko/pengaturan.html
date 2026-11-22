@@ -15,4 +15,28 @@
     {% endif %}
   </form>
 </section>
+
+<section class="akun-card glass akun-narrow" aria-labelledby="status-title">
+  <h2 id="status-title">{% icon "store" %} Status toko</h2>
+  {% if store.is_active %}
+    <p>Toko ini <b>aktif</b> dan memakai 1 kuota dari {{ subscription.quota_text }}.</p>
+    <p class="field-help">Menonaktifkan toko membebaskan 1 kuota (misalnya untuk membuka toko lain). Kasir toko ini langsung keluar dan tidak bisa masuk. Barang, transaksi, dan laporan tetap tersimpan.</p>
+    {% if store.can_edit %}
+      <form method="post" action="{% url 'toko:status' store.subdomain %}" data-confirm="Nonaktifkan toko {{ store.name }}? Kasirnya tidak bisa masuk sampai toko diaktifkan lagi.">
+        {% csrf_token %}<input type="hidden" name="aksi" value="nonaktifkan">
+        <button class="btn btn-sm btn-ghost" type="submit">{% icon "lock" %}<span>Nonaktifkan toko</span></button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p>Toko ini <b>nonaktif</b>. Datanya tetap ada.</p>
+    {% if store.can_edit and free %}
+      <form method="post" action="{% url 'toko:status' store.subdomain %}">
+        {% csrf_token %}<input type="hidden" name="aksi" value="aktifkan">
+        <button class="btn btn-sm" type="submit">{% icon "check" %}<span>Aktifkan lagi</span></button>
+      </form>
+    {% else %}
+      <p class="field-help">Kuota toko penuh ({{ subscription.stores_used }} / {{ subscription.store_limit }}). Nonaktifkan toko lain, <a href="{% url 'toko:beli-toko' store.subdomain %}">beli toko tambahan</a>, atau naik paket saat <a href="{% url 'toko:perpanjang' store.subdomain %}">perpanjang</a>.</p>
+    {% endif %}
+  {% endif %}
+</section>
 {% endblock %}

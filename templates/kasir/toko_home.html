@@ -1,12 +1,12 @@
 {% extends "kasir/base.html" %}
-{% comment %} Halaman depan toko sementara. Halaman promosi toko menyusul (fase 2). {% endcomment %}
+{% comment %} Halaman depan toko bila pemilik belum menerbitkan Halaman toko (atau toko sedang tidak aktif). {% endcomment %}
 {% block body %}
 <main class="k-center">
   <div class="k-card glass">
     <span class="k-logo" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
     <h1 class="k-title">{{ store.name }}</h1>
     {% if store.address %}<p class="k-muted">{% icon "home" "icon-sm" %} {{ store.address }}</p>{% endif %}
-    <p class="k-lead">Halaman toko segera hadir.</p>
+    <p class="k-lead">{% if available %}Halaman toko segera hadir.{% else %}Halaman toko ini sedang tidak tersedia.{% endif %}</p>
   </div>
   <p class="k-foot">Dibuat dengan <a href="{{ SITE_URL }}/" rel="noopener">HANS Project</a></p>
   {% include "kasir/_legal.html" %}

@@ -1,0 +1,35 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="f-title">
+  <div class="card-head">
+    <h2 id="f-title">{% icon "edit" %} Format surat ({{ jenis_list|length }})</h2>
+    {% if w.can_edit %}
+      <div class="head-actions">
+        <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="aksi" value="bawaan"><button class="btn btn-sm btn-ghost" type="submit">{% icon "plus" %}<span>Tambah format bawaan yang hilang</span></button></form>
+        <a class="btn btn-sm" href="{% url 'sim:format-baru' w.kode %}">{% icon "plus" %}<span>Format baru</span></a>
+      </div>
+    {% endif %}
+  </div>
+  <p class="muted">Semua format bisa diubah: judul, isi, dan kolom isian. Format yang <b>bisa diajukan online</b> tampil di halaman warga.</p>
+  {% if jenis_list %}
+    <div class="table-wrap scroll-hint-x">
+      <table class="data-table">
+        <thead><tr><th scope="col">Surat</th><th scope="col">Online</th><th scope="col">Diketahui atas</th><th scope="col" class="num">Terpakai</th><th scope="col"><span class="visually-hidden">Aksi</span></th></tr></thead>
+        <tbody>
+          {% for j in jenis_list %}
+            <tr{% if not j.aktif %} class="row-off"{% endif %}>
+              <td><a href="{% url 'sim:format-ubah' w.kode j.pk %}"><b>{{ j.nama }}</b></a>{% if j.keterangan %}<br><span class="muted small">{{ j.keterangan }}</span>{% endif %}</td>
+              <td>{% if j.online and j.aktif %}{% icon "check" "icon-ok" label="Ya" %}{% else %}{% icon "x" "icon-off" label="Tidak" %}{% endif %}</td>
+              <td>{% if j.butuh_mengetahui %}{% icon "check" "icon-ok" label="Ya" %}{% else %}<span class="muted">–</span>{% endif %}</td>
+              <td class="num">{{ j.jumlah }}</td>
+              <td class="row-actions"><a class="btn btn-sm btn-ghost" href="{% url 'sim:format-contoh' w.kode j.pk %}" target="_blank" rel="noopener">{% icon "eye" %}<span>Contoh</span></a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">Belum ada format surat. Tekan <b>Tambah format bawaan</b>.</p>
+  {% endif %}
+</section>
+{% endblock %}

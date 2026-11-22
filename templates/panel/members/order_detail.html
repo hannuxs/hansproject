@@ -3,13 +3,21 @@
   <ul class="kv" role="list">
     <li><span>Kode pesanan</span><b>{{ object.code }}</b></li>
     <li><span>Jenis</span><b>{{ object.get_order_type_display }}</b></li>
-    <li><span>Paket</span><b>{{ object.package_name }} — {{ object.price_text }}</b></li>
+    <li><span>Solusi</span><b>{{ object.product_label|default:"–" }}</b></li>
+    <li><span>Paket</span><b>{% if object.is_addon %}{{ object.title }}{% else %}Paket {{ object.package_name }}{% endif %} — {{ object.price_text }}</b></li>
     {% if object.is_renewal and object.store %}
-      <li><span>Toko</span><b><a href="{% url 'panel:toko-update' object.store_id %}">{{ object.store.name }}</a> ({{ object.store.host }}), paket sekarang {{ object.store.package_name }}, aktif sampai {{ object.store.active_until|date:"j M Y" }}</b></li>
+      <li><span>Toko</span><b><a href="{% url 'panel:toko-update' object.store_id %}">{{ object.store.name }}</a> ({{ object.store.host }}), paket sekarang {{ object.store.subscription.package_name }} ({{ object.store.subscription.stores.count }} toko di langganan ini), aktif sampai {{ object.store.active_until|date:"j M Y" }}</b></li>
       {% if object.wants_new_subdomain %}<li><span>Minta ganti alamat</span><b>{{ object.store.host }} → {{ object.subdomain_host }}</b></li>{% endif %}
     {% elif object.subdomain %}
       <li><span>Alamat toko diminta</span><b>{{ object.subdomain_host }}</b></li>
       {% if object.store %}<li><span>Toko</span><b><a href="{% url 'panel:toko-update' object.store_id %}">{{ object.store.name }}</a></b></li>{% endif %}
+    {% endif %}
+    {% if object.is_sim %}
+      {% if object.wilayah %}
+        <li><span>Instansi SIM</span><b><a href="{% url 'panel:wilayah-update' object.wilayah_id %}">{{ object.wilayah.label }}</a>, aktif sampai {{ object.wilayah.active_until|date:"j M Y" }}</b></li>
+      {% elif object.sim_label %}
+        <li><span>Instansi diminta</span><b>{{ object.sim_label }}{% if object.details.kecamatan %}, Kec. {{ object.details.kecamatan }}{% endif %}{% if object.details.kota %}, {{ object.details.kota }}{% endif %}{% if object.details.provinsi %}, {{ object.details.provinsi }}{% endif %}</b></li>
+      {% endif %}
     {% endif %}
     {% if object.activated_at %}<li><span>Diaktifkan</span><b>{{ object.activated_at|date:"j M Y, H:i" }}</b></li>{% endif %}
     <li><span>Status sekarang</span><b>{{ object.get_status_display }}</b></li>
@@ -26,12 +34,14 @@
         <img src="{% url 'panel:pesanan-bukti' object.pk %}" alt="Bukti bayar pesanan {{ object.code }}" loading="lazy">
       </a>
       <p class="field-help">Cocokkan nominal dan rekening tujuan. Bila sesuai, ubah status menjadi <b>Aktif</b> atau <b>Sedang diproses</b>.
-        {% if object.is_pos and not object.activated_at %}Status <b>Aktif</b> otomatis {% if object.is_renewal %}menambah masa aktif toko 1 bulan{% else %}membuat toko baru (aktif 1 bulan){% endif %}.{% endif %}</p>
+        {% if object.is_pos and not object.activated_at %}Status <b>Aktif</b> otomatis {% if object.is_renewal %}menambah masa aktif toko 1 bulan{% else %}membuat toko baru (aktif 1 bulan){% endif %}.{% endif %}
+        {% if object.is_sim and not object.activated_at %}Status <b>Aktif</b> otomatis {% if object.is_renewal %}menambah masa aktif instansi 1 bulan{% else %}membuat instansi SIM baru (aktif 1 bulan) beserta format surat bawaan{% endif %}.{% endif %}</p>
     </div>
-  {% elif object.package_category == "kasir" %}
+  {% elif object.is_subscription %}
     <p class="muted">Pelanggan belum mengirim bukti bayar.</p>
   {% endif %}
-  {% if object.verify_token %}<p class="field-help">Halaman keaslian (dari QR di bukti pesanan): <a href="{{ object.verify_path }}" target="_blank" rel="noopener">{{ object.verify_path }}</a></p>{% endif %}
+  {% if object.has_verified_proof %}<p class="field-help">Halaman keaslian (dari QR di bukti pesanan): <a href="{{ object.verify_path }}" target="_blank" rel="noopener">{{ object.verify_path }}</a></p>
+  {% elif object.verify_token and object.status != "batal" %}<p class="field-help">Bukti pesanan &amp; QR keaslian baru muncul untuk pelanggan setelah status diubah ke <b>Sedang diproses</b>, <b>Aktif</b>, atau <b>Selesai</b>.</p>{% endif %}
   {% with c=object.consultation_chat %}
     {% if c %}<p><a class="btn btn-sm" href="{% url 'panel:chat' c.pk %}">{% icon "chat" %} Buka obrolan konsultasi ({{ c.get_status_display|lower }})</a></p>{% endif %}
   {% endwith %}

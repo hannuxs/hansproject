@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "apps.web",
     "apps.members",
     "apps.pos",
+    "apps.sim",
     "apps.panel",
 ]
 
@@ -257,6 +258,11 @@ WHITENOISE_MAX_AGE = 60 * 60 * 24  # file tanpa hash: 1 hari; file ber-hash: 1 t
 UPLOAD_MAX_BYTES = 3 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = UPLOAD_MAX_BYTES
 DATA_UPLOAD_MAX_MEMORY_SIZE = 4 * 1024 * 1024
+# SIM: foto KK/KTP boleh lebih besar (huruf kecil harus terbaca). Batas body Waitress 8 MiB.
+SIM_SCAN_MAX_BYTES = 6 * 1024 * 1024
+# OCR lokal (Tesseract). Kosong = cari di C:/Program Files/Tesseract-OCR/tesseract.exe lalu di PATH.
+TESSERACT_CMD = env_str("TESSERACT_CMD")
+TESSERACT_LANG = env_str("TESSERACT_LANG", "ind+eng")
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
 FILE_UPLOAD_PERMISSIONS = 0o640
 

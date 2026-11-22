@@ -41,6 +41,17 @@ ICON_CHOICES = [
     ("sparkles", "Fitur pintar"),
     ("user-check", "Orang khusus"),
     ("server", "Server"),
+    ("users", "Warga / banyak orang"),
+    ("file", "Surat / dokumen"),
+    ("printer", "Cetak"),
+    ("qr", "Kode QR"),
+    ("link", "Terhubung"),
+    ("megaphone", "Pengumuman"),
+    ("scan", "Scan dokumen"),
+    ("search", "Cari"),
+    ("ticket", "Tiket"),
+    ("map-pin", "Lokasi"),
+    ("building", "Kantor"),
 ]
 
 
@@ -71,7 +82,7 @@ class TwoLevelText(OrderedModel):
 # ---------------------------------------------------------------------------
 
 
-LEGAL_VERSION_DEFAULT = datetime.date(2026, 11, 19)
+LEGAL_VERSION_DEFAULT = datetime.date(2026, 11, 22)
 
 
 class SiteSettings(models.Model):
@@ -118,13 +129,13 @@ class SiteSettings(models.Model):
     # SEO
     seo_title = models.CharField(
         "judul di Google", max_length=70,
-        default="Aplikasi Kasir Murah Mulai Rp25 Ribu/Bulan | HANS Project",
+        default="HANS Project: Aplikasi Kasir, SIM & Jasa Website/Aplikasi",
     )
     seo_description = models.CharField(
         "deskripsi di Google", max_length=170,
         default=(
-            "Aplikasi kasir online untuk warung, toko, kafe, dan UMKM. Cukup pakai HP, mulai "
-            "Rp25.000/bulan. Juga jasa pembuatan website & aplikasi Android/iOS."
+            "Solusi digital siap pakai: aplikasi kasir untuk usaha, Sistem Informasi Manajemen (SIM) untuk RT, RW, "
+            "kelurahan & instansi, serta jasa pembuatan website & aplikasi."
         ),
     )
 
@@ -206,7 +217,19 @@ class BankAccount(OrderedModel):
 class Package(OrderedModel):
     CATEGORY_POS = "kasir"
     CATEGORY_SERVICE = "jasa"
-    CATEGORIES = [(CATEGORY_POS, "Aplikasi Kasir (langganan)"), (CATEGORY_SERVICE, "Jasa Website & Aplikasi")]
+    CATEGORY_SIM = "sim"
+    CATEGORIES = [
+        (CATEGORY_POS, "Aplikasi Kasir (langganan)"),
+        (CATEGORY_SIM, "Sistem Informasi Manajemen / SIM (langganan)"),
+        (CATEGORY_SERVICE, "Jasa Website & Aplikasi"),
+    ]
+    # Nama solusi yang tampil ke pelanggan (judul pesanan, menu, dashboard).
+    PRODUCT_LABELS = {
+        CATEGORY_POS: "Aplikasi Kasir",
+        CATEGORY_SIM: "Sistem Informasi Manajemen (SIM)",
+        CATEGORY_SERVICE: "Website & Aplikasi",
+    }
+    PRODUCT_SHORT = {CATEGORY_POS: "Kasir", CATEGORY_SIM: "SIM", CATEGORY_SERVICE: "Website & Aplikasi"}
 
     code = models.SlugField(
         "kode", max_length=30, unique=True,
@@ -226,7 +249,11 @@ class Package(OrderedModel):
         help_text="Isi bila ada biaya bulanan setelah biaya pembuatan (seperti Paket Rimba).",
     )
     outlet_count = models.PositiveSmallIntegerField(
-        "jumlah toko/outlet termasuk", null=True, blank=True, help_text="Dipakai kalkulator hemat."
+        "jumlah toko/outlet termasuk", null=True, blank=True, help_text="Aplikasi Kasir. Dipakai kalkulator hemat."
+    )
+    scan_limit = models.PositiveIntegerField(
+        "batas scan dokumen per bulan", null=True, blank=True,
+        help_text="SIM: jumlah foto KK/KTP/dokumen yang bisa dibaca otomatis (OCR) per bulan. Kosongkan = tanpa batas.",
     )
 
     badge = models.CharField("label sorotan", max_length=40, blank=True, help_text="Contoh: Paling Direkomendasikan")
@@ -244,11 +271,33 @@ class Package(OrderedModel):
         verbose_name_plural = "paket & harga"
 
     def __str__(self) -> str:
-        return f"Paket {self.name}"
+        # Kasir & SIM sama-sama punya Paket Tunas/Tumbuh: sebut solusinya agar tidak tertukar.
+        return f"{self.product_short} · Paket {self.name}" if self.product_short else f"Paket {self.name}"
 
     @property
     def is_pos(self) -> bool:
         return self.category == self.CATEGORY_POS
+
+    @property
+    def is_sim(self) -> bool:
+        return self.category == self.CATEGORY_SIM
+
+    @property
+    def is_service(self) -> bool:
+        return self.category == self.CATEGORY_SERVICE
+
+    @property
+    def product_label(self) -> str:
+        return self.PRODUCT_LABELS.get(self.category, "")
+
+    @property
+    def product_short(self) -> str:
+        return self.PRODUCT_SHORT.get(self.category, "")
+
+    @property
+    def is_priced(self) -> bool:
+        """Langganan berharga Rp0 = harga belum ditentukan pemilik: tampil "segera diumumkan", belum bisa dipesan."""
+        return self.is_service or self.price > 0
 
     @property
     def price_text(self) -> str:
@@ -347,6 +396,17 @@ class ComparisonRow(OrderedModel):
 
 
 class Faq(OrderedModel):
+    TOPIC_GENERAL = "umum"
+    TOPICS = [
+        (TOPIC_GENERAL, "Umum (halaman utama)"),
+        ("kasir", "Aplikasi Kasir"),
+        ("sim", "Sistem Informasi Manajemen (SIM)"),
+        ("jasa", "Website & Aplikasi"),
+    ]
+    topic = models.CharField(
+        "tampil di", max_length=10, choices=TOPICS, default=TOPIC_GENERAL,
+        help_text="Umum = halaman utama. Lainnya = halaman solusi masing-masing.",
+    )
     question = models.CharField("pertanyaan", max_length=200)
     answer = models.TextField(
         "jawaban", max_length=3000,

@@ -1,0 +1,72 @@
+{% load static %}<!doctype html>
+{% comment %}
+  Surat A4, dicetak dengan fitur cetak browser (HP/komputer) atau disimpan sebagai PDF.
+  Isi surat adalah teks biasa (di-escape), dirapikan menjadi paragraf & tabel 'Label : isi'.
+{% endcomment %}
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ s.judul }}{% if s.nomor %} {{ s.nomor }}{% endif %} — {{ w.short_label }}</title>
+  <link rel="stylesheet" href="{% static 'css/surat.css' %}">
+  <script src="{% static 'js/struk.js' %}" defer></script>
+</head>
+<body>
+  <div class="surat-tools">
+    <button class="surat-btn" type="button" data-print>Cetak / simpan PDF</button>
+    {% if draft %}<span class="surat-note">{% if sample %}Contoh format dengan data contoh.{% else %}Pratinjau: surat belum terbit, belum bernomor.{% endif %}</span>{% endif %}
+  </div>
+
+  <main class="paper{% if draft %} is-draft{% endif %}" aria-label="Surat">
+    <header class="kop">
+      {% for line in kop %}<p class="kop-line{% if forloop.first %} kop-main{% endif %}">{{ line }}</p>{% endfor %}
+      {% if w.alamat %}<p class="kop-addr">Sekretariat: {{ w.alamat }}</p>{% endif %}
+    </header>
+
+    <h1 class="judul">{{ s.judul }}</h1>
+    <p class="nomor">Nomor: {% if s.nomor %}{{ s.nomor }}{% else %}........................................{% endif %}</p>
+
+    <div class="isi">
+      {% for b in blocks %}
+        {% if b.kind == "table" %}
+          <table class="data">
+            <tbody>{% for label, value in b.rows %}<tr><th scope="row">{{ label }}</th><td class="colon">:</td><td>{{ value }}</td></tr>{% endfor %}</tbody>
+          </table>
+        {% else %}
+          <p>{{ b.text|linebreaksbr }}</p>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="sign-area{% if ack %} two{% endif %}">
+      {% if ack %}
+        <div class="sign">
+          <p>Mengetahui,</p>
+          <p>{{ ack_title|default:"Wilayah di atasnya" }}</p>
+          <div class="sign-space"></div>
+          <p class="sign-name">{% if ack_name %}{{ ack_name }}{% else %}(..............................){% endif %}</p>
+          {% if s.mengetahui == "diketahui" %}<p class="sign-note">Diketahui secara elektronik {{ s.mengetahui_at|date:"j M Y" }}</p>{% endif %}
+        </div>
+      {% endif %}
+      <div class="sign">
+        <p>{{ w.place_name|default:"" }}{% if w.place_name %}, {% endif %}{% if tanggal %}{{ tanggal }}{% else %}..................{% endif %}</p>
+        <p>{{ s.jabatan|default:w.signer_title }}</p>
+        <div class="sign-space">
+          {% if cap_url %}<img class="sign-cap" src="{{ cap_url }}" alt="">{% endif %}
+          {% if ttd_url %}<img class="sign-ttd" src="{{ ttd_url }}" alt="">{% endif %}
+        </div>
+        <p class="sign-name">{{ s.penanda_tangan|default:w.ketua_nama|default:"(..............................)" }}</p>
+        {% if w.ketua_nip %}<p class="sign-note">NIP. {{ w.ketua_nip }}</p>{% endif %}
+      </div>
+    </div>
+
+    {% if qr %}
+      <footer class="verify">
+        <div class="verify-qr">{{ qr }}</div>
+        <p>Pindai kode QR untuk memeriksa keaslian surat ini, atau buka:<br><span class="verify-url">{{ verify_url }}</span></p>
+      </footer>
+    {% endif %}
+  </main>
+</body>
+</html>

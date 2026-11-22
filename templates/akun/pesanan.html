@@ -23,6 +23,8 @@
       {% if order.wants_new_subdomain %}<li><span>Minta ganti alamat ke</span><b>{{ order.subdomain_host }}{% if not order.activated_at %} <span class="muted">(menunggu persetujuan)</span>{% endif %}</b></li>{% endif %}
     {% elif order.subdomain %}
       <li><span>Alamat toko</span><b>{{ order.subdomain_host }}</b></li>
+    {% elif order.is_sim and order.sim_label %}
+      <li><span>Instansi</span><b>{{ order.sim_label }}</b></li>
     {% endif %}
     <li><span>Dipesan</span><b>{{ order.created_at|date:"j F Y, H:i" }}</b></li>
     {% if order.proof_uploaded_at %}<li><span>Bukti bayar dikirim</span><b>{{ order.proof_uploaded_at|date:"j F Y, H:i" }}</b></li>{% endif %}
@@ -61,7 +63,13 @@
     </div>
   {% endif %}
 
-  {% if order.package_category == "kasir" %}
+  {% if order.wilayah and order.activated_at and order.wilayah.state_now != "dihapus" %}
+    <div class="akun-actions">
+      <a class="btn" href="{% url 'sim:ringkasan' order.wilayah.kode %}">{% icon "users" %}<span>Kelola instansi</span></a>
+    </div>
+  {% endif %}
+
+  {% if order.is_subscription %}
     <ol class="order-steps" role="list">
       <li class="done"><span>1</span>Pesanan dibuat</li>
       <li class="{% if order.status == 'bayar' %}now{% elif order.status != 'batal' %}done{% endif %}"><span>2</span>Bayar &amp; kirim bukti</li>
@@ -84,6 +92,7 @@
   {% endif %}
 </div>
 
+{% if order.has_verified_proof %}
 <section class="akun-card glass verify-card" aria-labelledby="keaslian-title">
   <div class="verify-qr" aria-hidden="true">{{ qr_svg }}</div>
   <div class="verify-text">
@@ -95,6 +104,9 @@
     </div>
   </div>
 </section>
+{% elif order.status != "batal" %}
+<p class="alert no-print" role="note">{% icon "shield" %}<span><b>Bukti pesanan &amp; kode QR</b> bisa dicetak setelah pembayaran Anda kami cek dan pesanan berstatus <i>Sedang diproses</i> atau <i>Aktif</i>.</span></p>
+{% endif %}
 
 {% if order.can_send_proof %}
   <section class="akun-card glass" aria-labelledby="bayar-title">

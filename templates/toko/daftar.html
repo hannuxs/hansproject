@@ -1,52 +1,79 @@
 {% extends "akun/base.html" %}
 {% load static %}
+{% comment %}
+  Menu "Toko": semua toko, dikelompokkan per langganan (paket). Satu toko = satu alamat
+  kasir (subdomain) + satu akun kasir + barang & laporan sendiri.
+{% endcomment %}
 {% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
 {% block akun %}
+<p class="back-link"><a href="{% url 'akun:layanan' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Layanan saya</span></a></p>
 <header class="dash-head">
   <div>
-    <p class="eyebrow">Toko</p>
+    <p class="eyebrow">Aplikasi Kasir</p>
     <h1 class="akun-title">Toko saya</h1>
   </div>
   <a class="btn btn-sm" href="{% url 'toko:tambah' %}">{% icon "plus" %}<span>Tambah toko</span></a>
 </header>
 
-{% if stores %}
-  <ul class="store-cards" role="list">
-    {% for store, sums in stores %}
-      <li class="akun-card glass store-card">
-        <div class="toko-id">
-          <span class="avatar" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
-          <div class="toko-id-text">
-            <h2><a href="{% url 'toko:ringkasan' store.subdomain %}">{{ store.name }}</a></h2>
-            <p class="muted small">{{ store.host }} · Paket {{ store.package_name }} · sampai {{ store.active_until|date:"j M Y" }}</p>
+{% if overview %}{% include "toko/_ringkasan_semua.html" %}{% endif %}
+
+{% for sub in subscriptions %}
+  <section class="akun-card glass sub-card" aria-labelledby="langganan-{{ sub.pk }}">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">Langganan</p>
+        <h2 id="langganan-{{ sub.pk }}">Paket {{ sub.package_name }}</h2>
+        <p class="muted small">Aktif sampai {{ sub.active_until|date:"j M Y" }} · berlaku untuk semua toko di bawah ini</p>
+      </div>
+      <span class="status status-{{ sub.state_tone }}">{{ sub.state_label }}</span>
+    </div>
+    <div class="quota-row">
+      <span class="quota-badge" aria-label="{{ sub.stores_used }} dari {{ sub.store_limit }} toko dipakai"><b>{{ sub.stores_used }}</b> / {{ sub.store_limit }}</span>
+      <span><b>Toko dibuat</b><br><span class="muted small">{{ sub.quota_text }}{% if sub.stores_free %} · sisa {{ sub.stores_free }}{% endif %}</span></span>
+      {% if sub.can_edit %}
+        {% if sub.stores_free %}
+          <a class="btn btn-sm" href="{% url 'toko:buat' sub.pk %}">{% icon "plus" %}<span>Buat toko</span></a>
+        {% elif sub.store_list %}
+          <a class="btn btn-sm btn-ghost" href="{% url 'toko:beli-toko' sub.store_list.0.subdomain %}">{% icon "cart" %}<span>Beli toko</span></a>
+        {% endif %}
+      {% endif %}
+      {% if sub.store_list %}<a class="btn btn-sm btn-ghost" href="{% url 'toko:perpanjang' sub.store_list.0.subdomain %}">{% icon "clock" %}<span>Perpanjang</span></a>{% endif %}
+    </div>
+
+    <ul class="store-cards" role="list">
+      {% for store in sub.store_list %}
+        <li class="store-card{% if not store.is_active %} is-off{% endif %}">
+          <div class="toko-id">
+            <span class="avatar" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
+            <div class="toko-id-text">
+              <h3><a href="{% url 'toko:ringkasan' store.subdomain %}">{{ store.name }}</a></h3>
+              <p class="muted small">{{ store.host }}</p>
+            </div>
+            <span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span>
           </div>
-          <span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span>
-        </div>
-        <div class="quota-row">
-          <span class="quota-badge"><b>{{ store.outlets_used }}</b> / {{ store.outlet_limit }}</span>
-          <span><b>Toko dibuat</b><br><span class="muted small">{{ store.outlet_quota_text }}{% if store.outlets_free %} · sisa {{ store.outlets_free }}{% endif %}</span></span>
-          {% if store.can_edit %}<a class="btn btn-sm btn-ghost" href="{% if store.outlets_free %}{% url 'toko:outlet-baru' store.subdomain %}{% else %}{% url 'toko:beli-toko' store.subdomain %}{% endif %}">{% icon "plus" %}<span>{% if store.outlets_free %}Buat toko{% else %}Beli toko{% endif %}</span></a>{% endif %}
-        </div>
-        <div class="toko-stats compact two">
-          <div class="stat"><span>Hari ini</span><b>{{ sums.today|rupiah }}</b></div>
-          <div class="stat"><span>Bulan ini</span><b>{{ sums.month|rupiah }}</b></div>
-        </div>
-        <div class="akun-actions">
-          <a class="btn btn-sm" href="{% url 'toko:ringkasan' store.subdomain %}">{% icon "settings" %}<span>Kelola</span></a>
-          <a class="btn btn-sm btn-ghost" href="{{ store.kasir_url }}" target="_blank" rel="noopener">{% icon "calculator" %}<span>Buka kasir</span></a>
-          <a class="btn btn-sm btn-ghost" href="{% url 'toko:perpanjang' store.subdomain %}">{% icon "clock" %}<span>Perpanjang</span></a>
-        </div>
-      </li>
-    {% endfor %}
-  </ul>
-{% else %}
+          <div class="toko-stats compact two">
+            <div class="stat"><span>Hari ini</span><b>{{ store.sum_today|rupiah }}</b></div>
+            <div class="stat"><span>Bulan ini</span><b>{{ store.sum_month|rupiah }}</b></div>
+          </div>
+          <div class="akun-actions">
+            <a class="btn btn-sm" href="{% url 'toko:ringkasan' store.subdomain %}">{% icon "settings" %}<span>Kelola</span></a>
+            {% if store.is_active %}<a class="btn btn-sm btn-ghost" href="{{ store.kasir_url }}" target="_blank" rel="noopener">{% icon "calculator" %}<span>Buka kasir</span></a>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if sub.admin_note %}
+      <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ sub.admin_note|linebreaksbr }}</p></div>
+    {% endif %}
+  </section>
+{% empty %}
   <section class="akun-card glass empty-state">
     <span class="empty-icon" aria-hidden="true">{% icon "store" %}</span>
     <h2>Belum ada toko</h2>
-    <p class="muted">Toko dibuat otomatis setelah pesanan Paket Tunas atau Tumbuh Anda aktif.</p>
-    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pilih paket kasir</span></a></div>
+    <p class="muted">Toko pertama dibuat otomatis setelah pesanan Paket Tunas atau Tumbuh Anda aktif.</p>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}?layanan=kasir">{% icon "tag" %}<span>Pilih paket kasir</span></a></div>
   </section>
-{% endif %}
+{% endfor %}
 
 {% if pending %}
   <section class="akun-card glass" aria-labelledby="proses-title">

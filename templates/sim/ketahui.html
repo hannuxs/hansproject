@@ -1,0 +1,27 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<p class="back-link"><a href="{% url 'sim:jaringan' w.kode %}">{% icon "arrow-right" "icon-sm flip" %}<span>Jaringan</span></a></p>
+<section class="akun-card glass akun-narrow" aria-labelledby="k-title">
+  <p class="eyebrow">Dari {{ s.wilayah.label }}</p>
+  <h2 id="k-title">{{ s.jenis_nama }}</h2>
+  <ul class="kv" role="list">
+    <li><span>Nomor</span><b class="mono">{{ s.nomor }}</b></li>
+    <li><span>Tanggal</span><b>{{ s.tanggal|date:"j F Y" }}</b></li>
+    <li><span>Pemohon</span><b>{{ s.nama }}</b></li>
+    <li><span>Penanda tangan</span><b>{{ s.penanda_tangan }} ({{ s.jabatan }})</b></li>
+    <li><span>Status</span><b>{{ s.get_mengetahui_display }}</b></li>
+  </ul>
+  <div class="akun-actions"><a class="btn btn-ghost" href="?cetak=1" target="_blank" rel="noopener">{% icon "eye" %}<span>Lihat isi surat</span></a></div>
+  {% if s.mengetahui == "menunggu" and w.can_edit %}
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+      <div class="akun-actions">
+        <button class="btn" type="submit" name="aksi" value="ketahui">{% icon "check" %}<span>Mengetahui</span></button>
+        <button class="btn btn-ghost" type="submit" name="aksi" value="tolak">{% icon "x" %}<span>Tolak</span></button>
+      </div>
+      <p class="field-help">Nama Anda ({{ w.ketua_nama|default:"ketua" }}, {{ w.signer_title }}) tercetak di kolom “Mengetahui” pada surat.</p>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

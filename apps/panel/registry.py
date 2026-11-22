@@ -25,6 +25,8 @@ from apps.content.models import (
 from apps.members.models import Member, Order, Refund
 from apps.pos.forms import StoreAdminForm
 from apps.pos.models import Store
+from apps.sim.forms import WilayahAdminForm
+from apps.sim.models import Wilayah
 
 from . import forms
 from .crud import Column, InlineSpec, Section
@@ -36,10 +38,14 @@ PACKAGES = Section(
     title="Paket & Harga",
     singular="paket",
     icon="tag",
-    description="Harga, label, dan isi setiap paket. Perubahan langsung tampil di website.",
+    description=(
+        "Harga, label, dan isi setiap paket. Aplikasi Kasir dan SIM masing-masing punya Paket Tunas & Tumbuh; "
+        "Paket Rimba untuk jasa website & aplikasi. Harga langganan Rp0 = tampil \"Segera diumumkan\" dan belum bisa "
+        "dipesan. Perubahan langsung tampil di website."
+    ),
     columns=[
+        Column("product_short", "Solusi"),
         Column("name", "Paket"),
-        Column("get_category_display", "Jenis", "muted"),
         Column("price", "Harga", "money"),
         Column("price_suffix", "Keterangan", "muted"),
         Column("is_highlighted", "Ditonjolkan", "bool"),
@@ -47,7 +53,7 @@ PACKAGES = Section(
     ],
     fieldsets=[
         ("Identitas paket", ["name", "code", "category", "icon", "tagline", "description"]),
-        ("Harga", ["price_prefix", "price", "price_suffix", "monthly_price", "outlet_count"]),
+        ("Harga & batas", ["price_prefix", "price", "price_suffix", "monthly_price", "outlet_count", "scan_limit"]),
         ("Tampilan", ["badge", "is_highlighted", "includes_from", "order", "is_active"]),
     ],
     inlines=[
@@ -60,7 +66,7 @@ PACKAGES = Section(
             help="Catatan yang wajib dibaca calon pelanggan (misalnya biaya Play Store ditanggung klien).",
         ),
     ],
-    queryset=lambda: Package.objects.select_related("includes_from"),
+    queryset=lambda: Package.objects.select_related("includes_from").order_by("category", "order", "pk"),
 )
 
 ADDONS = Section(
@@ -70,7 +76,7 @@ ADDONS = Section(
     title="Biaya Tambahan",
     singular="biaya tambahan",
     icon="plus",
-    description="Tambah toko/cabang dan tambah tempat simpan.",
+    description="Aplikasi Kasir: tambah toko/cabang dan tambah tempat simpan.",
     columns=[
         Column("get_group_display", "Kelompok", "muted"),
         Column("name", "Nama"),
@@ -87,7 +93,7 @@ INCLUDED = Section(
     title="Termasuk di Semua Paket",
     singular="poin",
     icon="check",
-    description="Keunggulan yang dimiliki semua paket aplikasi kasir.",
+    description="Keunggulan yang dimiliki semua paket Aplikasi Kasir (tampil di halaman Aplikasi Kasir).",
     columns=[Column("simple", "Versi sederhana"), Column("technical", "Versi teknis", "muted")],
 )
 
@@ -109,7 +115,8 @@ FAQ = Section(
     title="Pertanyaan (FAQ)",
     singular="pertanyaan",
     icon="help",
-    columns=[Column("question", "Pertanyaan"), Column("is_active", "Tampil", "bool")],
+    description="Umum = halaman utama. Pertanyaan khusus satu solusi tampil di halaman solusinya (Kasir, SIM, Website & Aplikasi).",
+    columns=[Column("question", "Pertanyaan"), Column("get_topic_display", "Tampil di", "muted"), Column("is_active", "Tampil", "bool")],
 )
 
 TESTIMONIALS = Section(
@@ -182,6 +189,7 @@ ORDERS = Section(
         Column("code", "Kode"),
         Column("customer_name", "Pelanggan"),
         Column("title", "Pesanan"),
+        Column("subject_label", "Untuk", "muted"),
         Column("get_status_display", "Status"),
         Column("created_at", "Dipesan", "muted"),
     ],
@@ -201,7 +209,7 @@ ORDERS = Section(
     orderable=False,
     nav_group="Pelanggan",
     detail_template="panel/members/order_detail.html",
-    queryset=lambda: Order.objects.select_related("member"),
+    queryset=lambda: Order.objects.select_related("member", "store", "wilayah"),
 )
 
 REFUNDS = Section(
@@ -301,12 +309,13 @@ STORES = Section(
     key="toko",
     model=Store,
     form_class=StoreAdminForm,
-    title="Toko (Aplikasi Kasir)",
+    title="Toko · Aplikasi Kasir",
     singular="toko",
     icon="store",
     description=(
-        "Toko dibuat otomatis saat pesanan kasir diubah menjadi Aktif, dan diperpanjang lewat pesanan perpanjangan. "
-        "Di sini Anda bisa mengubah masa aktif, jumlah outlet tambahan, atau menangguhkan toko."
+        "Satu toko = satu subdomain = satu akun kasir. Toko pertama dibuat otomatis saat pesanan kasir diubah menjadi Aktif; "
+        "toko berikutnya dibuat pelanggan sendiri dari sisa kuota paketnya. Paket, kuota, dan masa aktif disimpan per "
+        "langganan (berlaku untuk semua toko di langganan itu)."
     ),
     columns=[
         Column("name", "Toko"),
@@ -318,14 +327,39 @@ STORES = Section(
     ],
     can_create=False,
     orderable=False,
-    nav_group="Pelanggan",
+    nav_group="Layanan",
     detail_template="panel/pos/store_detail.html",
-    queryset=lambda: Store.objects.select_related("owner").order_by("active_until"),
+    queryset=lambda: Store.objects.select_related("owner", "subscription").order_by("subscription__active_until", "pk"),
+)
+
+WILAYAH = Section(
+    key="wilayah",
+    model=Wilayah,
+    form_class=WilayahAdminForm,
+    title="Instansi · SIM",
+    singular="instansi",
+    icon="database",
+    description=(
+        "Sistem Informasi Manajemen (SIM). Satu instansi = satu RT/RW/kelurahan/kecamatan dengan data warga, format surat, "
+        "dan halaman warga sendiri. Dibuat otomatis saat pesanan paket SIM diubah menjadi Aktif. Data warga TIDAK "
+        "ditampilkan di panel; di sini hanya status langganan dan masa aktif."
+    ),
+    columns=[
+        Column("label", "Instansi"),
+        Column("owner.display_name", "Pengurus", "muted"),
+        Column("package_name", "Paket"),
+        Column("active_until", "Aktif sampai"),
+        Column("state_label", "Keadaan"),
+    ],
+    can_create=False,
+    orderable=False,
+    nav_group="Layanan",
+    queryset=lambda: Wilayah.objects.select_related("owner").order_by("active_until", "pk"),
 )
 
 SECTIONS = [
     PACKAGES, ADDONS, INCLUDED, COMPARISON, FAQ, TESTIMONIALS, LEGAL,
-    ORDERS, REFUNDS, STORES, CHATS, ANNOUNCEMENTS, MEMBERS, SETTINGS,
+    ORDERS, REFUNDS, STORES, WILAYAH, CHATS, ANNOUNCEMENTS, MEMBERS, SETTINGS,
 ]
 
 

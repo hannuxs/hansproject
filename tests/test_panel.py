@@ -129,10 +129,10 @@ class CrudTests(SeededTestCase):
         self.assertEqual(self.client.get(reverse("panel:paket-create")).status_code, 200)
 
     def test_create_update_delete_faq_with_audit(self):
-        r = self.client.post(reverse("panel:faq-create"), {"question": "Ada demo?", "answer": "Ada, di halaman utama.", "order": 5, "is_active": "on"})
+        r = self.client.post(reverse("panel:faq-create"), {"topic": "umum", "question": "Ada demo?", "answer": "Ada, di halaman utama.", "order": 5, "is_active": "on"})
         self.assertRedirects(r, reverse("panel:faq-list"))
         faq = Faq.objects.get(question="Ada demo?")
-        self.client.post(reverse("panel:faq-update", args=[faq.pk]), {"question": "Ada demo kasir?", "answer": "Ada.", "order": 5})
+        self.client.post(reverse("panel:faq-update", args=[faq.pk]), {"topic": "kasir", "question": "Ada demo kasir?", "answer": "Ada.", "order": 5})
         faq.refresh_from_db()
         self.assertEqual((faq.question, faq.is_active), ("Ada demo kasir?", False))
         self.client.post(reverse("panel:faq-delete", args=[faq.pk]))

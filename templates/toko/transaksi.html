@@ -8,7 +8,7 @@
     <div class="stat"><span>Transaksi</span><b>{{ report.count }}</b></div>
     <div class="stat"><span>Dibatalkan</span><b>{{ report.void_count }}</b></div>
   </div>
-  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}{% if outlet %} · {{ outlet.name }}{% endif %}</p>
+  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}</p>
   {% if page.object_list %}
     {% include "toko/_sale_list.html" with sales=page.object_list %}
     {% include "toko/_pager.html" %}

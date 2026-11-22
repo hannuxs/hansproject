@@ -2,7 +2,7 @@
   {% for sale in sales %}
     <li>
       <a class="order-item{% if sale.is_void %} is-void{% endif %}" href="{% url 'toko:transaksi-detail' store.subdomain sale.pk %}">
-        <span class="order-main"><b>{{ sale.number }}</b><span class="muted">{{ sale.created_at|date:"j M Y, H:i" }} · {{ sale.outlet.name }} · {{ sale.get_method_display }}</span></span>
+        <span class="order-main"><b>{{ sale.number }}</b><span class="muted">{{ sale.created_at|date:"j M Y, H:i" }} · {{ sale.get_method_display }}</span></span>
         {% if sale.is_void %}<span class="status status-off">Dibatalkan</span>{% endif %}
         <b class="sale-total">{{ sale.total|rupiah }}</b>
       </a>

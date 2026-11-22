@@ -27,7 +27,7 @@ from .models import (
 
 PACKAGE_FIELDS = (
     "category", "name", "icon", "tagline", "description", "price", "price_prefix", "price_suffix",
-    "monthly_price", "outlet_count", "badge", "is_highlighted", "order",
+    "monthly_price", "outlet_count", "scan_limit", "badge", "is_highlighted", "order",
 )
 
 
@@ -42,7 +42,8 @@ def seed(*, only_missing: bool = False) -> dict[str, int]:
         created[key] = created.get(key, 0) + n
 
     by_code: dict[str, Package] = {}
-    for spec in data.PACKAGES:
+    all_packages = data.PACKAGES + data.SIM_PACKAGES
+    for spec in all_packages:
         defaults = {k: spec[k] for k in PACKAGE_FIELDS if k in spec}
         pkg, is_new = Package.objects.get_or_create(code=spec["code"], defaults=defaults)
         by_code[pkg.code] = pkg
@@ -57,7 +58,7 @@ def seed(*, only_missing: bool = False) -> dict[str, int]:
             PackageNote(package=pkg, simple=s, technical=t, order=(n + 1) * 10)
             for n, (s, t) in enumerate(spec.get("notes", []))
         )
-    for spec in data.PACKAGES:
+    for spec in all_packages:
         parent = by_code.get(spec.get("includes_code", ""))
         pkg = by_code[spec["code"]]
         if parent and pkg.includes_from_id is None:
@@ -77,14 +78,18 @@ def seed(*, only_missing: bool = False) -> dict[str, int]:
         if is_new:
             bump("tambahan")
 
-    for n, (label, values) in enumerate(data.COMPARISON):
+    sim_values = dict(data.SIM_COMPARISON)
+    labels = [label for label, _ in data.COMPARISON] + [label for label, _ in data.SIM_COMPARISON if label not in dict(data.COMPARISON)]
+    for n, label in enumerate(labels):
+        values = {**dict(data.COMPARISON).get(label, {}), **sim_values.get(label, {})}
         _, is_new = ComparisonRow.objects.get_or_create(label=label, defaults={"values": values, "order": (n + 1) * 10})
         if is_new:
             bump("tabel")
 
-    for n, (question, answer, active) in enumerate(data.FAQS):
+    faqs = [(q, a, active, data.FAQ_TOPICS.get(q, "umum")) for q, a, active in data.FAQS] + list(data.SIM_FAQS)
+    for n, (question, answer, active, topic) in enumerate(faqs):
         _, is_new = Faq.objects.get_or_create(
-            question=question, defaults={"answer": answer, "is_active": active, "order": (n + 1) * 10}
+            question=question, defaults={"answer": answer, "is_active": active, "topic": topic, "order": (n + 1) * 10}
         )
         if is_new:
             bump("faq")

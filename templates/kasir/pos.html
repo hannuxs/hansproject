@@ -8,7 +8,7 @@
   <header class="pos-top">
     <div class="pos-store">
       <b>{{ store.name }}</b>
-      <span>{{ outlet.name }} · {{ cashier.username }}</span>
+      <span>{{ store.name }} · {{ cashier.username }}</span>
     </div>
     <nav class="pos-nav" aria-label="Menu kasir">
       <a class="pos-nav-btn" href="{% url 'kasir:riwayat' %}">{% icon "history" %}<span>Riwayat</span></a>

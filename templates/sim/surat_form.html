@@ -1,0 +1,19 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<p class="back-link"><a href="{% url 'sim:surat-pilih' w.kode %}{% if person %}?penduduk={{ person.pk }}{% endif %}">{% icon "arrow-right" "icon-sm flip" %}<span>Jenis surat</span></a></p>
+<section class="akun-card glass akun-narrow" aria-labelledby="form-title">
+  <p class="eyebrow">Buat surat</p>
+  <h2 id="form-title">{{ jenis.nama }}</h2>
+  {% if person %}<p class="muted">Data diambil dari data warga: <b>{{ person.nama }}</b> (KK {{ person.kk.kepala_nama }}). Periksa dan lengkapi bila perlu.</p>{% endif %}
+  <form method="post" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% if person %}<input type="hidden" name="penduduk" value="{{ person.pk }}">{% endif %}
+    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    <div class="akun-actions">
+      <button class="btn" type="submit" name="terbitkan" value="1">{% icon "check" %}<span>Terbitkan &amp; beri nomor</span></button>
+      <button class="btn btn-ghost" type="submit">{% icon "edit" %}<span>Simpan sebagai draf</span></button>
+    </div>
+    <p class="field-help">Setelah terbit, surat mendapat nomor otomatis dan siap dicetak.</p>
+  </form>
+</section>
+{% endblock %}

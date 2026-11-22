@@ -1,0 +1,153 @@
+{% load static %}<!doctype html>
+{% comment %}
+  Halaman toko di <toko>.hansproject.app/ (dan pratinjaunya di /akun/toko/<alamat>/halaman/pratinjau/).
+  Satu kerangka untuk 4 template; perbedaan tampilan diatur halaman.css lewat kelas tpl-<nama>.
+  Warna dari palet otomatis (variabel --hp-*) di /_tema/v<versi>/<hex>.css.
+{% endcomment %}
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ store.name }}{% if view.tagline %} · {{ view.tagline }}{% endif %}</title>
+  <meta name="description" content="{{ view.description }}">
+  {% if preview %}
+    <meta name="robots" content="noindex, nofollow">
+  {% else %}
+    <link rel="canonical" href="{{ store.url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ store.name }}">
+    <meta property="og:description" content="{{ view.description }}">
+    <meta property="og:url" content="{{ store.url }}">
+    {% if view.og_image %}<meta property="og:image" content="{{ view.og_image }}">{% endif %}
+    <script type="application/ld+json">{{ view.jsonld }}</script>
+  {% endif %}
+  <meta name="theme-color" content="{{ view.theme_color }}">
+  {% if view.logo_url %}<link rel="icon" href="{{ view.logo_url }}">{% else %}<link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="48x48">{% endif %}
+  <link rel="preload" href="{% static 'fonts/plus-jakarta-sans-latin-var.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{{ view.theme_url }}">
+  <link rel="stylesheet" href="{% static 'css/halaman.css' %}">
+</head>
+<body class="hp-page tpl-{{ view.template }}{% if preview %} is-preview{% endif %}">
+{% if preview %}
+  <div class="hp-preview" role="region" aria-label="Pratinjau halaman toko">
+    <p class="hp-pv-text">
+      <b>Pratinjau</b>
+      {% if trying %}Contoh template <b>{{ trying_label }}</b> dengan isi toko Anda.
+      {% elif changed %}Belum terlihat pengunjung sampai Anda menekan Terbitkan.
+      {% else %}Sama dengan yang sudah terbit.{% endif %}
+    </p>
+    <div class="hp-pv-actions">
+      <label class="hp-pv-phone"><input type="checkbox"> Tampilan HP</label>
+      <a class="hp-pv-btn is-ghost" href="{% url 'toko:halaman' store.subdomain %}">Kembali mengatur</a>
+      {% if can_edit %}
+        {% if trying %}
+          <form method="post" action="{% url 'toko:halaman' store.subdomain %}">{% csrf_token %}<input type="hidden" name="aksi" value="template"><input type="hidden" name="template" value="{{ trying }}"><button class="hp-pv-btn" type="submit">Pakai template ini</button></form>
+        {% elif changed %}
+          <form method="post" action="{% url 'toko:halaman' store.subdomain %}">{% csrf_token %}<input type="hidden" name="aksi" value="terbitkan"><button class="hp-pv-btn" type="submit">{% if page.live %}Terbitkan perubahan{% else %}Terbitkan{% endif %}</button></form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<div class="hp-frame">
+  <header class="hp-hero">
+    <div class="hp-wrap hp-hero-inner">
+      <div class="hp-hero-text">
+        {% if view.logo_url %}
+          <img class="hp-logo" src="{{ view.logo_url }}" alt="Logo {{ store.name }}" width="88" height="88">
+        {% else %}
+          <span class="hp-logo hp-logo-letter" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
+        {% endif %}
+        <h1 class="hp-name">{{ store.name }}</h1>
+        {% if view.tagline %}<p class="hp-tagline">{{ view.tagline }}</p>{% endif %}
+        <div class="hp-cta">
+          {% if view.highlights or view.sections %}<a class="hp-btn" href="#{% if view.highlights %}unggulan{% else %}harga{% endif %}">{% icon "box" %}<span>Lihat barang</span></a>{% endif %}
+          {% if view.phone_href %}<a class="hp-btn is-ghost" href="{{ view.phone_href }}">{% icon "smartphone" %}<span>Telepon</span></a>{% endif %}
+          {% if view.maps_url %}<a class="hp-btn is-ghost" href="{{ view.maps_url }}" target="_blank" rel="noopener nofollow">{% icon "globe" %}<span>Petunjuk arah</span></a>{% endif %}
+        </div>
+        {% if view.hours %}<p class="hp-hours">{% icon "clock" "icon-sm" %}<span>{{ view.hours }}</span></p>{% endif %}
+      </div>
+      <div class="hp-hero-media">
+        {% if view.cover_url %}
+          <img src="{{ view.cover_url }}" alt="Foto {{ store.name }}" width="1200" height="800" fetchpriority="high">
+        {% else %}
+          <span class="hp-hero-mark" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main class="hp-main">
+    {% if view.highlights %}
+      <section class="hp-section hp-highlights" id="unggulan" aria-labelledby="unggulan-title">
+        <div class="hp-wrap">
+          <p class="hp-eyebrow">Pilihan kami</p>
+          <h2 class="hp-h2" id="unggulan-title">Barang unggulan</h2>
+          <ul class="hp-hl-list" role="list">
+            {% for h in view.highlights %}
+              <li class="hp-hl">
+                <div class="hp-hl-img">
+                  {% if h.image_url %}<img src="{{ h.image_url }}" alt="{{ h.title }}" width="600" height="600" loading="lazy">{% else %}<span aria-hidden="true">{{ h.title|slice:":1"|upper }}</span>{% endif %}
+                </div>
+                <div class="hp-hl-body">
+                  <span class="hp-hl-num" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+                  <h3>{{ h.title }}</h3>
+                  {% if h.caption %}<p>{{ h.caption }}</p>{% endif %}
+                  {% if h.price is not None %}<b class="hp-price">{{ h.price|rupiah }}</b>{% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if view.sections %}
+      <section class="hp-section hp-prices" id="harga" aria-labelledby="harga-title">
+        <div class="hp-wrap">
+          <p class="hp-eyebrow">Semua barang</p>
+          <h2 class="hp-h2" id="harga-title">Daftar harga</h2>
+          <div class="hp-menu">
+            {% for section in view.sections %}
+              <div class="hp-menu-group">
+                <h3>{{ section.name }}</h3>
+                <ul role="list">
+                  {% for p in section.products %}<li><span>{{ p.name }}</span><i aria-hidden="true"></i><b>{{ p.price|rupiah }}</b></li>{% endfor %}
+                </ul>
+              </div>
+            {% endfor %}
+          </div>
+          <p class="hp-note">Harga dapat berubah sewaktu-waktu. Tanyakan langsung di toko.</p>
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="hp-section hp-info" id="tentang" aria-labelledby="tentang-title">
+      <div class="hp-wrap hp-info-grid">
+        <div class="hp-about">
+          <p class="hp-eyebrow">Tentang kami</p>
+          <h2 class="hp-h2" id="tentang-title">{{ store.name }}</h2>
+          {% if view.about %}<p>{{ view.about|linebreaksbr }}</p>{% elif view.tagline %}<p>{{ view.tagline }}</p>{% endif %}
+        </div>
+        <ul class="hp-contact" role="list">
+          {% if store.address %}<li>{% icon "home" %}<div><span>Alamat</span><b>{{ store.address }}</b>{% if view.maps_url %}<a href="{{ view.maps_url }}" target="_blank" rel="noopener nofollow">Buka di Google Maps</a>{% endif %}</div></li>
+          {% elif view.maps_url %}<li>{% icon "home" %}<div><span>Lokasi</span><a href="{{ view.maps_url }}" target="_blank" rel="noopener nofollow">Buka di Google Maps</a></div></li>{% endif %}
+          {% if view.hours %}<li>{% icon "clock" %}<div><span>Jam buka</span><b>{{ view.hours }}</b></div></li>{% endif %}
+          {% if view.phone_href %}<li>{% icon "smartphone" %}<div><span>Telepon</span><a href="{{ view.phone_href }}">{{ view.phone }}</a></div></li>{% endif %}
+          {% if view.instagram %}<li>{% icon "instagram" %}<div><span>Instagram</span><a href="https://www.instagram.com/{{ view.instagram }}/" target="_blank" rel="noopener nofollow">@{{ view.instagram }}</a></div></li>{% endif %}
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="hp-foot">
+    <div class="hp-wrap">
+      <p>© {% now "Y" %} {{ store.name }}</p>
+      <p class="hp-foot-small">Dibuat dengan <a href="{{ SITE_URL }}/" rel="noopener">HANS Project</a> · <a href="{{ SITE_URL }}/syarat-ketentuan/" rel="noopener">Syarat &amp; Ketentuan</a> · <a href="{{ SITE_URL }}/kebijakan-privasi/" rel="noopener">Kebijakan Privasi</a></p>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

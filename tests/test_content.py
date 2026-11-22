@@ -30,7 +30,7 @@ class SeedDataTests(SeededTestCase):
         self.assertEqual(Package.objects.get(code="rimba").notes.count(), 3)
         technical = set(tunas.features.values_list("technical", flat=True))
         self.assertIn("Penyimpanan 1 GB", technical)
-        self.assertIn("2 outlet, 1 akun login per outlet", technical)
+        self.assertIn("2 toko, 1 subdomain & 1 akun kasir per toko", technical)
 
     def test_storage_migration_only_changes_untouched_text(self):
         import importlib
@@ -79,15 +79,40 @@ class SeedDataTests(SeededTestCase):
 class HomePageTests(SeededTestCase):
     def test_prices_rendered_from_database(self):
         html = self.client.get("/").content.decode()
-        for text in ["Rp25.000", "Rp99.000", "Rp349.000", "Rp200.000", "Rp15.000", "Rp10.000", "Rp35.000", "Rp60.000"]:
+        for text in ["Rp25.000", "Rp99.000", "Rp349.000"]:
             self.assertIn(text, html)
-        self.assertIn("Rp25 ribu", html)  # judul utama
+        kasir = self.client.get("/aplikasi-kasir/").content.decode()
+        for text in ["Rp25.000", "Rp99.000", "Rp15.000", "Rp10.000", "Rp35.000", "Rp60.000"]:
+            self.assertIn(text, kasir)
+        self.assertIn("Rp25 ribu", kasir)  # judul halaman kasir
+        jasa = self.client.get("/website-aplikasi/").content.decode()
+        for text in ["Rp349.000", "Rp200.000"]:
+            self.assertIn(text, jasa)
         Package.objects.filter(code="tunas").update(price=30000)
         cache.clear()
         self.assertIn("Rp30.000", self.client.get("/").content.decode())
+        self.assertIn("Rp30.000", self.client.get("/aplikasi-kasir/").content.decode())
+
+    def test_home_is_platform_not_cashier(self):
+        """Halaman utama = solusi digital (ringkas); detail kasir/SIM/jasa ada di halamannya sendiri."""
+        html = self.client.get("/").content.decode()
+        self.assertIn("Solusi <span class=\"hl\">digital</span>", html)
+        for path in ("/aplikasi-kasir/", "/sistem-informasi-manajemen/", "/website-aplikasi/"):
+            self.assertIn(f'href="{path}"', html)
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+        self.assertIn("Sistem Informasi Manajemen", html)
+        self.assertNotIn("SIM Wilayah", html)
+        # Detail kasir tidak lagi memenuhi halaman utama.
+        for kasir_only in ('id="fitur"', 'id="halaman-promosi"', "data-calc", 'id="detail-teknis"'):
+            self.assertNotIn(kasir_only, html)
+        # Tab harga: Kasir & SIM, masing-masing Tunas & Tumbuh.
+        self.assertIn('id="harga-kasir"', html)
+        self.assertIn('id="harga-sim"', html)
+        for code in ("tunas", "tumbuh", "sim-tunas", "sim-tumbuh"):
+            self.assertIn(f'id="hp-{code}"', html)
 
     def test_rimba_not_in_same_pricing_grid(self):
-        html = self.client.get("/").content.decode()
+        html = self.client.get("/aplikasi-kasir/").content.decode()
         plans = html[html.index('class="plans"'): html.index('class="addons"')]
         self.assertIn("Tunas", plans)
         self.assertIn("Tumbuh", plans)
@@ -116,12 +141,14 @@ class HomePageTests(SeededTestCase):
         self.assertNotIn("instagram.com/", self.client.get("/").content.decode())
 
     def test_ask_buttons_lead_to_ask_page(self):
-        html = self.client.get("/").content.decode()
-        for topic in ("umum", "tambah-toko", "tambah-simpan"):
+        html = self.client.get("/aplikasi-kasir/").content.decode()
+        for topic in ("kasir", "tambah-toko", "tambah-simpan"):
             self.assertIn(f'href="/akun/chat/baru/?topik={topic}"', html)
+        self.assertIn('href="/akun/chat/baru/?topik=tiket"', self.client.get("/").content.decode())
+        self.assertIn('href="/akun/chat/baru/?topik=sim"', self.client.get("/sistem-informasi-manajemen/").content.decode())
 
     def test_technical_terms_shown_by_default(self):
-        html = self.client.get("/").content.decode()
+        html = self.client.get("/aplikasi-kasir/").content.decode()
         self.assertIn('<input type="checkbox" id="tech-harga" checked>', html)
 
     def test_testimonials_hidden_by_default(self):
@@ -132,7 +159,9 @@ class HomePageTests(SeededTestCase):
             self.assertEqual(self.client.get(path).status_code, 200, path)
         terms = self.client.get("/syarat-ketentuan/")
         self.assertNotContains(terms, "Draf")
-        self.assertContains(terms, "Berlaku sejak: 19 November 2026")
+        self.assertContains(terms, "Berlaku sejak: 22 November 2026")
+        self.assertContains(terms, "Sistem Informasi Manajemen")
+        self.assertContains(self.client.get("/kebijakan-privasi/"), "data warga")
         privacy = self.client.get("/kebijakan-privasi/")
         for text in ["3 x 24 jam", "10 tahun", "30 hari setelah masa aktif habis", "Limited Use", "@hansproject.app"]:
             self.assertContains(privacy, text)
@@ -142,7 +171,8 @@ class NavigationTests(SeededTestCase):
     def test_bottom_nav_replaces_burger_and_floating_whatsapp(self):
         html = self.client.get("/").content.decode()
         self.assertIn('class="bottom-nav"', html)
-        for href in ["/#beranda", "/#fitur", "/#harga", "/#jasa"]:
+        # Beranda · Solusi · Harga (tengah) · Cara mulai · Bantuan; halaman solusi di menu atas.
+        for href in ["/#beranda", "/#solusi", "/#harga", "/#cara-daftar", "/#faq", "/aplikasi-kasir/", "/sistem-informasi-manajemen/", "/website-aplikasi/"]:
             self.assertIn(f'href="{href}"', html)
         self.assertNotIn("nav-mobile", html)  # menu burger sudah dihapus
         self.assertNotIn("wa-float", html)  # tombol WhatsApp melayang sudah dihapus
@@ -174,7 +204,15 @@ class NavigationTests(SeededTestCase):
 
     def test_package_buttons_are_order_links(self):
         html = self.client.get("/").content.decode()
-        for code in ("tunas", "tumbuh", "rimba"):
+        for code in ("tunas", "tumbuh"):
             self.assertIn(f'href="/akun/pesan/{code}/"', html)
             self.assertNotIn(f'data-wa="{code}"', html)  # tidak lagi ke WhatsApp
-        self.assertEqual(html.count("order-btn"), 3)  # satu tombol per paket
+        # Paket SIM belum berharga (Rp0): tampil "Segera diumumkan" + "Tanya harga", tidak bisa dipesan.
+        for code in ("sim-tunas", "sim-tumbuh"):
+            self.assertNotIn(f'href="/akun/pesan/{code}/"', html)
+        self.assertIn("Segera diumumkan", html)
+        self.assertEqual(html.count("order-btn"), 4)  # satu tombol per paket (2 kasir + 2 SIM)
+        self.assertIn('href="/akun/pesan/rimba/"', self.client.get("/website-aplikasi/").content.decode())
+        Package.objects.filter(code="sim-tunas").update(price=50000)
+        cache.clear()
+        self.assertIn('href="/akun/pesan/sim-tunas/"', self.client.get("/").content.decode())

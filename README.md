@@ -1,6 +1,6 @@
 # Website HANS Project (hansproject.app)
 
-Website landing page + daftar harga HANS Project, lengkap dengan **panel pengelola** untuk mengubah harga, isi paket, FAQ, kontak Instagram, dan lainnya **tanpa menyentuh kode**, serta **aplikasi kasir (POS)** untuk pelanggan Paket Tunas/Tumbuh di alamat toko masing-masing (`<nama>.hansproject.app`).
+Website landing page + daftar harga HANS Project, lengkap dengan **panel pengelola** untuk mengubah harga, isi paket, FAQ, kontak Instagram, dan lainnya **tanpa menyentuh kode**, **aplikasi kasir (POS)** untuk pelanggan Paket Tunas/Tumbuh di alamat toko masing-masing (`<nama>.hansproject.app`), serta **SIM** untuk RT, RW, kelurahan/desa, dan kecamatan (data warga dari foto KK/KTP, surat online, cetak surat). Tiket online sedang disiapkan.
 
 - Bahasa: Python 3.12+ (wajib di dalam virtual environment `.venv`)
 - Framework: Django 5.2 LTS (dukungan keamanan sampai April 2028)
@@ -39,7 +39,7 @@ hansproject/
 │   ├── content/        ← data situs: paket, harga, FAQ, pengaturan, data awal
 │   ├── web/            ← halaman publik, SEO, pencatat klik tombol kontak
 │   ├── members/        ← akun pelanggan: masuk dengan Google, pesanan, bukti bayar, tanya
-│   ├── pos/            ← aplikasi kasir: toko, barang, outlet & akun kasir, transaksi, laporan
+│   ├── pos/            ← aplikasi kasir: langganan, toko (1 toko = 1 subdomain = 1 akun kasir), barang, transaksi, laporan
 │   └── panel/          ← panel pengelola (CRUD generik)
 ├── config/             ← setelan (development / production / test)
 ├── templates/          ← tampilan HTML
@@ -87,6 +87,8 @@ Semua setelan teknis ada di file **`.env`** (buka dengan Notepad). Setiap baris 
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Kunci login Google untuk pelanggan (lihat bagian di bawah). Client Secret itu **rahasia** |
 | `SERVER_PORT` | Port website di komputer ini. Bawaan **8432** |
 | `STORE_BASE_DOMAIN` | Domain alamat toko kasir: `<nama>.hansproject.app`. Semua subdomain toko otomatis diizinkan. Di komputer pengembangan kosongkan (otomatis `localhost`) |
+| `TESSERACT_CMD` | SIM: lokasi `tesseract.exe` untuk membaca teks foto KK/KTP. Kosongkan bila terpasang di `C:\Program Files\Tesseract-OCR\` |
+| `TESSERACT_LANG` | Bahasa OCR, bawaan `ind+eng` (data bahasa yang belum terpasang otomatis dilewati) |
 
 Setelah mengubah `.env`, **jalankan ulang website** (stop lalu start, atau restart service).
 
@@ -144,7 +146,7 @@ Setelah masuk dengan Google untuk **pertama kali**, pelanggan melihat **popup** 
 | **Testimoni** | Hanya untuk testimoni asli. Baru tampil bila diaktifkan di Pengaturan Umum |
 | **Halaman Legal** | Syarat & Ketentuan dan Kebijakan Privasi (versi final 19 November 2026). Teks sumbernya juga ada di `apps/content/legal.py` |
 | **Pesanan** | Pesanan dari tombol “Pesan Sekarang” dan perpanjangan: data pelanggan, foto bukti bayar, ubah status, dan **catatan untuk pelanggan** (tampil di halaman pesanannya). Pesanan kasir yang diubah menjadi **Aktif** otomatis membuat / memperpanjang toko |
-| **Toko (Aplikasi Kasir)** | Semua toko pelanggan: alamat, masa aktif, outlet tambahan yang dibeli, tangguhkan toko, catatan untuk pemilik toko |
+| **Toko (Aplikasi Kasir)** | Semua toko pelanggan: nama, alamat (subdomain), aktif/nonaktif, plus data **langganannya** (paket, masa aktif, toko tambahan yang dibeli, tangguhkan, catatan untuk pemilik). Data langganan berlaku untuk semua toko di langganan itu. |
 | **Refund** | Pengajuan pengembalian dana dari pesanan yang sudah dibayar lalu dibatalkan: rekening tujuan, nominal (bisa diubah untuk pengembalian sebagian), status, catatan, dan **bukti transfer** (wajib saat status *Sudah ditransfer*) |
 | **Chat Pelanggan** | Obrolan dari menu **Chat** di akun pelanggan: balas dengan teks/gambar, balas pesan tertentu, dan **Tandai selesai & tutup obrolan**. Saringan *Perlu dibalas* menampilkan obrolan yang menunggu balasan |
 | **Pengumuman Pelanggan** | Pengumuman di Dashboard akun pelanggan: judul, isi, jenis (Informasi/Penting/Promo), **jadwal mulai & berhenti**, dan saklar *aktif* untuk mematikan seketika. Pelanggan tidak bisa menutupnya. Bila tidak ada pengumuman aktif, ruangnya tidak tampil |
@@ -168,21 +170,29 @@ Tips:
 
 ### Area akun pelanggan
 
-Setelah masuk, pelanggan berada di **area akun** dengan menu sendiri: menu atas di layar lebar, menu bawah di HP. Tombol di header berubah menjadi **Beranda** untuk kembali ke website. Di website, tombol **Profil** (atau **Daftar / Masuk**) ada di header, juga di HP; menu bawah website berisi Beranda · Fitur · Harga · Jasa · Bantuan.
+Setelah masuk, pelanggan berada di **area akun** dengan menu sendiri: menu atas di layar lebar, menu bawah di HP. Tombol di header berubah menjadi **Beranda** untuk kembali ke website. Di website, tombol **Profil** (atau **Daftar / Masuk**) ada di header, juga di HP; menu bawah website berisi Beranda · Solusi · Harga · Cara mulai · Bantuan.
+
+**Website = penyedia solusi digital.** Halaman utama sengaja ringkas: pembuka, kartu **Solusi** (Aplikasi Kasir, Sistem Informasi Manajemen/SIM, Website & Aplikasi, Tiket Online *segera hadir*), **Harga** dengan tab per solusi (Kasir & SIM masing-masing Paket Tunas & Tumbuh; Rimba disebut singkat), Cara mulai, FAQ umum, dan ajakan. Penjelasan lengkap ada di halaman tiap solusi: `/aplikasi-kasir/` (fitur, halaman promosi toko, harga + tambahan + kalkulator, tabel teknis, FAQ kasir), `/sistem-informasi-manajemen/` (bidang SIM, fitur, harga, tabel teknis, FAQ SIM), dan `/website-aplikasi/` (Paket Rimba). FAQ di panel diberi **Tampil di**: Umum (halaman utama) atau salah satu solusi. Paket berlangganan berharga **Rp0** tampil *Segera diumumkan* dengan tombol *Tanya harga* dan belum bisa dipesan.
 
 | Menu akun | Isi |
 |---|---|
-| **Dashboard** (halaman pertama) | Pengumuman dari panel (bila ada), hal yang perlu perhatian (balasan chat baru, masa aktif hampir habis, belum ada akun kasir, pesanan & refund berjalan), penjualan **semua toko & outlet** (hari ini, 7 hari, bulan ini, rata-rata), grafik 14 hari, tabel per toko & outlet, barang terlaris, transaksi terbaru |
+| **Dashboard** (halaman pertama) | Pengumuman dari panel (bila ada), hal yang perlu perhatian (balasan chat baru, surat warga menunggu, masa aktif kasir/SIM hampir habis, belum ada akun kasir, pesanan & refund berjalan), lalu ringkasan **setiap layanan** yang dimiliki (Kasir: penjualan hari ini & bulan ini; SIM: surat menunggu & instansi; Website & Aplikasi: proyek berjalan). Belum punya layanan = pilihan semua solusi |
 | **Pesanan** | Pesanan berjalan, riwayat, dan status **refund** |
-| **Toko** (tombol tengah) | Semua toko + ringkasan penjualan; masuk ke dashboard tiap toko |
+| **Layanan** (tombol tengah) | Semua solusi milik pelanggan di satu tempat: **Aplikasi Kasir** (→ Toko saya: grafik 14 hari, terlaris, transaksi terbaru, toko per langganan), **SIM** (→ Instansi saya), **Website & Aplikasi** (proyek), pesanan yang sedang diproses, dan Tiket Online (segera). Solusi baru cukup ditambah di sini, tidak menambah tombol menu |
 | **Chat** | (Pesanan jasa seperti Paket Rimba otomatis punya **obrolan konsultasi** yang terikat ke pesanannya: tombol *Buka obrolan konsultasi* di halaman pesanan; obrolan yang sama muncul di Chat Pelanggan panel dengan kode pesanannya, dan tidak dihitung batas 3 obrolan aktif.) Obrolan dengan HANS Project: gelembung pesan, kirim teks/gambar, balas pesan tertentu. Obrolan yang ditutup admin menjadi **Selesai** (tidak bisa dibalas, tetap ada di riwayat); keperluan baru = obrolan baru. Maksimal 3 obrolan aktif |
 | **Akun** | Data diri, keluar (juga dari semua perangkat), dan waktu persetujuan S&K |
 
-**Tambah toko (cabang):** satu langganan kasir berisi beberapa toko sesuai paket (Tunas 2, Tumbuh 10) ditambah toko tambahan yang dibeli. Menu **Toko** menampilkan jumlahnya, misalnya **1 / 3** (Paket Tunas 2 + tambahan 1). Tombol **Tambah toko** membuka halaman khusus: bila kuota masih ada, pelanggan langsung membuat toko baru (dengan akun kasirnya); bila penuh, pelanggan bisa **membeli toko tambahan** (harga dari Biaya Tambahan → Tambah toko/cabang) atau naik paket. Pembelian toko tambahan menjadi pesanan jenis *Tambahan toko*; saat Anda ubah menjadi **Aktif**, kuota langsung bertambah. Toko tambahan ikut dihitung di setiap perpanjangan (contoh: Tunas + 2 toko = Rp25.000 + 2 × Rp15.000 = Rp55.000/bulan). Tombol **Pesan paket** di akun membuka halaman pilih paket di dalam akun (langganan baru dengan alamat kasir sendiri).
+**Toko & langganan:** **1 toko = 1 subdomain = 1 akun kasir.** Setiap toko punya alamat kasir sendiri (`<nama>.hansproject.app/kasir`), barang & kategori, transaksi, laporan, dan pengaturan struk sendiri; toko-toko tidak berbagi data. Akun kasir (nama pengguna + PIN dari pemilik) boleh masuk di **banyak perangkat sekaligus**; pemilik bisa melihat jumlah perangkat yang masuk dan mengeluarkan semuanya. Satu **langganan** (satu pesanan paket) berisi beberapa toko sesuai paket (Tunas 2, Tumbuh 10) ditambah toko tambahan yang dibeli; masa aktif & perpanjangan berlaku untuk semua toko di langganan itu.
+
+**Halaman toko:** setiap toko punya halaman promosi di `<nama>.hansproject.app/` yang diatur pemilik di menu **Halaman toko**: pilih **1 dari 4 template** (Sederhana, Etalase, Menu Kafe, Berani), pilih **satu warna** (palet lengkap untuk latar, tombol, tulisan, label, dan bagian gelap diracik otomatis di server dengan kontras WCAG; pemilik tidak melihatnya), isi kalimat singkat, tentang toko, jam buka, telepon, Instagram, link Google Maps, logo & foto sampul, daftar harga (opsional), dan **barang unggulan** (maks. 6, dari data barang atau gambar lain). Semua perubahan adalah **draf**: pemilik melihat **pratinjau** (bisa mencoba template lain dan tampilan HP) lalu menekan **Terbitkan**. Pengunjung hanya melihat versi terbit; halaman terbit boleh muncul di Google, halaman kasir tidak. Halaman tidak tampil saat toko nonaktif/terkunci/ditangguhkan.
+
+**Langkah memulai toko:** panduan 4 langkah (isi barang → buat akun kasir → buka kasir di HP/laptop → terbitkan halaman toko) tampil di atas menu tab di **semua** menu toko, dengan tombol langkah berikutnya, dan hilang sendiri setelah semuanya selesai.
+
+**Tambah toko:** menu **Toko** menampilkan toko per langganan beserta jumlahnya, misalnya **1 / 3** (Paket Tunas 2 + tambahan 1). Tombol **Tambah toko** membuka halaman khusus: bila kuota masih ada, pelanggan langsung membuat toko baru (nama, **alamat kasir/subdomain baru** yang langsung aktif, dan akun kasirnya). Toko bisa **dinonaktifkan** di Pengaturan untuk membebaskan kuota (data tetap ada); bila penuh, pelanggan bisa **membeli toko tambahan** (harga dari Biaya Tambahan → Tambah toko/cabang) atau naik paket. Pembelian toko tambahan menjadi pesanan jenis *Tambahan toko*; saat Anda ubah menjadi **Aktif**, kuota langsung bertambah. Toko tambahan ikut dihitung di setiap perpanjangan (contoh: Tunas + 2 toko = Rp25.000 + 2 × Rp15.000 = Rp55.000/bulan). Tombol **Pesan layanan** di akun membuka pemesanan dua langkah: pilih solusi (Kasir, SIM, Website & Aplikasi), lalu pilih paketnya.
 
 **Rincian harga per pesanan:** di panel → Pesanan → ubah, bagian **Rincian harga**, Anda bisa mengetik baris harga sendiri berisi nama, harga, periode (diketik bebas, mis. "1 tahun", "3 bulan", "14 hari"; kosongkan bila sekali bayar), dan keterangan. Contoh: Pembuatan website Rp349.000 (periode kosong), Domain Rp250.000 / 1 tahun, Database Rp150.000 / 3 bulan. Bila diisi, rincian ini menggantikan teks harga paket di halaman pesanan pelanggan, dan **Total Semua** (nominal yang dibayar & dasar refund) = jumlah semua baris. Cocok untuk Paket Rimba: setelah konsultasi, isi rincian lalu ubah status menjadi *Menunggu pembayaran*.
 
-**Bukti pesanan & QR keaslian:** setiap pesanan punya kode QR menuju halaman publik `/cek/<kode-acak>/` yang menampilkan kode, layanan, status, tanggal, rincian harga, dan nama pemesan yang disamarkan (tidak diindeks Google). Tombol **Cetak** di halaman pesanan mencetak bukti pesanan rapi (tanpa menu & tombol) memakai fitur cetak bawaan browser.
+**Bukti pesanan & QR keaslian:** baru muncul (dan bisa dicetak) setelah pembayaran Anda cek dan status pesanan diubah ke **Sedang diproses**, **Aktif**, atau **Selesai**. Setiap pesanan punya kode QR menuju halaman publik `/cek/<kode-acak>/` (sebelum dicek: tidak ditemukan; bila pesanan dibatalkan: tertulis *tidak berlaku lagi*) yang menampilkan kode, layanan, status, tanggal, rincian harga, dan nama pemesan yang disamarkan (tidak diindeks Google). Tombol **Cetak** di halaman pesanan mencetak bukti pesanan rapi (tanpa menu & tombol) memakai fitur cetak bawaan browser.
 
 **Refund:** pelanggan bisa membatalkan pesanan yang **sudah dibayar tetapi belum aktif**; Anda juga bisa membatalkan pesanan apa pun di panel (misalnya karena kesalahan kita). Pesanan yang sudah dibayar lalu dibatalkan menampilkan formulir **Ajukan refund** (rekening atas nama pelanggan). Proses di menu **Refund**: transfer, unggah bukti, ubah status. Nominal awal = harga saat dipesan; ubah bila pengembalian sebagian (per hari).
 
@@ -192,15 +202,15 @@ Satu aplikasi melayani semua toko, di port yang sama (8432). Toko dikenali dari 
 
 | Alamat | Untuk siapa | Isi |
 |---|---|---|
-| `hansproject.app/akun/toko/<nama>/` | **Pemilik toko** (login Google) | Ringkasan, Barang & kategori, Outlet & akun kasir, Transaksi (batalkan transaksi), Laporan (unduh CSV/Excel), Pengaturan struk, Perpanjang |
+| `hansproject.app/akun/toko/<nama>/` | **Pemilik toko** (login Google) | Ringkasan, Barang & kategori, Kasir (akun & perangkat yang masuk), Halaman toko (template, warna, barang unggulan, pratinjau, terbitkan), Transaksi (batalkan transaksi), Laporan (unduh CSV/Excel), Pengaturan struk & status toko, Perpanjang |
 | `<nama>.hansproject.app/kasir/` | **Kasir** (nama pengguna + PIN 6 angka buatan pemilik) | Layar kasir, cetak struk, riwayat hari ini |
-| `<nama>.hansproject.app/` | Umum | Halaman toko sementara (“segera hadir”), tidak muncul di Google |
+| `<nama>.hansproject.app/` | Umum | **Halaman toko** yang diterbitkan pemilik (boleh muncul di Google); sebelum terbit: “segera hadir” (tidak diindeks) |
 
 **Alur:**
 1. Pelanggan memesan Paket Tunas/Tumbuh dan memilih **alamat toko** (3–30 huruf kecil/angka/minus; nama seperti `www`, `admin`, `kasir` ditolak; nama yang sedang dipesan orang lain juga dikunci).
-2. Setelah bukti bayar dicek, ubah status pesanan menjadi **Aktif** → toko otomatis dibuat (1 outlet “Toko utama”, aktif 1 bulan, jumlah outlet sesuai paket).
+2. Setelah bukti bayar dicek, ubah status pesanan menjadi **Aktif** → langganan + toko pertama otomatis dibuat (alamat sesuai pesanan, aktif 1 bulan, kuota toko sesuai paket). Toko berikutnya dibuat pelanggan sendiri dari sisa kuota.
 3. Pemilik membuat barang dan akun kasir di dashboard tokonya, lalu kasir masuk di `<nama>.hansproject.app/kasir/`.
-4. **Perpanjang**: pemilik menekan *Perpanjang* di dashboard toko → pesanan perpanjangan (bisa **pindah paket** dan **minta ganti alamat**). Saat Anda mengubahnya menjadi **Aktif**, masa aktif bertambah 1 bulan (dari tanggal habis, atau dari hari ini bila sudah lewat). Ganti alamat hanya terjadi bila Anda mencentang **“Setujui ganti alamat toko”**. Turun paket: outlet terbaru di atas batas dinonaktifkan (datanya tetap).
+4. **Perpanjang**: pemilik menekan *Perpanjang* di dashboard toko → pesanan perpanjangan (bisa **pindah paket** dan **minta ganti alamat**). Saat Anda mengubahnya menjadi **Aktif**, masa aktif bertambah 1 bulan (dari tanggal habis, atau dari hari ini bila sudah lewat). Ganti alamat hanya terjadi bila Anda mencentang **“Setujui ganti alamat toko”**. Perpanjangan berlaku untuk **semua toko** di langganan itu; ganti alamat hanya untuk toko tempat perpanjangan dibuat. Turun paket: toko terbaru di atas batas dinonaktifkan (datanya tetap).
 
 **Masa aktif habis:**
 - 7 hari pertama: **masa tenggang**, kasir tetap jalan dengan peringatan.
@@ -208,13 +218,39 @@ Satu aplikasi melayani semua toko, di port yang sama (8432). Toko dikenali dari 
 - **30 hari setelah masa aktif habis, data toko dihapus permanen** (dijalankan otomatis setiap malam oleh backup terjadwal, lihat bagian 8). Bila diperpanjang sebelum itu, semua data kembali seperti semula. Perpanjangan yang bukti bayarnya sedang Anda cek tidak ikut dihapus.
 
 **Lainnya:**
-- Tambahan outlet yang dibeli pelanggan: isi **outlet tambahan** di menu Toko.
+- Toko tambahan yang dibeli pelanggan bertambah otomatis saat pesanan *Tambahan toko* diaktifkan; bisa juga diubah manual (**toko tambahan (dibeli)**) di menu Toko.
 - Uang disimpan dalam rupiah bulat. Harga & total selalu dihitung ulang di server; tombol Bayar yang terkirim dua kali (internet lambat) tetap tercatat satu transaksi.
 - Struk dicetak dengan fitur cetak bawaan browser (HP maupun komputer), kertas 58 mm atau 80 mm (diatur pemilik toko).
 - Cara bayar di kasir (Tunai/QRIS/Transfer) hanya dicatat, tidak tersambung ke bank.
 - Komputer pengembangan: buka toko di `http://<nama>.localhost:8432/kasir/` (Chrome/Edge/Firefox langsung mengenali `*.localhost`).
 
 Rincian rancangan: `docs/06-aplikasi-kasir.md`.
+
+### Sistem Informasi Manajemen / SIM (bidang pertama: RT, RW, Kelurahan/Desa, Kecamatan)
+
+SIM adalah solusi umum untuk instansi dan organisasi; bidang lain (kesehatan, pendidikan, organisasi) disiapkan menyusul. Di akun pelanggan satu unit disebut **instansi** (di kode: model `Wilayah`).
+
+| Alamat | Untuk siapa | Isi |
+|---|---|---|
+| `hansproject.app/akun/sim/<kode>/` | **Pengurus wilayah** (login Google) | Ringkasan & cari warga, Data warga (KK & anggota, unduh CSV), Scan KK/KTP (foto → teks → data KK), Surat (masuk, buat, terbitkan, cetak), Format surat (ubah isi & kolom), Pengumuman, Jaringan (gabung ke RW/kelurahan, terima RT, surat “diketahui”), Pengaturan kop surat, Perpanjang |
+| `hansproject.app/w/<kode>/` | **Warga** (tanpa login) | Pengumuman, ajukan surat online, lacak surat |
+| `hansproject.app/surat/lacak/<kode-lacak>/` | Warga pemohon | Status surat; cetak sendiri bila pengurus mengizinkan |
+| `hansproject.app/surat/cek/<kode>/` | Siapa saja (dari QR di surat) | Cek keaslian surat (nama tersamar) |
+
+**Paket:** sama seperti kasir, SIM punya **Paket Tunas** (cocok RT/RW, baca otomatis 100 dokumen/bulan, 1 GB) dan **Paket Tumbuh** (kelurahan/kecamatan, 1.000 dokumen/bulan, 5 GB, rekap unit di bawahnya, support prioritas). Keduanya sudah tampil di website dengan harga **Rp0 = "Segera diumumkan"** (belum bisa dipesan, tombolnya *Tanya harga*). Isi harganya di panel (*Paket & Harga*); setelah itu langsung bisa dipesan. Batas baca otomatis per bulan diatur di kolom **batas scan dokumen per bulan** pada paket dan benar-benar diterapkan di menu Scan.
+
+**Alur:** pengurus memesan paket SIM dan mengisi data instansinya → setelah bukti bayar dicek, ubah pesanan menjadi **Aktif** → wilayah + 12 format surat bawaan otomatis dibuat (kelurahan/kecamatan juga mendapat format ahli waris). Masa aktif, tenggang 7 hari, terkunci, dan penghapusan 30 hari **sama seperti aplikasi kasir**. Saat terkunci, pengajuan surat online ditutup.
+
+**Membaca teks foto KK/KTP (OCR):** memakai **Tesseract**, berjalan di server sendiri (foto tidak dikirim ke pihak lain).
+1. Pasang Tesseract untuk Windows (mis. installer UB Mannheim), centang data bahasa **Indonesian** (`ind`).
+2. Bila tidak dipasang di `C:\Program Files\Tesseract-OCR\`, isi `TESSERACT_CMD` di `.env`.
+3. Jalankan ulang website. Tanpa Tesseract, foto tetap tersimpan dan data diisi manual sambil melihat gambarnya.
+
+Hasil OCR dari fotokopi tidak pernah sempurna, jadi selalu tampil sebagai **draf** yang diperiksa pengurus sebelum disimpan. Hanya satu foto dibaca pada satu waktu (maks. 90 detik) supaya server tetap ringan.
+
+**Privasi:** data warga hanya bisa dibuka pengurus wilayah itu sendiri. Wilayah di atasnya (RW/kelurahan/kecamatan) hanya melihat **angka rekap** dan surat yang dikirim untuk “diketahui”. Panel pengelola juga **tidak** menampilkan data warga. Foto KK/KTP, tanda tangan, dan cap disimpan di folder pribadi tanpa alamat publik.
+
+Rincian rancangan: `docs/07-sim-wilayah.md`.
 
 ### Lupa password / HP hilang
 - Ganti password: jalankan `buat-admin.bat` di server, ketik nama pengguna yang sama.
@@ -383,7 +419,7 @@ Disarankan **setiap bulan** di komputer pengembangan:
 | Masuk dengan Google “sedang gagal” | Lihat `logs\security.log`. Biasanya Client Secret salah, atau jam server tidak tepat. |
 | `mariadb-dump` tidak ditemukan saat backup | Isi `MARIADB_BIN_DIR` di `.env`, contoh `C:\Program Files\MariaDB 11.4\bin`. |
 | Alamat toko (`nama.hansproject.app`) tidak bisa dibuka / sertifikat gagal | Cek record DNS `*` di Hostinger, port 443 terbuka, dan tokonya memang ada & belum dihapus (lihat menu Toko). Lihat log Caddy. |
-| Kasir “Nama pengguna atau PIN salah” terus | Pemilik toko membuat PIN baru di menu **Outlet & Kasir**. Setelah 5 kali salah, akun kasir terkunci 15 menit. |
+| Kasir “Nama pengguna atau PIN salah” terus | Pemilik toko membuat PIN baru di menu **Kasir** tokonya. Setelah 5 kali salah, akun kasir terkunci 15 menit. |
 | Service tidak mau jalan | Lihat `logs\service\` dan `logs\app.log`. Pastikan Python terpasang “for all users”. |
 
 Log aplikasi: `logs\app.log` (umum) dan `logs\security.log` (login & perubahan di panel), dengan rotasi otomatis (maks. 5 MB × 10 file). Password dan token tidak pernah dicatat.
@@ -401,10 +437,11 @@ Log aplikasi: `logs\app.log` (umum) dan `logs\security.log` (login & perubahan d
 - `apps/members/` — akun pelanggan, **terpisah** dari akun admin. `google.py`: OpenID Connect (authorization code + PKCE, state, nonce) tanpa library tambahan. `auth.py`: sesi pelanggan (cookie `hp_akun` berisi token acak, database hanya menyimpan hash SHA-256). Halaman publik tetap di-cache sama untuk semua orang; tombol “Daftar / Masuk” ditukar menjadi “Profil” oleh `site.js` lewat cookie penanda `hp_masuk=1` (tanpa rahasia). Bukti bayar disimpan di `PRIVATE_MEDIA_ROOT` tanpa alamat publik.
 - `apps/members/chat.py`, `navigation.py`, `charts.py` — logika chat (dipakai akun & panel), menu area akun (dengan jumlah chat belum dibaca), dan geometri grafik SVG Dashboard (tanpa style inline karena CSP ketat). `static/js/chat.js` mengirim pesan tanpa memuat ulang dan mengambil pesan baru berkala (8 detik, hanya saat tab terlihat); tanpa JavaScript chat tetap jalan sebagai formulir biasa.
 - `apps/pos/` — aplikasi kasir. `middleware.py`: `StoreHostMiddleware` memilih URL toko (`urls_store.py`) bila alamatnya `<nama>.STORE_BASE_DOMAIN`, sehingga panel & `/akun/` tidak ada di subdomain; `TlsAskMiddleware` menjawab Caddy. `services.py` berisi aturan bisnis (aktivasi, transaksi, laporan, penghapusan). Semua data disaring per toko lewat relasi `store.*`. Kasir punya sesi sendiri (`cashier_auth.py`, cookie `hp_kasir` tanpa atribut Domain, PIN Argon2).
+- `apps/sim/` — SIM. `models.py`: `Wilayah` (unit + langganan + kode halaman warga + kode undangan + `parent`), `KartuKeluarga`, `Penduduk`, `DokumenScan`, `JenisSurat`, `Surat`, `Pengumuman` (tabel `hp_sim_*`). Pengurus mengambil wilayah lewat `Wilayah.objects.owned_by(member)` di `views_owner.wilayah_view`, lalu semua data lewat relasi wilayah. `views_public.py`: halaman warga tanpa login (kode lacak 24 karakter acak, rate limit per IP-hash, honeypot). `ocr.py`: Tesseract lewat `subprocess` (argumen list, tanpa shell, batas waktu, 1 proses sekaligus) + parser draf KK/KTP. `services.py`: aktivasi, nomor surat (dikunci `select_for_update`), isi surat (`{isian}` diisi lewat `templating.fill`, bukan `str.format`), jaringan, statistik, penghapusan. `printing.py` + `templates/sim/cetak.html` + `static/css/surat.css`: cetak A4 dari browser dengan QR keaslian.
 - Template memakai komponen di `templates/components/` dan tag `{% icon %}`, filter `|rupiah`, `|rupiah_short`, `|md` (dimuat otomatis).
 - CSS: `static/css/base.css` (token desain + komponen bersama), `site.css` (situs), `panel.css` (panel), `akun.css` + `toko.css` (akun & dashboard toko), `kasir.css` + `struk.css` (subdomain toko). Tanpa framework CSS, tanpa JavaScript pihak ketiga. Tidak ada `style=""` atau `<script>` inline (CSP ketat).
 
 **Perintah berguna** (`.venv\Scripts\python manage.py ...`):
-`serve`, `cek_db`, `cek_konten`, `seed_konten [--lengkapi]`, `backup_db`, `restore_db`, `buat_admin`, `reset_2fa`, `bersihkan_data`, `pos_bersihkan [--cek]`.
+`serve`, `cek_db`, `cek_konten`, `seed_konten [--lengkapi]`, `backup_db`, `restore_db`, `buat_admin`, `reset_2fa`, `bersihkan_data` (termasuk wilayah SIM yang habis > 30 hari), `pos_bersihkan [--cek]`.
 
 **Membuat ulang aset gambar** dari `assets/logo-h.png`: `.venv\Scripts\python scripts\build_assets.py`.

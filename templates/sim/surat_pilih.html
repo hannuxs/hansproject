@@ -1,0 +1,20 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="pilih-title">
+  <h2 id="pilih-title">{% icon "file" %} Buat surat{% if person %} untuk {{ person.nama }}{% endif %}</h2>
+  <p class="muted">Pilih jenis surat. {% if person %}Data diri {{ person.nama }} terisi otomatis dari data warga.{% else %}Untuk mengisi data otomatis, buka <a href="{% url 'sim:warga' w.kode %}">Data warga</a> lalu tekan <b>Buat surat</b> di samping nama warga.{% endif %}</p>
+  {% if jenis_list %}
+    <ul class="pick-grid" role="list">
+      {% for j in jenis_list %}
+        <li class="pick-card">
+          <h3>{{ j.nama }}</h3>
+          {% if j.keterangan %}<p class="muted small">{{ j.keterangan }}</p>{% endif %}
+          <a class="btn btn-sm btn-block" href="{% url 'sim:surat-baru' w.kode j.kode %}{% if person %}?penduduk={{ person.pk }}{% endif %}">{% icon "edit" %}<span>Isi surat</span></a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Belum ada format surat aktif. Buka <a href="{% url 'sim:format' w.kode %}">Format surat</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

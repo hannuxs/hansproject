@@ -53,6 +53,23 @@
     if (ev.target.closest && ev.target.closest("[data-print]")) window.print();
   });
 
+  /* Halaman toko: tombol warna cepat <button data-swatch="#hex"> mengisi input warna di form yang sama. */
+  document.addEventListener("click", function (ev) {
+    var sw = ev.target.closest && ev.target.closest("[data-swatch]");
+    if (!sw) return;
+    var form = sw.closest("form");
+    var input = form && form.querySelector('input[type="color"]');
+    if (!input) return;
+    input.value = sw.getAttribute("data-swatch");
+    form.querySelectorAll("[data-swatch]").forEach(function (b) { b.classList.toggle("is-on", b === sw); });
+  });
+  document.addEventListener("input", function (ev) {
+    if (ev.target.type !== "color" || !ev.target.form) return;
+    ev.target.form.querySelectorAll("[data-swatch]").forEach(function (b) {
+      b.classList.toggle("is-on", b.getAttribute("data-swatch") === ev.target.value.toLowerCase());
+    });
+  });
+
   /* Formulir yang perlu konfirmasi, mis. batalkan pesanan: <form data-confirm="..."> */
   document.addEventListener("submit", function (ev) {
     var msg = ev.target.getAttribute && ev.target.getAttribute("data-confirm");

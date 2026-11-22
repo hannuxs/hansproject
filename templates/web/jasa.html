@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% comment %} Halaman solusi: jasa pembuatan website & aplikasi (Paket Rimba). {% endcomment %}
+{% block title %}Jasa Pembuatan Website & Aplikasi | HANS Project{% endblock %}
+{% block description %}Website atau aplikasi Android/iOS yang dibuat khusus untuk usaha atau instansi Anda. Konsultasi gratis lewat akun HANS Project.{% endblock %}
+{% block og_title %}Jasa Website & Aplikasi | HANS Project{% endblock %}
+{% block canonical %}{% url 'web:jasa' %}{% endblock %}
+{% block og_url %}{% url 'web:jasa' %}{% endblock %}
+{% block head_extra %}<script type="application/ld+json">{{ structured_data|jsonld }}</script>{% endblock %}
+{% block content %}
+  <section class="hero aurora page-hero" aria-labelledby="jasa-title">
+    <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+    <div class="container">
+      <p class="eyebrow">Website &amp; Aplikasi</p>
+      <h1 class="hero-title" id="jasa-title">Punya sistem <span class="hl">sendiri</span>, dibuat khusus</h1>
+      <p class="hero-lead">Website, aplikasi Android/iOS, atau sistem informasi yang dirancang dari nol sesuai kebutuhan usaha atau instansi Anda.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#jasa">Lihat paket {% icon "arrow-down" %}</a>
+        {% include "components/ask_button.html" with topic="umum" style="btn-ghost" label="Konsultasi gratis" %}
+      </div>
+    </div>
+  </section>
+  {% include "web/partials/service.html" %}
+  {% include "web/partials/faq.html" with faqs=snap.faq_topics.jasa %}
+  {% include "web/partials/cta.html" with pricing_url="#jasa" cta_lead="Ceritakan kebutuhan Anda. Konsultasi gratis, harga disepakati sebelum pengerjaan." %}
+{% endblock %}

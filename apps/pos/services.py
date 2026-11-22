@@ -21,11 +21,11 @@ from .models import (
     MAX_QTY,
     Cashier,
     CashierSession,
-    Outlet,
     Product,
     Sale,
     SaleItem,
     Store,
+    Subscription,
     add_months,
 )
 
@@ -84,61 +84,69 @@ def activation_problem(order, *, approve_subdomain: bool = False) -> str:
     return ""
 
 
-def _package_outlets(package, fallback: int) -> int:
+def _package_stores(package, fallback: int) -> int:
     return package.outlet_count if package is not None and package.outlet_count else fallback
 
 
 @transaction.atomic
 def activate_order(order, *, approve_subdomain: bool = False) -> Store:
-    """Buat toko baru, atau perpanjang toko lama (boleh pindah paket & ganti alamat)."""
+    """Pesanan baru: buat langganan + toko pertama. Perpanjangan: tambah masa aktif SEMUA toko
+    di langganan itu (boleh pindah paket & ganti alamat toko yang dipesan). Tambahan: kuota +N."""
     problem = activation_problem(order, approve_subdomain=approve_subdomain)
     if problem:
         raise ActivationError(problem)
     today = timezone.localdate()
     if order.is_addon:
-        store = Store.objects.select_for_update().get(pk=order.store_id)
-        store.extra_outlets += order.quantity
-        store.save(update_fields=["extra_outlets", "updated_at"])
+        store = Store.objects.select_related("subscription").get(pk=order.store_id)
+        sub = Subscription.objects.select_for_update().get(pk=store.subscription_id)
+        sub.extra_stores += order.quantity
+        sub.save(update_fields=["extra_stores", "updated_at"])
         order.activated_at = timezone.now()
-        log.info("Pesanan %s: toko #%s mendapat %s toko tambahan.", order.code, store.pk, order.quantity)
+        log.info("Pesanan %s: langganan #%s mendapat %s toko tambahan.", order.code, sub.pk, order.quantity)
         return store
     if order.is_renewal:
         store = Store.objects.select_for_update().get(pk=order.store_id)
-        start = store.active_until if store.active_until >= today else today
-        store.active_until = add_months(start)
+        sub = Subscription.objects.select_for_update().get(pk=store.subscription_id)
+        start = sub.active_until if sub.active_until >= today else today
+        sub.active_until = add_months(start)
         if order.package_id:
-            store.package = order.package
-            store.package_name = order.package_name
-            store.base_outlets = _package_outlets(order.package, store.base_outlets)
+            sub.package = order.package
+            sub.package_name = order.package_name
+            sub.base_stores = _package_stores(order.package, sub.base_stores)
+        sub.save()
         if approve_subdomain and order.subdomain and order.subdomain != store.subdomain:
             log.info("Toko #%s ganti alamat %s -> %s.", store.pk, store.subdomain, order.subdomain)
             store.subdomain = order.subdomain
-        store.save()
-        enforce_outlet_limit(store)
-        # Pesanan aktif sebelumnya untuk toko ini sudah tergantikan.
-        type(order).objects.filter(store=store, status=order.STATUS_ACTIVE).exclude(pk=order.pk).update(
+            store.save(update_fields=["subdomain", "updated_at"])
+        enforce_store_limit(sub)
+        # Pesanan aktif sebelumnya untuk langganan ini sudah tergantikan.
+        type(order).objects.filter(store__subscription=sub, status=order.STATUS_ACTIVE).exclude(pk=order.pk).update(
             status=order.STATUS_DONE
         )
+        store.subscription = sub
     else:
         member = order.member
+        sub = Subscription.objects.create(
+            owner=member,
+            package=order.package,
+            package_name=order.package_name,
+            base_stores=_package_stores(order.package, 1),
+            active_until=add_months(today),
+        )
         store = Store.objects.create(
+            subscription=sub,
             owner=member,
             subdomain=order.subdomain,
             name=(member.business_name or member.display_name)[:60],
-            package=order.package,
-            package_name=order.package_name,
-            base_outlets=_package_outlets(order.package, 1),
-            active_until=add_months(today),
         )
-        Outlet.objects.create(store=store, number=1, name="Toko utama")
         order.store = store
     order.activated_at = timezone.now()
-    log.info("Pesanan %s diaktifkan: toko #%s aktif sampai %s.", order.code, store.pk, store.active_until)
+    log.info("Pesanan %s diaktifkan: toko #%s aktif sampai %s.", order.code, store.pk, store.subscription.active_until)
     return store
 
 
 def outlet_addon():
-    """Harga "Tambah toko/cabang" dari daftar Biaya Tambahan (panel)."""
+    """Harga "Tambah toko" dari daftar Biaya Tambahan (panel)."""
     from apps.content.models import AddOn
 
     return AddOn.objects.filter(group=AddOn.GROUP_OUTLET, is_active=True).order_by("order", "pk").first()
@@ -154,11 +162,11 @@ class Quote:
 
 
 def renewal_quote(store: Store, package) -> Quote:
-    """Biaya perpanjangan 1 bulan: harga paket + toko tambahan yang sudah dibeli."""
+    """Biaya perpanjangan 1 bulan: harga paket + toko tambahan yang sudah dibeli di langganan ini."""
     from apps.core.formatting import rupiah
 
     addon = outlet_addon()
-    extra = store.extra_outlets
+    extra = store.subscription.extra_stores
     extra_price = addon.price * extra if addon and extra else 0
     amount = package.price + extra_price
     if not extra_price:
@@ -167,19 +175,47 @@ def renewal_quote(store: Store, package) -> Quote:
     return Quote(amount, text, package.price, extra, extra_price)
 
 
-def enforce_outlet_limit(store: Store) -> list[Outlet]:
-    """Bila paket turun (mis. Tumbuh -> Tunas), outlet terbaru di atas batas dinonaktifkan (data tetap ada)."""
-    active = list(store.outlets.filter(is_active=True).order_by("number"))
-    over = active[store.outlet_limit :]
+def enforce_store_limit(sub: Subscription) -> list[Store]:
+    """Bila kuota turun (mis. Tumbuh -> Tunas), toko terbaru di atas batas dinonaktifkan (data tetap ada)."""
+    active = list(sub.stores.filter(is_active=True).order_by("created_at", "pk"))
+    over = active[sub.store_limit :]
     if over:
-        Outlet.objects.filter(pk__in=[o.pk for o in over]).update(is_active=False)
-        CashierSession.objects.filter(cashier__outlet__in=over).delete()
+        Store.objects.filter(pk__in=[s.pk for s in over]).update(is_active=False)
+        CashierSession.objects.filter(cashier__store__in=over).delete()
     return over
 
 
-def next_outlet_number(store: Store) -> int:
-    last = store.outlets.order_by("-number").values_list("number", flat=True).first()
-    return (last or 0) + 1
+class StoreError(Exception):
+    pass
+
+
+@transaction.atomic
+def create_store(sub: Subscription, *, name: str, subdomain: str) -> Store:
+    """Toko baru dari sisa kuota langganan: subdomain sendiri, data kosong."""
+    sub = Subscription.objects.select_for_update().get(pk=sub.pk)
+    if not sub.can_edit:
+        raise StoreError("Langganan sedang terkunci. Perpanjang dulu untuk menambah toko.")
+    if sub.stores_free <= 0:
+        raise StoreError("Kuota toko di langganan ini sudah penuh.")
+    if subdomain_taken(subdomain):
+        raise StoreError("Alamat ini sudah dipakai. Coba nama lain.")
+    store = Store.objects.create(subscription=sub, owner_id=sub.owner_id, subdomain=subdomain, name=name)
+    log.info("Langganan #%s: toko baru #%s (%s).", sub.pk, store.pk, subdomain)
+    return store
+
+
+def set_store_active(store: Store, active: bool) -> None:
+    """Aktifkan / nonaktifkan toko. Mengaktifkan perlu sisa kuota."""
+    if store.is_active == active:
+        return
+    with transaction.atomic():
+        sub = Subscription.objects.select_for_update().get(pk=store.subscription_id)
+        if active and sub.stores_free <= 0:
+            raise StoreError("Kuota toko penuh. Nonaktifkan toko lain, beli toko tambahan, atau naik paket.")
+        store.is_active = active
+        store.save(update_fields=["is_active", "updated_at"])
+        if not active:
+            CashierSession.objects.filter(cashier__store=store).delete()
 
 
 # ---------------------------------------------------------------------------
@@ -270,15 +306,13 @@ def checkout(cashier: Cashier, payload: dict) -> CheckoutResult:
 
     try:
         with transaction.atomic():
-            outlet = Outlet.objects.select_for_update().get(pk=cashier.outlet_id, store=store)
-            outlet.sale_seq += 1
-            outlet.save(update_fields=["sale_seq"])
+            seq = Store.objects.select_for_update().values_list("sale_seq", flat=True).get(pk=store.pk) + 1
+            Store.objects.filter(pk=store.pk).update(sale_seq=seq)
             sale = Sale.objects.create(
                 store=store,
-                outlet=outlet,
                 cashier=cashier,
                 cashier_name=cashier.username,
-                number=f"{outlet.number}-{outlet.sale_seq:05d}",
+                number=f"{seq:05d}",
                 client_key=key,
                 subtotal=subtotal,
                 discount_type=discount_type,
@@ -369,12 +403,9 @@ def _bounds(start: date, end: date) -> tuple[datetime, datetime]:
     )
 
 
-def sales_in_range(store: Store, start: date, end: date, outlet: Outlet | None = None):
+def sales_in_range(store: Store, start: date, end: date):
     lo, hi = _bounds(start, end)
-    qs = Sale.objects.filter(store=store, created_at__gte=lo, created_at__lt=hi)
-    if outlet is not None:
-        qs = qs.filter(outlet=outlet)
-    return qs
+    return Sale.objects.filter(store=store, created_at__gte=lo, created_at__lt=hi)
 
 
 @dataclass
@@ -388,12 +419,11 @@ class Report:
     average: int = 0
     by_method: list = field(default_factory=list)
     by_day: list = field(default_factory=list)
-    by_outlet: list = field(default_factory=list)
     top_products: list = field(default_factory=list)
 
 
-def build_report(store: Store, start: date, end: date, outlet: Outlet | None = None) -> Report:
-    base = sales_in_range(store, start, end, outlet)
+def build_report(store: Store, start: date, end: date) -> Report:
+    base = sales_in_range(store, start, end)
     done = base.filter(status=Sale.STATUS_DONE)
     totals = done.aggregate(count=Count("id"), revenue=Sum("total"), discount=Sum("discount"))
     report = Report(
@@ -409,11 +439,6 @@ def build_report(store: Store, start: date, end: date, outlet: Outlet | None = N
     report.by_method = [
         {"label": labels.get(row["method"], row["method"]), "count": row["count"], "total": row["total"] or 0}
         for row in done.values("method").annotate(count=Count("id"), total=Sum("total")).order_by("-total")
-    ]
-    names = dict(store.outlets.values_list("pk", "name"))
-    report.by_outlet = [
-        {"label": names.get(row["outlet"], "–"), "count": row["count"], "total": row["total"] or 0}
-        for row in done.values("outlet").annotate(count=Count("id"), total=Sum("total")).order_by("-total")
     ]
     # Per hari dihitung di Python: tidak bergantung pada tabel zona waktu MariaDB.
     days: dict[date, list[int]] = {}
@@ -442,35 +467,38 @@ def build_report(store: Store, start: date, end: date, outlet: Outlet | None = N
 # ---------------------------------------------------------------------------
 # Pembersihan data toko yang tidak diperpanjang
 # ---------------------------------------------------------------------------
-def stores_due_for_deletion(today: date | None = None):
+def subscriptions_due_for_deletion(today: date | None = None):
     """Masa aktif habis lebih dari 30 hari, kecuali sedang ada perpanjangan yang buktinya dicek admin."""
     from apps.members.models import Order
 
     today = today or timezone.localdate()
     pending = Order.objects.filter(
-        store=OuterRef("pk"), status__in=(Order.STATUS_CHECKING, Order.STATUS_PROCESS)
+        store__subscription=OuterRef("pk"), status__in=(Order.STATUS_CHECKING, Order.STATUS_PROCESS)
     )
     return (
-        Store.objects.filter(active_until__lt=today - timedelta(days=DELETE_AFTER_DAYS))
+        Subscription.objects.filter(active_until__lt=today - timedelta(days=DELETE_AFTER_DAYS))
         .annotate(has_pending=Exists(pending))
         .filter(has_pending=False)
+        .prefetch_related("stores")
     )
 
 
 def delete_expired_stores(today: date | None = None) -> list[str]:
+    """Hapus permanen langganan yang tidak diperpanjang, beserta SEMUA tokonya."""
     deleted = []
-    for store in stores_due_for_deletion(today):
-        label = f"#{store.pk} {store.subdomain}"
+    for sub in subscriptions_due_for_deletion(today):
+        hosts = [store.subdomain for store in sub.stores.all()]
         with transaction.atomic():
-            store.delete()
-        log.info("Data toko %s dihapus permanen (masa aktif habis lebih dari %s hari).", label, DELETE_AFTER_DAYS)
-        deleted.append(label)
+            sub.delete()
+        log.info("Langganan #%s (%s) dihapus permanen (masa aktif habis lebih dari %s hari).",
+                 sub.pk, ", ".join(hosts) or "-", DELETE_AFTER_DAYS)
+        deleted.extend(hosts)
     CashierSession.objects.filter(expires_at__lt=timezone.now()).delete()
     return deleted
 
 
 # ---------------------------------------------------------------------------
-# Dashboard pelanggan: ringkasan SEMUA toko & outlet milik satu pelanggan
+# Dashboard pelanggan: ringkasan SEMUA toko milik satu pelanggan
 # ---------------------------------------------------------------------------
 @dataclass
 class Overview:
@@ -481,7 +509,7 @@ class Overview:
     month: dict = field(default_factory=dict)
     trend: list = field(default_factory=list)
     trend_peak: int = 0
-    outlets: list = field(default_factory=list)
+    rows: list = field(default_factory=list)
     top_products: list = field(default_factory=list)
     recent: list = field(default_factory=list)
     alerts: list = field(default_factory=list)
@@ -520,20 +548,19 @@ def overview(stores, today: date | None = None, trend_days: int = 14) -> Overvie
     data.trend = [{"day": start + timedelta(days=i), "total": days.get(start + timedelta(days=i), 0)} for i in range(trend_days)]
     data.trend_peak = max((d["total"] for d in data.trend), default=0)
 
-    # Per outlet: hari ini & bulan ini.
-    def per_outlet(qs) -> dict[int, tuple[int, int]]:
-        return {r["outlet"]: (r["n"], r["t"] or 0) for r in qs.values("outlet").annotate(n=Count("id"), t=Sum("total"))}
+    # Per toko: hari ini & bulan ini.
+    def per_store(qs) -> dict[int, tuple[int, int]]:
+        return {r["store"]: (r["n"], r["t"] or 0) for r in qs.values("store").annotate(n=Count("id"), t=Sum("total"))}
 
-    today_map = per_outlet(between(today, today))
-    month_map = per_outlet(between(month_start, today))
-    for outlet in Outlet.objects.filter(store__in=stores).select_related("store").order_by("store__name", "number"):
-        data.outlets.append({
-            "store": outlet.store,
-            "outlet": outlet,
-            "today_count": today_map.get(outlet.pk, (0, 0))[0],
-            "today_total": today_map.get(outlet.pk, (0, 0))[1],
-            "month_count": month_map.get(outlet.pk, (0, 0))[0],
-            "month_total": month_map.get(outlet.pk, (0, 0))[1],
+    today_map = per_store(between(today, today))
+    month_map = per_store(between(month_start, today))
+    for store in stores:
+        data.rows.append({
+            "store": store,
+            "today_count": today_map.get(store.pk, (0, 0))[0],
+            "today_total": today_map.get(store.pk, (0, 0))[1],
+            "month_count": month_map.get(store.pk, (0, 0))[0],
+            "month_total": month_map.get(store.pk, (0, 0))[1],
         })
 
     data.top_products = list(
@@ -542,18 +569,25 @@ def overview(stores, today: date | None = None, trend_days: int = 14) -> Overvie
         .annotate(qty=Sum("qty"), total=Sum("line_total"))
         .order_by("-qty", "name")[:5]
     )
-    data.recent = list(done.select_related("store", "outlet").order_by("-created_at")[:6])
+    data.recent = list(done.select_related("store").order_by("-created_at")[:6])
 
+    # Masa aktif berlaku per langganan: cukup satu peringatan per langganan.
+    seen: set[int] = set()
+    with_cashier = set(Cashier.objects.filter(store__in=stores).values_list("store_id", flat=True))
     for store in stores:
-        state = store.state(today)
-        if state == Store.STATE_GRACE:
-            data.alerts.append((store, "wait", f"Masa aktif habis. Kasir masih jalan sampai {store.grace_until:%d/%m/%Y}."))
-        elif state == Store.STATE_LOCKED:
-            data.alerts.append((store, "off", f"Kasir terkunci. Data dihapus setelah {store.delete_on:%d/%m/%Y} bila tidak diperpanjang."))
-        elif state == Store.STATE_SUSPENDED:
-            data.alerts.append((store, "off", "Toko ditangguhkan admin. Lihat catatan di halaman toko."))
-        elif store.days_left <= 7:
-            data.alerts.append((store, "wait", f"Masa aktif tinggal {store.days_left} hari."))
-        if not store.cashiers.exists():
-            data.alerts.append((store, "wait", "Belum ada akun kasir. Buat di menu Outlet & Kasir."))
+        sub = store.subscription
+        if sub.pk not in seen:
+            seen.add(sub.pk)
+            state = sub.state(today)
+            label = f"Paket {sub.package_name}"
+            if state == Store.STATE_GRACE:
+                data.alerts.append((store, label, "wait", f"Masa aktif habis. Kasir masih jalan sampai {sub.grace_until:%d/%m/%Y}."))
+            elif state == Store.STATE_LOCKED:
+                data.alerts.append((store, label, "off", f"Kasir terkunci. Data dihapus setelah {sub.delete_on:%d/%m/%Y} bila tidak diperpanjang."))
+            elif state == Store.STATE_SUSPENDED:
+                data.alerts.append((store, label, "off", "Langganan ditangguhkan admin. Lihat catatan di halaman toko."))
+            elif sub.days_left <= 7:
+                data.alerts.append((store, label, "wait", f"Masa aktif tinggal {sub.days_left} hari."))
+        if store.is_active and store.pk not in with_cashier:
+            data.alerts.append((store, store.name, "wait", "Belum ada akun kasir. Buat di menu Kasir."))
     return data

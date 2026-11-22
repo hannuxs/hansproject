@@ -1,0 +1,35 @@
+{# Harga paket SIM (Tunas & Tumbuh). Harga Rp0 = belum ditentukan: tampil "Segera diumumkan" + tombol Tanya harga. #}
+<section class="section aurora" id="harga" aria-labelledby="harga-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Harga SIM" title="Pilih paket yang cocok untuk instansi Anda" lead="Bayar bulanan. Satu langganan untuk satu instansi, misalnya satu RT atau satu kelurahan." id="harga-title" center=True %}
+    <div class="toolbar">
+      <span class="muted">Semua paket: bisa dipakai 24 jam, dari HP atau laptop, data tersimpan aman di server.</span>
+      {% include "components/tech_toggle.html" with id="tech-harga-sim" %}
+    </div>
+    <div class="plans">
+      {% for pkg in snap.sim_packages %}
+        <article class="plan {% if pkg.is_highlighted %}plan-hl{% else %}glass{% endif %} reveal" aria-labelledby="plan-{{ pkg.code }}">
+          {% if pkg.badge %}<span class="badge">{% icon "star" "icon-sm" %}{{ pkg.badge }}</span>{% endif %}
+          <div class="plan-head">
+            <span class="plan-emoji" aria-hidden="true">{{ pkg.icon }}</span>
+            <h3 class="plan-name" id="plan-{{ pkg.code }}"><small>SIM</small>Paket {{ pkg.name }}</h3>
+          </div>
+          {% if pkg.tagline %}<p class="plan-for"><b>Cocok untuk:</b> {{ pkg.tagline }}</p>{% endif %}
+          {% include "components/price.html" %}
+          {% if pkg.is_highlighted %}{% include "components/order_button.html" with style="btn-light" %}{% else %}{% include "components/order_button.html" with style="" %}{% endif %}
+          {% if pkg.includes_from %}<p class="plan-inherit">Semua yang ada di Paket {{ pkg.includes_from.name }}, ditambah:</p>{% endif %}
+          <ul class="plan-features" role="list">
+            {% for item in pkg.features.all %}<li>{% icon "check" %}{% include "components/two_level.html" %}</li>{% endfor %}
+          </ul>
+        </article>
+      {% empty %}
+        <div class="cta-band soon-band reveal">
+          <h3>Paket SIM segera dibuka</h3>
+          <p>Ingin mencoba lebih dulu? Tanyakan ke kami.</p>
+          <div class="cta-actions">{% include "components/ask_button.html" with topic="sim" style="btn-light" label="Tanya SIM" %}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>

@@ -4,7 +4,7 @@
 <div class="k-wrap">
   <p class="k-back"><a href="{% url 'kasir:pos' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Kembali ke kasir</span></a></p>
   <div class="k-card glass k-card-wide">
-    <p class="k-eyebrow">{{ outlet.name }}</p>
+    <p class="k-eyebrow">{{ store.name }}</p>
     <h1 class="k-title">Transaksi hari ini</h1>
     <div class="k-stats">
       <div><span>Penjualan</span><b>{{ report.revenue|rupiah }}</b></div>

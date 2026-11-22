@@ -6,6 +6,9 @@ app_name = "web"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("aplikasi-kasir/", views.solution_page, {"key": "kasir"}, name="kasir"),
+    path("sistem-informasi-manajemen/", views.solution_page, {"key": "sim"}, name="sim"),
+    path("website-aplikasi/", views.solution_page, {"key": "jasa"}, name="jasa"),
     path("syarat-ketentuan/", views.legal_page, {"slug": "syarat-ketentuan"}, name="terms"),
     path("kebijakan-privasi/", views.legal_page, {"slug": "kebijakan-privasi"}, name="privacy"),
     path("robots.txt", views.robots_txt, name="robots"),

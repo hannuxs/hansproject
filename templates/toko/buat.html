@@ -1,0 +1,39 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% comment %}
+  Buat toko baru dari sisa kuota langganan: nama, alamat kasir (subdomain) sendiri, dan akun kasirnya.
+{% endcomment %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block wrap_class %} akun-narrow{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'toko:tambah' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Tambah toko</span></a></p>
+<section class="akun-card glass" aria-labelledby="buat-title">
+  <p class="eyebrow">Paket {{ sub.package_name }} · sisa {{ sub.stores_free }} toko</p>
+  <h1 class="akun-title" id="buat-title">Buat toko baru</h1>
+  <p class="muted">Toko ini terpisah penuh dari toko Anda yang lain: alamat kasir, barang, transaksi, dan laporannya sendiri. Masa aktifnya mengikuti langganan (sampai {{ sub.active_until|date:"j F Y" }}).</p>
+  <form method="post" class="akun-form" novalidate autocomplete="off">
+    {% csrf_token %}
+    {% if error %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ error }}</div></div>{% endif %}
+    <h2 class="form-sub">Data toko</h2>
+    {{ store_form.name.as_field_group }}
+    <div class="field{% if store_form.subdomain.errors %} has-error{% endif %}">
+      <label class="field-label" for="{{ store_form.subdomain.id_for_label }}">Alamat kasir toko</label>
+      <div class="sub-input"><input type="text" name="{{ store_form.subdomain.html_name }}" id="{{ store_form.subdomain.id_for_label }}" value="{{ store_form.subdomain.value|default:'' }}" maxlength="60" autocapitalize="none" autocomplete="off" spellcheck="false" inputmode="url" placeholder="cabangpasar" required{% if store_form.subdomain.errors %} aria-invalid="true"{% endif %}><span>.{{ STORE_BASE_DOMAIN }}</span></div>
+      {% if store_form.subdomain.errors %}{{ store_form.subdomain.errors }}{% endif %}
+      <p class="field-help">{{ store_form.subdomain.help_text }}</p>
+    </div>
+
+    <h2 class="form-sub">Akun kasir toko ini</h2>
+    <p class="field-help">Kasir masuk di alamat di atas + <b>/kasir</b> dengan nama pengguna dan PIN ini. Satu akun bisa dipakai di banyak HP, tablet, atau laptop sekaligus.</p>
+    {% if cashier_form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ cashier_form.non_field_errors }}</div></div>{% endif %}
+    {{ cashier_form.username.as_field_group }}
+    {{ cashier_form.pin.as_field_group }}
+    {{ cashier_form.pin2.as_field_group }}
+
+    <div class="akun-actions">
+      <button class="btn" type="submit">{% icon "check" %}<span>Buat toko</span></button>
+      <a class="btn btn-ghost" href="{% url 'toko:tambah' %}">Batal</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

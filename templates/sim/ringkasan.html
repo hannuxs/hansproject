@@ -1,0 +1,78 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="cari-title">
+  <h2 id="cari-title">{% icon "search" %} Cari warga</h2>
+  <form method="get" class="filter-bar" role="search">
+    <div class="field"><label class="field-label" for="q">Nama, NIK, atau No. KK</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Mis. Budi atau 3201…" autocomplete="off"></div>
+    <button class="btn btn-sm" type="submit">{% icon "search" %}<span>Cari</span></button>
+  </form>
+  {% if results is not None %}
+    {% if results %}
+      <ul class="mini-list" role="list">
+        {% for p in results %}
+          <li><a href="{% url 'sim:kk' w.kode p.kk_id %}"><span><b>{{ p.nama }}</b><span class="muted small">NIK {{ p.nik|default:"–" }} · {{ p.hubungan|default:"anggota" }} · KK {{ p.kk.kepala_nama }}</span></span><span class="status status-{% if p.status == 'aktif' %}ok{% else %}off{% endif %}">{{ p.get_status_display }}</span></a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Tidak ada warga yang cocok dengan “{{ q }}”.</p>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="toko-stats" aria-label="Rekap warga">
+  <div class="stat glass"><span>Kartu keluarga</span><b>{{ stats.kk }}</b><small>aktif</small></div>
+  <div class="stat glass"><span>Jumlah warga</span><b>{{ stats.jiwa }}</b><small>{{ stats.laki }} laki-laki · {{ stats.perempuan }} perempuan</small></div>
+  <div class="stat glass"><span>Surat terbit</span><b>{{ stats.surat_bulan_ini }}</b><small>bulan ini</small></div>
+  <div class="stat glass"><span>Surat menunggu</span><b>{{ stats.surat_menunggu }}</b><small><a href="{% url 'sim:surat' w.kode %}">lihat</a></small></div>
+</section>
+
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="umur-title">
+    <h2 id="umur-title">{% icon "chart" %} Kelompok umur</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <tbody>{% for label, n in stats.umur %}<tr><th scope="row">{{ label }}</th><td class="num">{{ n }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><th scope="row">Pindah / meninggal (tercatat)</th><td class="num">{{ stats.pindah }} / {{ stats.meninggal }}</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+  <section class="akun-card glass" aria-labelledby="baru-title">
+    <h2 id="baru-title">{% icon "file" %} Surat terbaru</h2>
+    {% if latest %}
+      <ul class="mini-list" role="list">
+        {% for s in latest %}
+          <li><a href="{% url 'sim:surat-detail' w.kode s.pk %}"><span><b>{{ s.jenis_nama }}</b><span class="muted small">{{ s.nama }} · {{ s.created_at|date:"j M, H:i" }}</span></span><span class="status status-{{ s.status_tone }}">{{ s.get_status_display }}</span></a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Belum ada surat. Bagikan alamat halaman warga supaya warga bisa mengajukan surat online.</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if network_stats %}
+<section class="akun-card glass" aria-labelledby="jaringan-title">
+  <div class="card-head">
+    <h2 id="jaringan-title">{% icon "link" %} Rekap wilayah di bawah Anda</h2>
+    <a class="btn btn-sm btn-ghost" href="{% url 'sim:jaringan' w.kode %}">{% icon "list" %}<span>Detail</span></a>
+  </div>
+  <p class="muted small">{{ children|length }} wilayah langsung tergabung. Hanya angka rekap; data pribadi warga tetap dikelola pengurus masing-masing.</p>
+  <div class="toko-stats compact">
+    <div class="stat"><span>KK</span><b>{{ network_stats.kk }}</b></div>
+    <div class="stat"><span>Warga</span><b>{{ network_stats.jiwa }}</b></div>
+    <div class="stat"><span>Surat terbit bulan ini</span><b>{{ network_stats.surat_bulan_ini }}</b></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="akun-card glass" aria-labelledby="mulai-title">
+  <h2 id="mulai-title">{% icon "info" %} Cara pakai singkat</h2>
+  <ol class="steps-list">
+    <li><b>Lengkapi kop surat</b> di <a href="{% url 'sim:pengaturan' w.kode %}">Pengaturan</a> (nama ketua, kelurahan, kecamatan, kota).</li>
+    <li><b>Masukkan data warga</b>: foto KK di <a href="{% url 'sim:scan' w.kode %}">Scan KK/KTP</a>, periksa hasilnya, lalu simpan menjadi data KK.</li>
+    <li><b>Bagikan halaman warga</b> <a href="{{ w.public_path }}" target="_blank" rel="noopener">{{ public_url }}</a> di grup warga. Warga bisa minta surat kapan saja.</li>
+    <li><b>Proses & cetak surat</b> dari menu <a href="{% url 'sim:surat' w.kode %}">Surat</a>, dari HP atau komputer mana saja.</li>
+    <li><b>Hubungkan</b> ke RW/kelurahan lewat menu <a href="{% url 'sim:jaringan' w.kode %}">Jaringan</a>.</li>
+  </ol>
+</section>
+{% endblock %}

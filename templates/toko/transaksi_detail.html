@@ -10,7 +10,6 @@
   </div>
   <ul class="kv" role="list">
     <li><span>Waktu</span><b>{{ sale.created_at|date:"j F Y, H:i" }}</b></li>
-    <li><span>Toko</span><b>{{ sale.outlet.name }}</b></li>
     <li><span>Kasir</span><b>{{ sale.cashier_name }}</b></li>
     <li><span>Cara bayar</span><b>{{ sale.get_method_display }}</b></li>
   </ul>

@@ -5,7 +5,7 @@
     <p class="eyebrow">Pesanan</p>
     <h1 class="akun-title">Pesanan & refund</h1>
   </div>
-  <a class="btn btn-sm" href="{% url 'akun:pesan-pilih' %}">{% icon "plus" %}<span>Pesan paket</span></a>
+  <a class="btn btn-sm" href="{% url 'akun:pesan-pilih' %}">{% icon "plus" %}<span>Pesan layanan</span></a>
 </header>
 
 <section class="akun-card glass" aria-labelledby="jalan-title">
@@ -38,7 +38,7 @@
   {% if past_orders %}
     {% include "akun/_order_list.html" with orders=past_orders %}
   {% else %}
-    <p class="empty">Belum ada riwayat. <a href="{% url 'akun:pesan-pilih' %}">Pilih paket</a> untuk mulai.</p>
+    <p class="empty">Belum ada riwayat. <a href="{% url 'akun:pesan-pilih' %}">Pilih layanan</a> untuk mulai.</p>
   {% endif %}
 </section>
 {% endblock %}

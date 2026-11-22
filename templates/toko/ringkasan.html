@@ -4,19 +4,8 @@
   <div class="stat glass"><span>Penjualan hari ini</span><b>{{ today.revenue|rupiah }}</b><small>{{ today.count }} transaksi</small></div>
   <div class="stat glass"><span>Penjualan bulan ini</span><b>{{ month.revenue|rupiah }}</b><small>{{ month.count }} transaksi</small></div>
   <div class="stat glass"><span>Barang dijual</span><b>{{ product_count }}</b><small><a href="{% url 'toko:barang' store.subdomain %}">Kelola barang</a></small></div>
-  <div class="stat glass"><span>Toko aktif</span><b>{{ active_outlets }} / {{ store.outlet_limit }}</b><small><a href="{% url 'toko:outlet' store.subdomain %}">Kelola toko</a></small></div>
+  <div class="stat glass"><span>Akun kasir</span><b>{% if cashier %}{{ cashier.username }}{% else %}Belum ada{% endif %}</b><small>{% if cashier %}{{ devices }} perangkat sedang masuk · {% endif %}<a href="{% url 'toko:kasir' store.subdomain %}">Kelola kasir</a></small></div>
 </section>
-
-{% if not product_count or not has_cashier %}
-<section class="akun-card glass" aria-labelledby="mulai-title">
-  <h2 id="mulai-title">{% icon "sparkles" %} Mulai pakai kasir</h2>
-  <ol class="start-steps">
-    <li class="{% if product_count %}done{% endif %}"><span>1</span><div><b>Masukkan barang dan harga</b><p class="muted">Menu <a href="{% url 'toko:barang' store.subdomain %}">Barang</a>. Bisa dikelompokkan per kategori, misalnya Makanan dan Minuman.</p></div></li>
-    <li class="{% if has_cashier %}done{% endif %}"><span>2</span><div><b>Buat akun kasir</b><p class="muted">Menu <a href="{% url 'toko:outlet' store.subdomain %}">Toko &amp; Kasir</a>. Anda menentukan nama pengguna dan PIN untuk kasir.</p></div></li>
-    <li><span>3</span><div><b>Buka kasir di HP atau laptop</b><p class="muted">Buka <a href="{{ store.kasir_url }}" target="_blank" rel="noopener">{{ store.host }}/kasir</a>, masuk dengan nama pengguna dan PIN tadi.</p></div></li>
-  </ol>
-</section>
-{% endif %}
 
 <section class="akun-card glass" aria-labelledby="terbaru-title">
   <div class="card-head">

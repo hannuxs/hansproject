@@ -1,10 +1,11 @@
+{% comment %} Ajakan penutup. Parameter opsional: pricing_url (tombol utama), cta_lead. {% endcomment %}
 <section class="section" aria-labelledby="cta-title">
   <div class="container">
     <div class="cta-band reveal">
-      <h2 id="cta-title">Siap catat jualan dengan rapi?</h2>
-      <p>Mulai {{ snap.start_price|rupiah_short }} sebulan. Pilih paket, lalu tekan Pesan Sekarang.</p>
+      <h2 id="cta-title">Siap mulai lebih rapi?</h2>
+      <p>{{ cta_lead|default:"Pilih solusi dan paketnya, lalu tekan Pesan Sekarang. Semua pesanan dan layanan Anda ada di satu akun." }}</p>
       <div class="cta-actions">
-        <a class="btn btn-light" href="#harga">{% icon "tag" %} Lihat harga paket</a>
+        <a class="btn btn-light" href="{{ pricing_url|default:'#harga' }}">{% icon "tag" %} Lihat harga</a>
         {% include "components/account_button.html" with place="cta" %}
       </div>
       <p class="cta-alt">{% include "components/instagram_dm.html" with text="Ada pertanyaan? DM Instagram" %}</p>

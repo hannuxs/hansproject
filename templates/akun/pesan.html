@@ -2,7 +2,7 @@
 {% block wrap_class %} akun-narrow{% endblock %}
 {% block akun %}
 <div class="akun-card glass">
-  <p class="eyebrow">Konfirmasi pesanan</p>
+  <p class="eyebrow">Konfirmasi pesanan · {{ package.product_label }}</p>
   <h1 class="akun-title">Paket {{ package.name }}</h1>
   {% if package.tagline %}<p class="akun-lead">{{ package.tagline }}</p>{% endif %}
 
@@ -28,13 +28,13 @@
   {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
 
   {% if existing %}
-    <p class="alert" role="status">{% icon "info" %}<span>Anda sudah punya pesanan Paket {{ package.name }} yang belum selesai ({{ existing.code }}).</span></p>
+    <p class="alert" role="status">{% icon "info" %}<span>Anda sudah punya pesanan {{ package.product_short }} Paket {{ package.name }} yang belum selesai ({{ existing.code }}).</span></p>
     <div class="akun-actions">
       <a class="btn" href="{% url 'akun:pesanan' existing.code %}">{% icon "arrow-right" %}<span>Lihat pesanan</span></a>
     </div>
   {% else %}
     <p class="next-steps">
-      {% if package.is_pos %}
+      {% if package.is_pos or package.is_sim %}
         Setelah pesanan dibuat, Anda akan melihat cara pembayaran (transfer bank atau scan QRIS) dan bisa mengirim foto bukti bayar di halaman pesanan.
       {% else %}
         Setelah pesanan dibuat, ruang obrolan konsultasi langsung terbuka. Ceritakan kebutuhan Anda di sana; pembayaran dibahas setelah kebutuhannya jelas.
@@ -45,8 +45,18 @@
         {% for s in stores %}<a href="{% url 'toko:perpanjang' s.subdomain %}">{{ s.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
         Pesanan di halaman ini membuat <b>toko baru</b>.</span></p>
     {% endif %}
+    {% if wilayah_list %}
+      <p class="alert" role="note">{% icon "info" %}<span>Sudah punya instansi di SIM? Untuk menambah masa aktif, pakai tombol <b>Perpanjang</b> di halaman instansinya:
+        {% for w in wilayah_list %}<a href="{% url 'sim:perpanjang' w.kode %}">{{ w.short_label }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
+        Pesanan di halaman ini membuat <b>instansi baru</b>.</span></p>
+    {% endif %}
     <form method="post" class="akun-form" novalidate>
       {% csrf_token %}
+      {% if sim_form %}
+        <p class="form-sub">Data instansi</p>
+        <p class="field-help">Dipakai untuk kop surat dan nama instansi. Semua bisa diubah lagi setelah aktif.</p>
+        {% for field in sim_form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+      {% endif %}
       {% if store_form %}
         {% with f=store_form.subdomain %}
           <div class="field{% if f.errors %} has-error{% endif %}">
@@ -59,7 +69,7 @@
       {% endif %}
       <div class="akun-actions">
         <button class="btn" type="submit">{% icon "cart" %}<span>Buat pesanan</span></button>
-        <a class="btn btn-ghost" href="/#{% if package.is_pos %}harga{% else %}jasa{% endif %}">Kembali</a>
+        <a class="btn btn-ghost" href="{% url 'akun:pesan-pilih' %}?layanan={{ package.category|urlencode }}">Kembali</a>
       </div>
     </form>
   {% endif %}

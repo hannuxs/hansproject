@@ -1,0 +1,50 @@
+{% extends "warga/base.html" %}
+{% block warga %}
+<header class="akun-card glass warga-head">
+  <p class="eyebrow">Layanan warga</p>
+  <h1 class="akun-title">{{ w.label }}</h1>
+  <p class="muted">{% if w.kecamatan and w.level != "kecamatan" %}Kec. {{ w.kecamatan }}{% endif %}{% if w.kota %}{% if w.kecamatan %}, {% endif %}{{ w.kota }}{% endif %}{% if w.ketua_nama %} · {{ w.signer_title }}: {{ w.ketua_nama }}{% endif %}</p>
+</header>
+
+{% if not open %}
+  <p class="alert" role="status">{% icon "lock" %}<span>Layanan online wilayah ini sedang tidak aktif. Silakan hubungi pengurus secara langsung.</span></p>
+{% else %}
+  {% for a in pengumuman %}
+    <article class="announce-box tone-info">
+      <span class="announce-icon" aria-hidden="true">{% icon "megaphone" %}</span>
+      <div class="announce-body">
+        <p class="announce-kind">Pengumuman{% if a.wilayah_id != w.pk %} dari {{ a.wilayah.short_label }}{% endif %} · {{ a.created_at|date:"j M Y" }}</p>
+        <h2>{{ a.judul }}</h2>
+        <p>{{ a.isi|linebreaksbr }}</p>
+      </div>
+    </article>
+  {% endfor %}
+
+  <section class="akun-card glass" aria-labelledby="ajukan-title">
+    <h2 id="ajukan-title">{% icon "file" %} Ajukan surat online</h2>
+    {% if jenis_list %}
+      <p class="muted">Isi formulir dari HP, kapan saja. Anda akan mendapat <b>kode lacak</b> untuk melihat apakah surat sudah selesai.</p>
+      <ul class="pick-grid" role="list">
+        {% for j in jenis_list %}
+          <li class="pick-card">
+            <h3>{{ j.nama }}</h3>
+            {% if j.keterangan %}<p class="muted small">{{ j.keterangan }}</p>{% endif %}
+            <a class="btn btn-sm btn-block" href="{% url 'warga:ajukan' w.kode j.kode %}">{% icon "edit" %}<span>Ajukan</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Pengajuan surat online belum dibuka oleh pengurus wilayah ini.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section class="akun-card glass" aria-labelledby="lacak-title">
+  <h2 id="lacak-title">{% icon "search" %} Lacak surat</h2>
+  <form method="post" action="{% url 'warga:lacak-cari' %}" class="filter-bar">
+    {% csrf_token %}
+    <div class="field"><label class="field-label" for="kode">Kode lacak</label><input id="kode" name="kode" maxlength="40" autocomplete="off" spellcheck="false" class="mono-sm" required></div>
+    <button class="btn btn-sm" type="submit">{% icon "search" %}<span>Lacak</span></button>
+  </form>
+</section>
+{% endblock %}

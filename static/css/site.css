@@ -512,7 +512,6 @@ html.hide-tech .tech, html:not(.js):has(.tech-toggle input:not(:checked)) .tech 
 /* ---------- Footer ---------- */
 .site-footer { padding: 56px 0 48px; background: var(--night); color: #e2d3cb; font-size: 0.975rem; }
 .footer-grid { display: grid; gap: 32px; }
-@media (min-width: 760px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
 .site-footer .brand { color: var(--white); }
 .site-footer .brand-text span { color: #cdbdb4; }
 .site-footer h2 { font-size: 0.875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
@@ -537,3 +536,96 @@ html.hide-tech .tech, html:not(.js):has(.tech-toggle input:not(:checked)) .tech 
 /* ---------- Animasi muncul saat di-scroll (hanya bila JS aktif) ---------- */
 .js .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
 .js .reveal.is-in { opacity: 1; transform: none; }
+
+/* ==========================================================================
+   Platform: HANS Project = penyedia solusi digital (kasir, SIM, website & aplikasi, tiket)
+   ========================================================================== */
+.steps.steps-4 { counter-reset: step; }
+@media (min-width: 900px) { .steps.steps-4 { grid-template-columns: repeat(4, 1fr); } }
+
+/* Pembuka halaman utama: ringkas & di tengah */
+.platform-hero { padding-block: clamp(40px, 8vw, 96px) clamp(28px, 5vw, 56px); }
+.platform-hero-inner { max-width: 46rem; text-align: center; }
+.platform-hero-inner .eyebrow { justify-content: center; }
+.platform-hero .hero-lead { margin-inline: auto; max-width: 36rem; }
+.platform-hero .hero-cta { justify-content: center; }
+
+/* Kartu solusi (seluruh kartu bisa diklik lewat tautan judul) */
+.solutions-section { padding-top: clamp(8px, 2vw, 24px); }
+.solutions { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 640px) { .solutions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1080px) { .solutions { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.solution { position: relative; display: flex; flex-direction: column; gap: 10px; transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease); }
+.solution:has(.stretched):hover { transform: translateY(-3px); box-shadow: inset 0 0 0 2px var(--orange-light); }
+.solution:has(.stretched:focus-visible) { outline: 3px solid var(--maroon); outline-offset: 3px; }
+.solution-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.solution h3 { font-size: 1.2rem; font-weight: 800; line-height: 1.25; color: var(--maroon); }
+.solution h3 a { color: inherit; text-decoration: none; }
+.solution h3 abbr { text-decoration: none; }
+.solution .stretched::after { content: ""; position: absolute; inset: 0; }
+.solution .stretched:focus-visible { outline: none; }
+.solution p { color: var(--ink); font-size: 0.975rem; }
+.solution-price { margin-top: auto; padding-top: 6px; color: var(--muted); font-size: 0.925rem; }
+.solution-price b { color: var(--maroon); font-size: 1.05rem; }
+.solution-price a { position: relative; z-index: 1; font-weight: 700; }
+.solution-more { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: var(--orange-dark); }
+.solution.is-soon { opacity: 0.88; }
+.sol-icon {
+  flex: none; display: grid; place-items: center; width: 48px; height: 48px; background: var(--grad-deep); color: var(--white);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.is-soon .sol-icon { background: var(--cream-2); color: var(--maroon); }
+
+/* Tab harga per solusi (radio + CSS, tanpa JavaScript) */
+.ptabs { display: grid; gap: 22px; }
+.ptab-input { position: absolute; opacity: 0; pointer-events: none; }
+.ptab-list {
+  display: inline-flex; justify-self: center; gap: 4px; padding: 4px; background: var(--glass-strong);
+  box-shadow: inset 0 0 0 1px var(--line);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.ptab-list label {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 8px 20px; cursor: pointer;
+  font-weight: 800; color: var(--muted);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.ptab-list label:hover { color: var(--maroon); }
+.ptabs:has(#harga-kasir:checked) label[for="harga-kasir"],
+.ptabs:has(#harga-sim:checked) label[for="harga-sim"] { background: var(--grad-deep); color: var(--white); }
+.ptabs:has(.ptab-input:focus-visible) .ptab-list { outline: 3px solid var(--maroon); outline-offset: 3px; }
+.ptab-panel { display: none; }
+.ptabs:has(#harga-kasir:checked) .ptab-kasir,
+.ptabs:has(#harga-sim:checked) .ptab-sim { display: block; }
+.plans-compact .plan { gap: 14px; }
+.plans-compact .plan-name small { display: block; }
+.ptab-more { margin-top: 18px; text-align: center; font-weight: 700; }
+.ptab-more a { display: inline-flex; align-items: center; gap: 6px; }
+.custom-note { display: flex; gap: 12px; align-items: flex-start; max-width: 980px; margin: 28px auto 0; padding: 16px 18px; }
+.custom-note > .icon { color: var(--orange-dark); margin-top: 3px; }
+
+/* Harga belum ditentukan pemilik */
+.price-pending .price-amount { font-size: clamp(1.5rem, 1.6vw + 1rem, 1.9rem); letter-spacing: -0.02em; }
+.plan-hl .price-pending .price-amount { color: var(--white); }
+
+/* Halaman SIM */
+.sim-fields { display: grid; gap: 14px; }
+.sim-fields-title { font-size: 1.1rem; font-weight: 800; color: var(--maroon); }
+.sim-field-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.sim-field-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.sim-field-list li > span:nth-child(2) { display: grid; flex: 1; min-width: 0; }
+.sim-field-list b { color: var(--ink); }
+.sim-field-list small { color: var(--muted); font-size: 0.875rem; }
+.sim-field-list li:not(.is-ready) { opacity: 0.8; }
+.sim-field-list li:not(.is-ready) .sol-icon { background: var(--cream-2); color: var(--maroon); }
+.sim-field-list .badge { flex: none; }
+.sim-features { margin-top: 20px; }
+.sim-features p { display: grid; gap: 2px; }
+.soon-band { margin-top: 24px; grid-column: 1 / -1; }
+.soon-band h3 { font-size: clamp(1.3rem, 2vw + 0.8rem, 1.7rem); font-weight: 800; }
+
+/* Pembuka halaman solusi tanpa gambar (mis. Website & Aplikasi) */
+.page-hero .container { max-width: 52rem; }
+
+/* Footer 4 kolom */
+@media (min-width: 760px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1000px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr 1fr; } }

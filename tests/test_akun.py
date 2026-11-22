@@ -27,15 +27,20 @@ class AkunNavigationTests(SeededTestCase):
     def test_account_menu_replaces_site_menu(self):
         html = self.client.get("/akun/").content.decode()
         header = html[html.index('<header class="site-header">'): html.index("</header>")]
-        for href in ["/akun/", "/akun/pesanan/", "/akun/toko/", "/akun/chat/", "/akun/profil/"]:
+        for href in ["/akun/", "/akun/pesanan/", "/akun/layanan/", "/akun/chat/", "/akun/profil/"]:
             self.assertIn(f'href="{href}"', header)
             self.assertIn(f'href="{href}"', html[html.index('<nav class="bottom-nav"'):])
+        # Satu menu "Layanan" untuk semua solusi, bukan menu "Toko" / "Wilayah" per produk.
+        self.assertNotIn(">Toko<", header)
+        self.assertNotIn(">Wilayah<", header)
         self.assertIn('class="profile-btn home-btn" href="/"', header)  # tombol Beranda
         self.assertNotIn('href="/#fitur"', header)  # menu situs tidak tampil di area akun
         self.assertIn('aria-current="page"', header)
 
     def test_every_tab_renders(self):
-        for path in ["/akun/", "/akun/pesanan/", "/akun/toko/", "/akun/chat/", "/akun/chat/baru/", "/akun/profil/"]:
+        for path in ["/akun/", "/akun/pesanan/", "/akun/layanan/", "/akun/toko/", "/akun/sim/", "/akun/pesan/",
+                     "/akun/pesan/?layanan=kasir", "/akun/pesan/?layanan=sim", "/akun/pesan/?layanan=jasa",
+                     "/akun/chat/", "/akun/chat/baru/", "/akun/profil/"]:
             with self.subTest(path=path):
                 r = self.client.get(path)
                 self.assertEqual(r.status_code, 200)
@@ -64,10 +69,13 @@ class DashboardTests(SeededTestCase):
 
     def test_empty_state_without_store(self):
         r = self.client.get("/akun/")
-        self.assertContains(r, "Belum ada toko")
+        self.assertContains(r, "Belum ada layanan")
+        for layanan in ("kasir", "sim", "jasa"):  # pilihan semua solusi, bukan hanya kasir
+            self.assertContains(r, f'href="/akun/pesan/?layanan={layanan}"')
+        self.assertNotContains(r, "Belum ada toko")
         self.assertNotContains(r, "announce-box")  # tidak ada pengumuman = tidak ada ruangnya
 
-    def test_monitors_all_stores_and_outlets(self):
+    def test_monitors_all_stores(self):
         a = make_store(self.member, "tokoa", name="Toko A")
         b = make_store(self.member, "tokob", name="Toko B")
         for store, price, key in [(a, 5000, "dash-0001"), (b, 7000, "dash-0002")]:
@@ -77,13 +85,22 @@ class DashboardTests(SeededTestCase):
         services.checkout(make_cashier(foreign), {"key": "dash-0003", "items": [{"id": Product.objects.create(store=foreign, name="X", price=99000).pk, "qty": 1}], "method": "qris"})
         r = self.client.get("/akun/")
         self.assertContains(r, "Rp24.000")  # 2x5.000 + 2x7.000, hanya toko milik sendiri
+        self.assertContains(r, "Aplikasi Kasir")
+        self.assertContains(r, "2 toko")
+        self.assertNotContains(r, "Toko Orang Lain")
+        # Grafik & detail penjualan semua toko pindah ke Layanan › Aplikasi Kasir (Toko saya).
+        r = self.client.get("/akun/toko/")
         self.assertContains(r, "Toko A")
         self.assertContains(r, "Toko B")
         self.assertNotContains(r, "Toko Orang Lain")
+        self.assertContains(r, "Rp24.000")
         self.assertContains(r, "<svg")
         self.assertContains(r, "Lihat sebagai tabel")
+        layanan = self.client.get("/akun/layanan/")
+        self.assertContains(layanan, "Toko A")
+        self.assertNotContains(layanan, "Toko Orang Lain")
         data = services.overview([a, b])
-        self.assertEqual((data.today["revenue"], data.today["count"], len(data.outlets)), (24000, 2, 2))
+        self.assertEqual((data.today["revenue"], data.today["count"], len(data.rows)), (24000, 2, 2))
 
     def test_announcements_scheduled_and_without_close_button(self):
         now = timezone.now()
@@ -301,7 +318,8 @@ class StoreQuotaTests(SeededTestCase):
     def test_package_buttons_stay_inside_account(self):
         self.assertContains(self.client.get("/akun/pesanan/"), 'href="/akun/pesan/"')
         self.assertContains(self.client.get("/akun/toko/"), 'href="/akun/toko/tambah/"')
-        page = self.client.get("/akun/pesan/")
+        self.assertContains(self.client.get("/akun/pesan/"), 'href="/akun/pesan/?layanan=kasir"')  # langkah 1: pilih solusi
+        page = self.client.get("/akun/pesan/?layanan=kasir")
         self.assertContains(page, 'href="/akun/pesan/tunas/"')
         self.assertContains(page, 'href="/akun/pesan/tumbuh/"')
         self.assertContains(page, "Toko › Tambah toko")  # sudah punya langganan: diarahkan ke kuota toko
@@ -311,14 +329,18 @@ class StoreQuotaTests(SeededTestCase):
         self.assertContains(listing, "<b>1</b> / 2")
         self.assertContains(listing, "Paket Tunas 2")
         page = self.client.get("/akun/toko/tambah/")
-        self.assertContains(page, "Masih bisa menambah <b>1 toko</b>")
-        self.assertContains(page, reverse("toko:outlet-baru", args=["warungbudi"]))
+        self.assertContains(page, "Masih bisa membuat <b>1 toko</b>")
+        buat = reverse("toko:buat", args=[self.store.subscription_id])
+        self.assertContains(page, buat)
         self.assertNotContains(page, reverse("toko:beli-toko", args=["warungbudi"]))
-        r = self.client.post(reverse("toko:outlet-baru", args=["warungbudi"]), {
-            "outlet-name": "Cabang Pasar", "outlet-is_active": "on", "kasir-username": "kasir2",
+        r = self.client.post(buat, {
+            "toko-name": "Cabang Pasar", "toko-subdomain": "cabangpasar", "kasir-username": "kasir2",
             "kasir-pin": "482915", "kasir-pin2": "482915",
         })
         self.assertEqual(r.status_code, 302)
+        listing = self.client.get("/akun/toko/")
+        self.assertContains(listing, "<b>2</b> / 2")
+        self.assertContains(listing, "cabangpasar.hansproject.app")
         page = self.client.get("/akun/toko/tambah/")
         self.assertContains(page, "Kuota toko di langganan ini sudah penuh")
         self.assertContains(page, reverse("toko:beli-toko", args=["warungbudi"]))
@@ -330,19 +352,19 @@ class StoreQuotaTests(SeededTestCase):
         order = Order.objects.get(order_type=Order.TYPE_ADDON)
         self.assertEqual(r["Location"], f"/akun/pesanan/{order.code}/?ok=dibuat")
         self.assertEqual((order.amount, order.quantity, order.store), (15000, 1, self.store))
-        self.assertEqual(order.title, "Tambah 1 toko")
+        self.assertEqual(order.title, "Kasir · Tambah 1 toko")
         self.assertEqual(self.client.get(url)["Location"], f"/akun/pesanan/{order.code}/")  # satu pesanan terbuka saja
         self.admin.post(reverse("panel:pesanan-update", args=[order.pk]), {"status": "aktif", "admin_note": "", **ORDER_FORMSET_EMPTY})
         self.store.refresh_from_db()
-        self.assertEqual((self.store.extra_outlets, self.store.outlet_limit), (1, 3))
+        self.assertEqual((self.store.subscription.extra_stores, self.store.subscription.store_limit), (1, 3))
         self.assertContains(self.client.get("/akun/toko/"), "<b>1</b> / 3")
         self.assertContains(self.client.get("/akun/toko/"), "Paket Tunas 2 + tambahan 1")
 
     def test_renewal_includes_extra_stores(self):
         from apps.content.models import Package
 
-        self.store.extra_outlets = 2
-        self.store.save()
+        self.store.subscription.extra_stores = 2
+        self.store.subscription.save()
         page = self.client.get(reverse("toko:perpanjang", args=["warungbudi"]))
         self.assertContains(page, "Rp55.000")  # 25.000 + 2 x 15.000
         self.client.post(reverse("toko:perpanjang", args=["warungbudi"]), {"package": Package.objects.get(code="tunas").pk, "new_subdomain": ""})
@@ -441,7 +463,24 @@ class OrderItemsAndVerifyTests(SeededTestCase):
         self.assertNotContains(page, "mulai Rp349.000 biaya pembuatan")
         self.assertContains(page, "Bayar sebesar <b>Rp651.000</b>")  # status Menunggu pembayaran
 
+    def test_proof_hidden_until_payment_checked(self):
+        for status in ("bayar", "dicek", "konsultasi"):
+            Order.objects.filter(pk=self.order.pk).update(status=status)
+            page = self.client.get(f"/akun/pesanan/{self.order.code}/")
+            self.assertNotContains(page, f"/cek/{self.order.verify_token}/")
+            self.assertNotContains(page, "data-print")
+            self.assertContains(page, "bisa dicetak setelah pembayaran Anda kami cek")
+            self.assertEqual(Client(HTTP_HOST="testserver").get(f"/cek/{self.order.verify_token}/").status_code, 404)
+        Order.objects.filter(pk=self.order.pk).update(status="batal")
+        public = Client(HTTP_HOST="testserver").get(f"/cek/{self.order.verify_token}/")
+        self.assertContains(public, "tidak berlaku lagi")
+        self.assertNotContains(public, "data-print")
+
     def test_qr_links_to_public_verify_page(self):
+        for status in ("diproses", "selesai"):
+            Order.objects.filter(pk=self.order.pk).update(status=status)
+            self.assertContains(self.client.get(f"/akun/pesanan/{self.order.code}/"), f"/cek/{self.order.verify_token}/")
+        Order.objects.filter(pk=self.order.pk).update(status="aktif")
         page = self.client.get(f"/akun/pesanan/{self.order.code}/")
         self.assertContains(page, "<svg")
         self.assertContains(page, "viewBox=")  # QR harus bisa mengecil mengikuti kotaknya, bukan terpotong

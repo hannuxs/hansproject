@@ -1,0 +1,26 @@
+{% comment %}
+  Panduan "Langkah memulai toko". Tampil di SEMUA menu toko (di atas menu tab), bukan hanya di Ringkasan,
+  supaya pemilik tidak lupa langkah berikutnya setelah selesai mengisi barang. Hilang sendiri bila 4 langkah selesai.
+{% endcomment %}
+<section class="setup glass" aria-labelledby="setup-title">
+  <div class="setup-head">
+    <h2 id="setup-title">{% icon "sparkles" %} Langkah memulai toko</h2>
+    <span class="setup-count">{{ setup_done }} dari {{ setup|length }} selesai</span>
+  </div>
+  <ol class="setup-steps" role="list">
+    {% for step in setup %}
+      <li class="{% if step.done %}is-done{% elif step.current %}is-current{% endif %}"{% if step.current %} aria-current="step"{% endif %}>
+        <span class="setup-num" aria-hidden="true">{% if step.done %}{% icon "check" %}{% else %}{{ step.number }}{% endif %}</span>
+        <div class="setup-text">
+          <b>{{ step.title }}{% if step.done %}<span class="visually-hidden"> (selesai)</span>{% endif %}</b>
+          {% if step.current %}
+            <p>{{ step.text }}</p>
+            <a class="btn btn-sm" href="{{ step.url }}"{% if step.external %} target="_blank" rel="noopener"{% endif %}>{{ step.cta }}{% if step.external %}{% icon "external" "icon-sm" %}{% else %}{% icon "arrow-right" "icon-sm" %}{% endif %}</a>
+          {% elif not step.done %}
+            <a class="setup-link" href="{{ step.url }}"{% if step.external %} target="_blank" rel="noopener"{% endif %}>{{ step.cta }}</a>
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+</section>

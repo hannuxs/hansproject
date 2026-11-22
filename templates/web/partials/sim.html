@@ -1,0 +1,58 @@
+{% comment %}
+  Halaman Sistem Informasi Manajemen (SIM): pembuka, masalah -> solusi, dan fitur.
+  SIM adalah solusi umum untuk instansi/organisasi. Bidang pertama yang tersedia:
+  pemerintahan & kemasyarakatan (RT, RW, kelurahan/desa, kecamatan).
+{% endcomment %}
+<section class="hero aurora sim-hero" id="sim" aria-labelledby="sim-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow">Sistem Informasi Manajemen (SIM)</p>
+      <h1 class="hero-title" id="sim-title">Data rapi, surat <span class="hl">tanpa tulis tangan</span></h1>
+      <p class="hero-lead">SIM membantu instansi dan organisasi menyimpan, mencari, dan memakai datanya: mulai dari foto dokumen lama sampai surat yang siap dicetak dari mana saja.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#harga">Lihat paket SIM {% icon "arrow-down" %}</a>
+        {% include "components/ask_button.html" with topic="sim" style="btn-ghost" %}
+      </div>
+    </div>
+    <div class="sim-fields card glass">
+      <h2 class="sim-fields-title">Bidang SIM</h2>
+      <ul class="sim-field-list" role="list">
+        <li class="is-ready"><span class="sol-icon" aria-hidden="true">{% icon "users" %}</span><span><b>Pemerintahan &amp; kemasyarakatan</b><small>RT, RW, kelurahan/desa, kecamatan</small></span><span class="badge">Tersedia</span></li>
+        <li><span class="sol-icon" aria-hidden="true">{% icon "shield" %}</span><span><b>Kesehatan</b><small>Klinik, puskesmas, rumah sakit</small></span><span class="badge badge-soft">Segera</span></li>
+        <li><span class="sol-icon" aria-hidden="true">{% icon "book" %}</span><span><b>Pendidikan</b><small>Sekolah, kursus, pesantren</small></span><span class="badge badge-soft">Segera</span></li>
+        <li><span class="sol-icon" aria-hidden="true">{% icon "building" %}</span><span><b>Organisasi &amp; perusahaan</b><small>Yayasan, koperasi, kantor</small></span><span class="badge badge-soft">Segera</span></li>
+      </ul>
+      <p class="muted small">Bidang Anda belum ada? <a href="{% url 'akun:chat-baru' %}?topik=sim">Ceritakan kebutuhan Anda</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="sim-masalah-title">
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="SIM untuk RT, RW, kelurahan & kecamatan" title="Urusan warga lebih rapi" lead="Dari survei kami ke ketua RT dan RW, tiga hal ini paling sering bikin repot." id="sim-masalah-title" center=True %}
+    <div class="grid grid-3">
+      <article class="card glass problem reveal">
+        <p class="problem-q"><span class="mark">{% icon "x" "icon-sm" %}</span>Data warga masih fotokopi KK &amp; KTP di map?</p>
+        <p class="problem-a"><span class="mark">{% icon "check" "icon-sm" %}</span>Foto KK/KTP yang sudah ada, teksnya dibaca otomatis jadi data. Cari nama atau NIK dalam hitungan detik.</p>
+      </article>
+      <article class="card glass problem reveal">
+        <p class="problem-q"><span class="mark">{% icon "x" "icon-sm" %}</span>Warga minta surat, pengurus sedang bekerja?</p>
+        <p class="problem-a"><span class="mark">{% icon "check" "icon-sm" %}</span>Warga mengajukan surat online kapan saja, lalu memantau statusnya dengan kode lacak.</p>
+      </article>
+      <article class="card glass problem reveal">
+        <p class="problem-q"><span class="mark">{% icon "x" "icon-sm" %}</span>Blanko surat tertinggal di rumah?</p>
+        <p class="problem-a"><span class="mark">{% icon "check" "icon-sm" %}</span>Format surat tersimpan online. Ketik dan cetak dari HP atau komputer mana saja.</p>
+      </article>
+    </div>
+
+    <ul class="included sim-features" role="list">
+      <li class="included-item glass reveal">{% icon "scan" %}<p><b>Foto dokumen jadi data</b><span class="tech">Teks dibaca otomatis, diperiksa pengurus sebelum disimpan</span></p></li>
+      <li class="included-item glass reveal">{% icon "file" %}<p><b>Format surat bisa diubah sendiri</b><span class="tech">Domisili, pengantar, SKTM, berkelakuan baik, usaha, kematian, kelahiran, pindah, dan lainnya</span></p></li>
+      <li class="included-item glass reveal">{% icon "printer" %}<p><b>Nomor surat otomatis &amp; siap cetak</b><span class="tech">A4 dari browser atau simpan PDF</span></p></li>
+      <li class="included-item glass reveal">{% icon "qr" %}<p><b>QR keaslian di setiap surat</b><span class="tech">Mencegah surat palsu</span></p></li>
+      <li class="included-item glass reveal">{% icon "link" %}<p><b>RT, RW, kelurahan, kecamatan terhubung</b><span class="tech">Surat bisa “diketahui” tingkat di atasnya, rekap per wilayah</span></p></li>
+      <li class="included-item glass reveal">{% icon "shield" %}<p><b>Data warga hanya untuk pengurusnya</b><span class="tech">Tingkat di atas hanya melihat angka rekap</span></p></li>
+    </ul>
+  </div>
+</section>

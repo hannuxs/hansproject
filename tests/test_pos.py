@@ -1,4 +1,7 @@
-"""Aplikasi kasir: subdomain toko, aktivasi pesanan, dashboard pemilik, login kasir, transaksi, laporan."""
+"""Aplikasi kasir: subdomain toko, aktivasi pesanan, dashboard pemilik, login kasir, transaksi, laporan.
+
+Susunan: satu langganan (paket) berisi beberapa toko; 1 toko = 1 subdomain = 1 akun kasir.
+"""
 from __future__ import annotations
 
 import json
@@ -14,7 +17,7 @@ from django.utils import timezone
 from apps.content.models import Package
 from apps.members.models import Order
 from apps.pos import cashier_auth, services, subdomains
-from apps.pos.models import Cashier, CashierSession, Category, Outlet, Product, Sale, Store, add_months
+from apps.pos.models import Cashier, CashierSession, Category, Product, Sale, Store, Subscription, add_months
 
 from .helpers import SeededTestCase, login_fully, make_admin
 from .test_members import login_member, make_member
@@ -22,18 +25,25 @@ from .test_members import login_member, make_member
 PIN = "482915"
 
 
-def make_store(owner, sub="warungbudi", *, days=20, package="tunas", **kwargs) -> Store:
-    pkg = Package.objects.get(code=package)
-    store = Store.objects.create(
-        owner=owner, subdomain=sub, name=kwargs.pop("name", "Warung Budi"), package=pkg, package_name=pkg.name,
-        base_outlets=pkg.outlet_count or 1, active_until=timezone.localdate() + timedelta(days=days), **kwargs,
-    )
-    Outlet.objects.create(store=store, number=1, name="Toko utama")
-    return store
+def make_store(owner, sub="warungbudi", *, days=20, package="tunas", subscription=None, name="Warung Budi", **kwargs) -> Store:
+    """Toko baru. Tanpa ``subscription``: sekalian membuat langganan baru."""
+    if subscription is None:
+        pkg = Package.objects.get(code=package)
+        subscription = Subscription.objects.create(
+            owner=owner, package=pkg, package_name=pkg.name, base_stores=pkg.outlet_count or 1,
+            active_until=timezone.localdate() + timedelta(days=days),
+        )
+    return Store.objects.create(subscription=subscription, owner=owner, subdomain=sub, name=name, **kwargs)
 
 
-def make_cashier(store, username="kasir1", pin=PIN, outlet=None) -> Cashier:
-    cashier = Cashier(store=store, outlet=outlet or store.outlets.first(), username=username)
+def set_until(store, days: int) -> None:
+    """Ubah masa aktif langganan toko (berlaku untuk semua tokonya)."""
+    Subscription.objects.filter(pk=store.subscription_id).update(active_until=timezone.localdate() + timedelta(days=days))
+    store.refresh_from_db()
+
+
+def make_cashier(store, username="kasir1", pin=PIN) -> Cashier:
+    cashier = Cashier(store=store, username=username)
     cashier_auth.set_pin(cashier, pin)
     cashier.save()
     return cashier
@@ -124,8 +134,7 @@ class HostRoutingTests(SeededTestCase):
         self.assertEqual(Client(HTTP_HOST="www.hansproject.app").get("/").status_code, 200)
 
     def test_expired_beyond_30_days_is_gone(self):
-        self.store.active_until = timezone.localdate() - timedelta(days=31)
-        self.store.save()
+        set_until(self.store, -31)
         self.assertEqual(store_client().get("/").status_code, 404)
         self.assertEqual(store_client().get("/kasir/masuk/").status_code, 404)
 
@@ -196,14 +205,15 @@ class ActivationTests(SeededTestCase):
         self.assertEqual(self.activate(order).status_code, 302)
         order.refresh_from_db()
         store = order.store
-        self.assertEqual((store.subdomain, store.owner, store.package_name, store.base_outlets), ("warungbudi", self.member, "Tunas", 2))
+        sub = store.subscription
+        self.assertEqual((store.subdomain, store.owner, sub.owner, sub.package_name, sub.base_stores), ("warungbudi", self.member, self.member, "Tunas", 2))
         self.assertEqual(store.active_until, add_months(timezone.localdate()))
         self.assertEqual(store.name, "Warung Budi")
-        self.assertEqual(store.outlets.count(), 1)
+        self.assertEqual((sub.stores.count(), sub.stores_free), (1, 1))
         self.assertIsNotNone(order.activated_at)
         # Disimpan ulang (mis. ubah catatan) tidak membuat toko kedua / menambah masa aktif.
         self.activate(order, admin_note="halo")
-        self.assertEqual(Store.objects.count(), 1)
+        self.assertEqual((Store.objects.count(), Subscription.objects.count()), (1, 1))
         self.assertEqual(Store.objects.get().active_until, add_months(timezone.localdate()))
         # Pelanggan melihat tokonya di profil.
         self.assertContains(self.client.get("/akun/toko/"), "warungbudi.hansproject.app")
@@ -235,7 +245,7 @@ class ActivationTests(SeededTestCase):
         self.activate(order)  # tanpa centang persetujuan
         store.refresh_from_db()
         self.assertEqual(store.subdomain, "warungbudi")
-        self.assertEqual((store.package_name, store.base_outlets), ("Tumbuh", 10))
+        self.assertEqual((store.package_name, store.subscription.base_stores), ("Tumbuh", 10))
         self.assertEqual(store.active_until, add_months(old_until))
 
     def test_renewal_with_approved_new_address(self):
@@ -244,11 +254,14 @@ class ActivationTests(SeededTestCase):
             member=self.member, order_type=Order.TYPE_RENEWAL, store=store, subdomain="budimart",
             package=store.package, package_name="Tunas", package_category="kasir", price_text="x",
         )
+        sibling = make_store(self.member, "cabangbudi", subscription=store.subscription)
         self.activate(order, approve_subdomain="on")
         store.refresh_from_db()
         self.assertEqual(store.subdomain, "budimart")
         self.assertEqual(store_client("budimart").get("/").status_code, 200)
         self.assertEqual(store_client("warungbudi").get("/").status_code, 404)
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.subdomain, "cabangbudi")  # hanya toko yang dipesan yang ganti alamat
 
     def test_renewal_of_expired_store_counts_from_today(self):
         store = make_store(self.member, days=-12)
@@ -256,20 +269,39 @@ class ActivationTests(SeededTestCase):
             member=self.member, order_type=Order.TYPE_RENEWAL, store=store, package=store.package,
             package_name="Tunas", package_category="kasir", price_text="x",
         )
+        sibling = make_store(self.member, "cabangbudi", subscription=store.subscription)
         self.activate(order)
         store.refresh_from_db()
+        sibling.refresh_from_db()
+        # Masa aktif berlaku untuk SEMUA toko di langganan itu.
         self.assertEqual(store.active_until, add_months(timezone.localdate()))
+        self.assertEqual(sibling.active_until, add_months(timezone.localdate()))
 
-    def test_downgrade_deactivates_extra_outlets(self):
+    def test_downgrade_deactivates_newest_stores(self):
         store = make_store(self.member, package="tumbuh")
         for n in range(2, 5):
-            Outlet.objects.create(store=store, number=n, name=f"Cabang {n}")
+            make_cashier(make_store(self.member, f"cabang{n}", subscription=store.subscription), f"kasir{n}")
+        CashierSession.objects.create(cashier=Cashier.objects.get(username="kasir4"), key_hash="x" * 64,
+                                      last_seen_at=timezone.now(), expires_at=timezone.now() + timedelta(days=1))
         order = Order.objects.create(
             member=self.member, order_type=Order.TYPE_RENEWAL, store=store, package=Package.objects.get(code="tunas"),
             package_name="Tunas", package_category="kasir", price_text="x",
         )
         self.activate(order)
-        self.assertEqual(list(store.outlets.filter(is_active=True).values_list("number", flat=True)), [1, 2])
+        active = list(store.subscription.stores.filter(is_active=True).values_list("subdomain", flat=True))
+        self.assertEqual(active, ["warungbudi", "cabang2"])
+        self.assertFalse(CashierSession.objects.exists())  # kasir toko yang dinonaktifkan langsung keluar
+        self.assertEqual(Store.objects.get(subdomain="cabang3").state(), Store.STATE_INACTIVE)
+
+    def test_addon_order_adds_quota_to_subscription(self):
+        store = make_store(self.member)
+        order = Order.objects.create(
+            member=self.member, order_type=Order.TYPE_ADDON, store=store, quantity=2, package_name="Tambahan toko",
+            package_category="kasir", price_text="x",
+        )
+        self.activate(order)
+        store.subscription.refresh_from_db()
+        self.assertEqual((store.subscription.extra_stores, store.subscription.store_limit), (2, 4))
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +321,7 @@ class OwnerDashboardTests(SeededTestCase):
         sale = services.checkout(cashier, {"key": "abcdefgh1", "items": [{"id": product.pk, "qty": 1}], "method": "qris"}).sale
         for name, args in [
             ("ringkasan", []), ("barang", []), ("barang-baru", []), ("barang-ubah", [product.pk]), ("kategori", []),
-            ("outlet", []), ("outlet-baru", []), ("outlet-ubah", [self.store.outlets.first().pk]), ("transaksi", []),
+            ("kasir", []), ("transaksi", []),
             ("transaksi-detail", [sale.pk]), ("transaksi-struk", [sale.pk]), ("laporan", []), ("pengaturan", []),
             ("perpanjang", []),
         ]:
@@ -299,6 +331,9 @@ class OwnerDashboardTests(SeededTestCase):
                 self.assertEqual(r["Cache-Control"], "no-store, max-age=0")
         self.assertEqual(self.client.get(self.url("laporan") + "?periode=bulan-lalu").status_code, 200)
         self.assertEqual(self.client.get(self.url("laporan") + "?dari=2026-01-01&sampai=2026-03-31").status_code, 200)
+        for url in ["/akun/toko/", "/akun/toko/tambah/", reverse("toko:buat", args=[self.store.subscription_id])]:
+            with self.subTest(page=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
 
     def test_requires_login_and_ownership(self):
         self.assertEqual(Client(HTTP_HOST="testserver").get(self.url("ringkasan")).status_code, 302)
@@ -313,8 +348,12 @@ class OwnerDashboardTests(SeededTestCase):
         self.assertEqual(self.client.get(self.url("barang-ubah", foreign.pk)).status_code, 404)
         self.assertEqual(self.client.post(self.url("barang-hapus", foreign.pk)).status_code, 404)
         self.assertTrue(Product.objects.filter(pk=foreign.pk).exists())
-        foreign_outlet = other_store.outlets.first()
-        self.assertEqual(self.client.get(self.url("outlet-ubah", foreign_outlet.pk)).status_code, 404)
+        # Tidak bisa membuat toko di langganan orang lain, atau mengubah kasir/status tokonya.
+        self.assertEqual(self.client.get(reverse("toko:buat", args=[other_store.subscription_id])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("toko:status", args=["tokolain"]), {"aksi": "nonaktifkan"}).status_code, 404)
+        self.assertEqual(self.client.get(reverse("toko:kasir", args=["tokolain"])).status_code, 404)
+        other_store.refresh_from_db()
+        self.assertTrue(other_store.is_active)
 
     def test_product_crud_with_rupiah_input(self):
         cat = Category.objects.create(store=self.store, name="Minuman")
@@ -334,35 +373,80 @@ class OwnerDashboardTests(SeededTestCase):
         r = self.client.post(self.url("barang-baru"), {"name": "B", "price": "1", "code": "899123"})
         self.assertContains(r, "sudah dipakai", status_code=400)
 
-    def test_outlet_and_cashier_account(self):
-        outlet = self.store.outlets.first()
-        base = {"outlet-name": "Toko utama", "outlet-address": "", "outlet-is_active": "on", "kasir-username": "Kasir.Utama"}
-        r = self.client.post(self.url("outlet-ubah", outlet.pk), {**base, "kasir-pin": "111111", "kasir-pin2": "111111"})
+    def test_one_cashier_account_per_store(self):
+        base = {"username": "Kasir.Utama"}
+        r = self.client.post(self.url("kasir"), {**base, "pin": "111111", "pin2": "111111"})
         self.assertContains(r, "mudah ditebak", status_code=400)
-        r = self.client.post(self.url("outlet-ubah", outlet.pk), {**base, "kasir-pin": PIN, "kasir-pin2": "000001"})
+        r = self.client.post(self.url("kasir"), {**base, "pin": PIN, "pin2": "000001"})
         self.assertContains(r, "tidak sama", status_code=400)
-        r = self.client.post(self.url("outlet-ubah", outlet.pk), {**base, "kasir-pin": PIN, "kasir-pin2": PIN})
+        r = self.client.post(self.url("kasir"), {**base, "pin": PIN, "pin2": PIN})
         self.assertEqual(r.status_code, 302)
-        cashier = Cashier.objects.get(outlet=outlet)
+        cashier = Cashier.objects.get(store=self.store)
         self.assertEqual(cashier.username, "kasir.utama")
+        self.assertTrue(cashier.is_active)  # akun baru langsung aktif
         self.assertNotIn(PIN, cashier.pin_hash)
-        # Edit tanpa PIN: PIN lama tetap.
-        r = self.client.post(self.url("outlet-ubah", outlet.pk), {**base, "kasir-is_active": "on"})
+        # Edit tanpa PIN: PIN lama tetap, tetap SATU akun.
+        r = self.client.post(self.url("kasir"), {"username": "kasir.baru", "is_active": "on"})
         self.assertEqual(r.status_code, 302)
-        self.assertTrue(cashier_auth.authenticate(self.store, "kasir.utama", PIN).cashier)
+        self.assertEqual(Cashier.objects.filter(store=self.store).count(), 1)
+        self.assertTrue(cashier_auth.authenticate(self.store, "kasir.baru", PIN).cashier)
 
-    def test_outlet_limit(self):
-        self.client.post(self.url("outlet-baru"), {"outlet-name": "Cabang", "outlet-is_active": "on", "kasir-username": "kasir2", "kasir-pin": PIN, "kasir-pin2": PIN})
-        self.assertEqual(self.store.outlets.filter(is_active=True).count(), 2)
-        # Tunas = 2 outlet: halaman tambah outlet dialihkan.
-        self.assertEqual(self.client.get(self.url("outlet-baru")).status_code, 302)
-        r = self.client.post(self.url("outlet-baru"), {"outlet-name": "Cabang 3", "outlet-is_active": "on", "kasir-username": "kasir3", "kasir-pin": PIN, "kasir-pin2": PIN})
-        self.assertEqual(r.status_code, 302)
-        self.assertEqual(self.store.outlets.count(), 2)
+    def test_logout_all_devices(self):
+        make_cashier(self.store)
+        devices = [store_client() for _ in range(3)]
+        for device in devices:
+            kasir_login(device)
+        self.assertEqual(CashierSession.objects.count(), 3)
+        self.assertContains(self.client.get(self.url("kasir")), "Keluarkan semua perangkat")
+        self.client.post(self.url("kasir"), {"aksi": "keluar-semua"})
+        self.assertFalse(CashierSession.objects.exists())
+        self.assertEqual(devices[0].get("/kasir/").status_code, 302)
+
+    def test_new_store_from_quota_is_fully_separate(self):
+        Product.objects.create(store=self.store, name="Kopi Toko Utama", price=5000)
+        url = reverse("toko:buat", args=[self.store.subscription_id])
+        data = {"toko-name": "Cabang Pasar", "toko-subdomain": "cabangpasar", "kasir-username": "kasir2",
+                "kasir-pin": PIN, "kasir-pin2": PIN}
+        self.assertContains(self.client.post(url, {**data, "toko-subdomain": "warungbudi"}), "sudah dipakai", status_code=400)
+        self.assertContains(self.client.post(url, {**data, "toko-subdomain": "admin"}), "tidak bisa dipakai", status_code=400)
+        r = self.client.post(url, data)
+        self.assertEqual(r["Location"], "/akun/toko/cabangpasar/?ok=toko-baru")
+        new = Store.objects.get(subdomain="cabangpasar")
+        self.assertEqual((new.subscription_id, new.owner, new.name), (self.store.subscription_id, self.member, "Cabang Pasar"))
+        self.assertEqual(new.cashier.username, "kasir2")
+        # Barang, kategori, transaksi tidak ikut toko lain.
+        self.assertFalse(new.products.exists())
+        self.assertNotContains(self.client.get(reverse("toko:barang", args=["cabangpasar"])), "Kopi Toko Utama")
+        # Subdomain baru langsung bisa dibuka & kasirnya bisa masuk; kasir toko lain tidak.
+        kasir = store_client("cabangpasar")
+        self.assertEqual(kasir_login(kasir, "kasir2").status_code, 302)
+        self.assertNotContains(kasir.get("/kasir/"), "Kopi Toko Utama")
+        # Tunas = 2 toko: kuota penuh, halaman buat toko dialihkan.
+        self.assertEqual(self.client.get(url)["Location"], "/akun/toko/tambah/")
+        self.client.post(url, {**data, "toko-subdomain": "cabangtiga"})
+        self.assertEqual(self.store.subscription.stores.count(), 2)
+
+    def test_deactivate_frees_quota_and_reactivate_needs_quota(self):
+        second = make_store(self.member, "cabangbudi", subscription=self.store.subscription)
+        make_cashier(second, "kasir2")
+        self.assertEqual(self.store.subscription.stores_free, 0)
+        self.client.post(reverse("toko:status", args=["cabangbudi"]), {"aksi": "nonaktifkan"})
+        second.refresh_from_db()
+        self.assertFalse(second.is_active)
+        self.assertEqual(kasir_login(store_client("cabangbudi"), "kasir2").status_code, 403)
+        self.assertEqual(self.store.subscription.stores_free, 1)
+        # Kuota terpakai lagi oleh toko baru: toko nonaktif tidak bisa diaktifkan.
+        make_store(self.member, "cabangketiga", subscription=self.store.subscription)
+        self.client.post(reverse("toko:status", args=["cabangbudi"]), {"aksi": "aktifkan"})
+        second.refresh_from_db()
+        self.assertFalse(second.is_active)
+        Store.objects.filter(subdomain="cabangketiga").update(is_active=False)
+        self.client.post(reverse("toko:status", args=["cabangbudi"]), {"aksi": "aktifkan"})
+        second.refresh_from_db()
+        self.assertTrue(second.is_active)
 
     def test_locked_store_is_read_only_but_reports_work(self):
-        self.store.active_until = timezone.localdate() - timedelta(days=10)
-        self.store.save()
+        set_until(self.store, -10)
         r = self.client.post(self.url("barang-baru"), {"name": "Kopi", "price": "5000"})
         self.assertIn("ok=terkunci", r["Location"])
         self.assertFalse(self.store.products.exists())
@@ -437,12 +521,22 @@ class CashierLoginTests(SeededTestCase):
         foreign.cookies[cashier_auth.COOKIE] = token
         self.assertEqual(foreign.get("/kasir/")["Location"], "/kasir/masuk/")
 
-    def test_inactive_outlet_or_cashier_cannot_login(self):
-        Outlet.objects.filter(pk=self.cashier.outlet_id).update(is_active=False)
-        self.assertEqual(kasir_login(self.kasir).status_code, 400)
-        Outlet.objects.filter(pk=self.cashier.outlet_id).update(is_active=True)
+    def test_inactive_store_or_cashier_cannot_login(self):
+        Store.objects.filter(pk=self.store.pk).update(is_active=False)
+        self.assertContains(kasir_login(self.kasir), "terkunci", status_code=403)
+        Store.objects.filter(pk=self.store.pk).update(is_active=True)
         Cashier.objects.filter(pk=self.cashier.pk).update(is_active=False)
         self.assertEqual(kasir_login(self.kasir).status_code, 400)
+
+    def test_same_account_on_many_devices(self):
+        devices = [store_client() for _ in range(4)]
+        for device in devices:
+            self.assertEqual(kasir_login(device).status_code, 302)
+        for device in devices:
+            self.assertEqual(device.get("/kasir/").status_code, 200)
+        self.assertEqual(CashierSession.objects.filter(cashier=self.cashier).count(), 4)
+        devices[0].post("/kasir/keluar/")  # keluar di satu HP tidak mengeluarkan HP lain
+        self.assertEqual(devices[1].get("/kasir/").status_code, 200)
 
     def test_pin_change_logs_out_devices(self):
         kasir_login(self.kasir)
@@ -459,18 +553,16 @@ class CashierLoginTests(SeededTestCase):
 
     def test_grace_then_locked(self):
         kasir_login(self.kasir)
-        self.store.active_until = timezone.localdate() - timedelta(days=3)
-        self.store.save()
+        set_until(self.store, -3)
         self.assertContains(self.kasir.get("/kasir/"), "masih bisa dipakai sampai")
-        self.store.active_until = timezone.localdate() - timedelta(days=8)
-        self.store.save()
+        set_until(self.store, -8)
         r = self.kasir.get("/kasir/")
         self.assertContains(r, "Kasir sedang terkunci", status_code=403)
         self.assertEqual(store_client().get("/kasir/masuk/").status_code, 403)
 
     def test_suspended_store_locked(self):
         kasir_login(self.kasir)
-        Store.objects.filter(pk=self.store.pk).update(status=Store.STATUS_SUSPENDED)
+        Subscription.objects.filter(pk=self.store.subscription_id).update(status=Subscription.STATUS_SUSPENDED)
         self.assertEqual(self.kasir.get("/kasir/").status_code, 403)
 
 
@@ -488,10 +580,10 @@ class CheckoutTests(SeededTestCase):
         r = pay(self.kasir, [{"id": self.kopi.pk, "qty": 2, "price": 1}, {"id": self.roti.pk, "qty": 1}], paid=20000)
         self.assertEqual(r.status_code, 201, r.content)
         body = r.json()["sale"]
-        self.assertEqual((body["total"], body["change"], body["number"]), (17500, 2500, "1-00001"))
+        self.assertEqual((body["total"], body["change"], body["number"]), (17500, 2500, "00001"))
         sale = Sale.objects.get()
         self.assertEqual([(i.name, i.qty, i.line_total) for i in sale.items.all()], [("Kopi", 2, 10000), ("Roti", 1, 7500)])
-        self.assertEqual(pay(self.kasir, [{"id": self.kopi.pk, "qty": 1}], paid=5000).json()["sale"]["number"], "1-00002")
+        self.assertEqual(pay(self.kasir, [{"id": self.kopi.pk, "qty": 1}], paid=5000).json()["sale"]["number"], "00002")
 
     def test_discounts(self):
         r = pay(self.kasir, [{"id": self.roti.pk, "qty": 2}], discount_type="persen", discount_value=10, method="qris")
@@ -548,19 +640,27 @@ class CheckoutTests(SeededTestCase):
         r = client.post("/kasir/bayar/", body, content_type="application/json", HTTP_X_CSRFTOKEN=token)
         self.assertEqual(r.status_code, 201)
 
-    def test_receipt_and_history_limited_to_own_outlet(self):
-        sale_id = Sale.objects.get(pk=Sale.objects.create(
-            store=self.store, outlet=self.store.outlets.first(), cashier_name="kasir1", number="1-09999", client_key="manual-0001",
-            subtotal=1, total=1, paid=1,
-        ).pk).pk
-        r = self.kasir.get(f"/kasir/struk/{sale_id}/")
-        self.assertContains(r, "1-09999")
-        second = Outlet.objects.create(store=self.store, number=2, name="Cabang")
-        other_sale = Sale.objects.create(store=self.store, outlet=second, cashier_name="x", number="2-00001", client_key="manual-0002", subtotal=1, total=1, paid=1)
+    def test_receipt_and_history_limited_to_own_store(self):
+        own = Sale.objects.create(store=self.store, cashier_name="kasir1", number="09999", client_key="manual-0001",
+                                  subtotal=1, total=1, paid=1)
+        self.assertContains(self.kasir.get(f"/kasir/struk/{own.pk}/"), "09999")
+        # Toko lain di langganan yang SAMA tetap terpisah.
+        sibling = make_store(self.store.owner, "cabangbudi", subscription=self.store.subscription)
+        other_sale = Sale.objects.create(store=sibling, cashier_name="x", number="00001", client_key="manual-0002",
+                                         subtotal=1, total=1, paid=1)
         self.assertEqual(self.kasir.get(f"/kasir/struk/{other_sale.pk}/").status_code, 404)
         history = self.kasir.get("/kasir/riwayat/")
-        self.assertContains(history, "1-09999")
-        self.assertNotContains(history, "2-00001")
+        self.assertContains(history, "09999")
+        self.assertNotContains(history, f"/kasir/struk/{other_sale.pk}/")
+
+    def test_numbers_per_store(self):
+        sibling = make_store(self.store.owner, "cabangbudi", subscription=self.store.subscription)
+        teh = Product.objects.create(store=sibling, name="Teh", price=3000)
+        first = pay(self.kasir, [{"id": self.kopi.pk, "qty": 1}], paid=5000).json()["sale"]["number"]
+        other = services.checkout(make_cashier(sibling, "kasir2"), {"key": "abcdefgh7", "items": [{"id": teh.pk, "qty": 1}], "method": "qris"}).sale
+        self.assertEqual((first, other.number), ("00001", "00001"))
+        # Barang toko lain tidak bisa dijual dari kasir toko ini.
+        self.assertEqual(pay(self.kasir, [{"id": teh.pk, "qty": 1}], paid=5000).status_code, 400)
 
 
 # ---------------------------------------------------------------------------
@@ -592,6 +692,7 @@ class CleanupTests(SeededTestCase):
         Product.objects.create(store=old, name="X", price=1)
         cashier = make_cashier(old)
         services.checkout(cashier, {"key": "cln-00001", "items": [{"id": old.products.get().pk, "qty": 1}], "method": "qris"})
+        make_store(member, "lamajuga", subscription=old.subscription)  # toko lain di langganan yang sama
         recent = make_store(member, "baruhabis", days=-29)
         waiting = make_store(member, "menunggu", days=-40)
         Order.objects.create(
@@ -600,8 +701,10 @@ class CleanupTests(SeededTestCase):
         )
         out = StringIO()
         call_command("pos_bersihkan", stdout=out)
-        self.assertIn("1 toko dihapus", out.getvalue())
+        self.assertIn("2 toko dihapus", out.getvalue())
         self.assertFalse(Store.objects.filter(pk=old.pk).exists())
+        self.assertFalse(Store.objects.filter(subdomain="lamajuga").exists())
+        self.assertFalse(Subscription.objects.filter(pk=old.subscription_id).exists())
         self.assertFalse(Sale.objects.exists())
         self.assertTrue(Store.objects.filter(pk=recent.pk).exists())
         self.assertTrue(Store.objects.filter(pk=waiting.pk).exists())
@@ -613,6 +716,7 @@ class CleanupTests(SeededTestCase):
         services.checkout(make_cashier(store), {"key": "cln-00002", "items": [{"id": product.pk, "qty": 1}], "method": "qris"})
         member.delete()
         self.assertFalse(Store.objects.exists())
+        self.assertFalse(Subscription.objects.exists())
         self.assertFalse(Sale.objects.exists())
 
 
@@ -625,12 +729,16 @@ class PanelStoreTests(SeededTestCase):
         page = admin.get(reverse("panel:toko-update", args=[store.pk]))
         self.assertContains(page, "Data dihapus setelah")
         data = {
-            "name": "Warung Budi", "subdomain": "warungbudi", "status": "ditangguhkan",
-            "active_until": store.active_until.isoformat(), "package": store.package_id, "package_name": "Tunas",
-            "base_outlets": 2, "extra_outlets": 1, "admin_note": "Mohon konfirmasi pembayaran.",
+            "name": "Warung Budi", "subdomain": "warungbudi", "is_active": "on", "langganan-status": "ditangguhkan",
+            "langganan-active_until": store.active_until.isoformat(), "langganan-package": store.subscription.package_id,
+            "langganan-package_name": "Tunas", "langganan-base_stores": 2, "langganan-extra_stores": 1,
+            "langganan-admin_note": "Mohon konfirmasi pembayaran.",
         }
-        self.assertEqual(admin.post(reverse("panel:toko-update", args=[store.pk]), data).status_code, 302)
+        r = admin.post(reverse("panel:toko-update", args=[store.pk]), data)
+        self.assertEqual(r.status_code, 302, r.content[:2000])
         store.refresh_from_db()
-        self.assertEqual((store.status, store.outlet_limit), (Store.STATUS_SUSPENDED, 3))
+        sub = store.subscription
+        self.assertEqual((sub.status, sub.store_limit, sub.admin_note), (Subscription.STATUS_SUSPENDED, 3, "Mohon konfirmasi pembayaran."))
+        self.assertEqual(store.state(), Store.STATE_SUSPENDED)
         r = admin.post(reverse("panel:toko-update", args=[store.pk]), {**data, "subdomain": "admin"})
         self.assertEqual(r.status_code, 400)

@@ -1,9 +1,16 @@
 """Aplikasi kasir (POS) untuk pelanggan Paket Tunas / Tumbuh.
 
+Susunannya:
+- ``Subscription`` (langganan): satu pesanan paket. Menyimpan paket, kuota toko
+  (Tunas 2, Tumbuh 10, + toko tambahan yang dibeli) dan masa aktif.
+- ``Store`` (toko): SATU toko = SATU subdomain = SATU akun kasir, dengan barang,
+  kategori, transaksi, dan laporan sendiri. Toko-toko dalam satu langganan
+  tidak berbagi data. Akun kasir boleh masuk di banyak perangkat sekaligus.
+
 Semua toko berbagi tabel yang sama (awalan ``hp_pos_``). Setiap baris punya
 kolom ``store`` dan SEMUA query wajib disaring per toko: pemilik lewat
 ``Store.objects.owned_by(member)``, kasir lewat sesi kasir yang terikat ke satu
-toko. Jangan pernah mengambil Product/Sale/Outlet dengan ``pk`` saja.
+toko. Jangan pernah mengambil Product/Sale dengan ``pk`` saja.
 
 Uang disimpan sebagai bilangan bulat rupiah (tanpa sen).
 """
@@ -31,37 +38,163 @@ def add_months(start: date, months: int = 1) -> date:
     return date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
 
 
+STATE_ACTIVE = "aktif"
+STATE_GRACE = "tenggang"
+STATE_LOCKED = "terkunci"
+STATE_DELETED = "dihapus"
+STATE_SUSPENDED = "ditangguhkan"
+STATE_INACTIVE = "nonaktif"
+STATE_LABELS = {
+    STATE_ACTIVE: "Aktif",
+    STATE_GRACE: "Masa tenggang",
+    STATE_LOCKED: "Terkunci (belum diperpanjang)",
+    STATE_DELETED: "Data sudah dihapus",
+    STATE_SUSPENDED: "Ditangguhkan",
+    STATE_INACTIVE: "Nonaktif",
+}
+STATE_TONES = {STATE_ACTIVE: "ok", STATE_GRACE: "wait"}
+
+
+class SubscriptionQuerySet(models.QuerySet):
+    def owned_by(self, member):
+        return self.filter(owner=member)
+
+    def not_deleted(self, today: date | None = None):
+        today = today or timezone.localdate()
+        return self.filter(active_until__gte=today - timedelta(days=DELETE_AFTER_DAYS))
+
+
+class Subscription(models.Model):
+    """Langganan aplikasi kasir: paket, kuota toko, dan masa aktif. Berlaku untuk semua tokonya."""
+
+    STATUS_ACTIVE = "aktif"
+    STATUS_SUSPENDED = "ditangguhkan"
+    STATUSES = [(STATUS_ACTIVE, "Normal"), (STATUS_SUSPENDED, "Ditangguhkan admin")]
+
+    owner = models.ForeignKey(
+        "members.Member", on_delete=models.CASCADE, related_name="subscriptions", verbose_name="pemilik"
+    )
+    package = models.ForeignKey(
+        "content.Package", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="paket"
+    )
+    package_name = models.CharField("nama paket", max_length=60)
+    base_stores = models.PositiveSmallIntegerField(
+        "toko termasuk paket", default=2, validators=[MaxValueValidator(500)]
+    )
+    extra_stores = models.PositiveSmallIntegerField(
+        "toko tambahan (dibeli)", default=0, validators=[MaxValueValidator(500)],
+        help_text="Bertambah otomatis saat pesanan tambahan toko diaktifkan.",
+    )
+    status = models.CharField("status", max_length=14, choices=STATUSES, default=STATUS_ACTIVE)
+    active_until = models.DateField("aktif sampai")
+    admin_note = models.TextField(
+        "catatan untuk pemilik toko", blank=True, max_length=1000,
+        help_text="Tampil di halaman semua toko dalam langganan ini, misalnya alasan ditangguhkan.",
+    )
+    created_at = models.DateTimeField("dibuat", auto_now_add=True)
+    updated_at = models.DateTimeField("diperbarui", auto_now=True)
+
+    objects = SubscriptionQuerySet.as_manager()
+
+    class Meta:
+        db_table = "hp_pos_subscription"
+        ordering = ["created_at", "pk"]
+        verbose_name = "langganan kasir"
+        verbose_name_plural = "langganan kasir"
+
+    def __str__(self) -> str:
+        return f"Paket {self.package_name} #{self.pk}"
+
+    # --- Masa aktif ---
+    def state(self, today: date | None = None) -> str:
+        today = today or timezone.localdate()
+        if today > self.delete_on:
+            return STATE_DELETED
+        if self.status == self.STATUS_SUSPENDED:
+            return STATE_SUSPENDED
+        if today <= self.active_until:
+            return STATE_ACTIVE
+        if today <= self.active_until + timedelta(days=GRACE_DAYS):
+            return STATE_GRACE
+        return STATE_LOCKED
+
+    @property
+    def state_now(self) -> str:
+        return self.state()
+
+    @property
+    def state_label(self) -> str:
+        return STATE_LABELS[self.state()]
+
+    @property
+    def state_tone(self) -> str:
+        return STATE_TONES.get(self.state(), "off")
+
+    @property
+    def grace_until(self) -> date:
+        return self.active_until + timedelta(days=GRACE_DAYS)
+
+    @property
+    def delete_on(self) -> date:
+        """Hari terakhir data masih ada. Setelah tanggal ini data dihapus permanen."""
+        return self.active_until + timedelta(days=DELETE_AFTER_DAYS)
+
+    @property
+    def can_sell(self) -> bool:
+        return self.state() in (STATE_ACTIVE, STATE_GRACE)
+
+    @property
+    def can_edit(self) -> bool:
+        """Pemilik boleh mengubah barang, akun kasir, pengaturan, dan menambah toko."""
+        return self.can_sell
+
+    @property
+    def days_left(self) -> int:
+        return (self.active_until - timezone.localdate()).days
+
+    # --- Kuota toko ---
+    @property
+    def store_limit(self) -> int:
+        return self.base_stores + self.extra_stores
+
+    @property
+    def stores_used(self) -> int:
+        """Toko aktif yang sudah dibuat (toko nonaktif tidak memakai kuota)."""
+        return self.stores.filter(is_active=True).count()
+
+    @property
+    def stores_free(self) -> int:
+        return max(0, self.store_limit - self.stores_used)
+
+    @property
+    def quota_text(self) -> str:
+        """Contoh: 'Paket Tunas 2 + tambahan 1'."""
+        text = f"Paket {self.package_name} {self.base_stores}"
+        return f"{text} + tambahan {self.extra_stores}" if self.extra_stores else text
+
+
 class StoreQuerySet(models.QuerySet):
     def owned_by(self, member):
         return self.filter(owner=member)
 
     def not_deleted(self, today: date | None = None):
-        """Toko yang datanya belum lewat batas hapus (masa aktif + 30 hari)."""
+        """Toko yang datanya belum lewat batas hapus (masa aktif langganan + 30 hari)."""
         today = today or timezone.localdate()
-        return self.filter(active_until__gte=today - timedelta(days=DELETE_AFTER_DAYS))
+        return self.filter(subscription__active_until__gte=today - timedelta(days=DELETE_AFTER_DAYS))
 
 
 class Store(models.Model):
-    STATUS_ACTIVE = "aktif"
-    STATUS_SUSPENDED = "ditangguhkan"
-    STATUSES = [(STATUS_ACTIVE, "Normal"), (STATUS_SUSPENDED, "Ditangguhkan admin")]
+    """Satu toko: satu subdomain, satu akun kasir, barang & transaksi sendiri."""
 
-    # Keadaan toko yang dihitung dari masa aktif (lihat ``state``).
-    STATE_ACTIVE = "aktif"
-    STATE_GRACE = "tenggang"
-    STATE_LOCKED = "terkunci"
-    STATE_DELETED = "dihapus"
-    STATE_SUSPENDED = "ditangguhkan"
-    STATE_LABELS = {
-        STATE_ACTIVE: "Aktif",
-        STATE_GRACE: "Masa tenggang",
-        STATE_LOCKED: "Terkunci (belum diperpanjang)",
-        STATE_DELETED: "Data sudah dihapus",
-        STATE_SUSPENDED: "Ditangguhkan",
-    }
+    STATE_ACTIVE, STATE_GRACE, STATE_LOCKED = STATE_ACTIVE, STATE_GRACE, STATE_LOCKED
+    STATE_DELETED, STATE_SUSPENDED, STATE_INACTIVE = STATE_DELETED, STATE_SUSPENDED, STATE_INACTIVE
+    STATE_LABELS = STATE_LABELS
 
     RECEIPT_WIDTHS = [(58, "58 mm (printer kecil)"), (80, "80 mm (printer besar)")]
 
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE, related_name="stores", verbose_name="langganan"
+    )
     owner = models.ForeignKey(
         "members.Member", on_delete=models.CASCADE, related_name="stores", verbose_name="pemilik"
     )
@@ -73,24 +206,11 @@ class Store(models.Model):
         "tulisan di bawah struk", max_length=160, blank=True, default="Terima kasih sudah berbelanja!"
     )
     receipt_width = models.PositiveSmallIntegerField("ukuran kertas struk", choices=RECEIPT_WIDTHS, default=58)
-
-    package = models.ForeignKey(
-        "content.Package", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="paket"
+    is_active = models.BooleanField(
+        "toko aktif", default=True,
+        help_text="Toko nonaktif tidak memakai kuota paket dan kasirnya tidak bisa masuk. Datanya tetap ada.",
     )
-    package_name = models.CharField("nama paket", max_length=60)
-    base_outlets = models.PositiveSmallIntegerField(
-        "outlet termasuk paket", default=2, validators=[MaxValueValidator(500)]
-    )
-    extra_outlets = models.PositiveSmallIntegerField(
-        "outlet tambahan (dibeli)", default=0, validators=[MaxValueValidator(500)],
-        help_text="Diisi admin bila pelanggan membeli tambahan toko/cabang.",
-    )
-    status = models.CharField("status", max_length=14, choices=STATUSES, default=STATUS_ACTIVE)
-    active_until = models.DateField("aktif sampai")
-    admin_note = models.TextField(
-        "catatan untuk pemilik toko", blank=True, max_length=1000,
-        help_text="Tampil di halaman toko milik pelanggan, misalnya alasan ditangguhkan.",
-    )
+    sale_seq = models.PositiveIntegerField(default=0, editable=False)  # nomor struk terakhir
     created_at = models.DateTimeField("dibuat", auto_now_add=True)
     updated_at = models.DateTimeField("diperbarui", auto_now=True)
 
@@ -98,7 +218,7 @@ class Store(models.Model):
 
     class Meta:
         db_table = "hp_pos_store"
-        ordering = ["name"]
+        ordering = ["created_at", "pk"]
         verbose_name = "toko"
         verbose_name_plural = "toko"
 
@@ -118,18 +238,41 @@ class Store(models.Model):
     def kasir_url(self) -> str:
         return subdomains.store_url(self.subdomain, "/kasir/")
 
-    # --- Masa aktif ---
+    # --- Diambil dari langganan ---
+    @property
+    def package(self):
+        return self.subscription.package
+
+    @property
+    def package_name(self) -> str:
+        return self.subscription.package_name
+
+    @property
+    def active_until(self) -> date:
+        return self.subscription.active_until
+
+    @property
+    def admin_note(self) -> str:
+        return self.subscription.admin_note
+
+    @property
+    def grace_until(self) -> date:
+        return self.subscription.grace_until
+
+    @property
+    def delete_on(self) -> date:
+        return self.subscription.delete_on
+
+    @property
+    def days_left(self) -> int:
+        return self.subscription.days_left
+
+    # --- Keadaan ---
     def state(self, today: date | None = None) -> str:
-        today = today or timezone.localdate()
-        if today > self.delete_on:
-            return self.STATE_DELETED
-        if self.status == self.STATUS_SUSPENDED:
-            return self.STATE_SUSPENDED
-        if today <= self.active_until:
-            return self.STATE_ACTIVE
-        if today <= self.active_until + timedelta(days=GRACE_DAYS):
-            return self.STATE_GRACE
-        return self.STATE_LOCKED
+        state = self.subscription.state(today)
+        if state in (STATE_ACTIVE, STATE_GRACE) and not self.is_active:
+            return STATE_INACTIVE
+        return state
 
     @property
     def state_now(self) -> str:
@@ -137,72 +280,28 @@ class Store(models.Model):
 
     @property
     def state_label(self) -> str:
-        return self.STATE_LABELS[self.state()]
+        return STATE_LABELS[self.state()]
 
     @property
     def state_tone(self) -> str:
-        return {self.STATE_ACTIVE: "ok", self.STATE_GRACE: "wait"}.get(self.state(), "off")
-
-    @property
-    def grace_until(self) -> date:
-        return self.active_until + timedelta(days=GRACE_DAYS)
-
-    @property
-    def delete_on(self) -> date:
-        """Hari terakhir data masih ada. Setelah tanggal ini data dihapus permanen."""
-        return self.active_until + timedelta(days=DELETE_AFTER_DAYS)
+        return STATE_TONES.get(self.state(), "off")
 
     @property
     def can_sell(self) -> bool:
-        """Kasir boleh transaksi: aktif atau masa tenggang."""
-        return self.state() in (self.STATE_ACTIVE, self.STATE_GRACE)
+        """Kasir boleh transaksi: langganan aktif/masa tenggang dan toko aktif."""
+        return self.state() in (STATE_ACTIVE, STATE_GRACE)
 
     @property
     def can_edit(self) -> bool:
-        """Pemilik boleh mengubah barang, outlet, dan pengaturan."""
-        return self.can_sell
+        """Pemilik boleh mengubah barang, akun kasir, dan pengaturan (juga saat toko nonaktif)."""
+        return self.subscription.can_edit
 
     @property
-    def days_left(self) -> int:
-        return (self.active_until - timezone.localdate()).days
-
-    # --- Outlet ---
-    @property
-    def outlet_limit(self) -> int:
-        return self.base_outlets + self.extra_outlets
-
-    @property
-    def outlets_used(self) -> int:
-        """Toko/cabang (outlet) aktif yang sudah dibuat."""
-        return self.outlets.filter(is_active=True).count()
-
-    @property
-    def outlets_free(self) -> int:
-        return max(0, self.outlet_limit - self.outlets_used)
-
-    @property
-    def outlet_quota_text(self) -> str:
-        """Contoh: 'Paket Tunas 2 + tambahan 1'."""
-        text = f"Paket {self.package_name} {self.base_outlets}"
-        return f"{text} + tambahan {self.extra_outlets}" if self.extra_outlets else text
-
-
-class Outlet(models.Model):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="outlets")
-    number = models.PositiveSmallIntegerField("nomor outlet", editable=False)
-    name = models.CharField("nama outlet", max_length=60)
-    address = models.CharField("alamat outlet", max_length=200, blank=True, help_text="Dicetak di struk bila diisi.")
-    is_active = models.BooleanField("aktif", default=True)
-    sale_seq = models.PositiveIntegerField(default=0, editable=False)  # nomor transaksi terakhir
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "hp_pos_outlet"
-        ordering = ["number"]
-        constraints = [models.UniqueConstraint(fields=["store", "number"], name="hp_pos_outlet_number_uniq")]
-
-    def __str__(self) -> str:
-        return self.name
+    def cashier_or_none(self):
+        try:
+            return self.cashier
+        except Cashier.DoesNotExist:
+            return None
 
 
 username_validator = RegexValidator(
@@ -212,10 +311,12 @@ username_validator = RegexValidator(
 
 
 class Cashier(models.Model):
-    """Akun kasir. Satu outlet = satu akun (sesuai paket). Dibuat oleh pemilik toko."""
+    """Akun kasir toko: satu toko = satu akun (nama pengguna + PIN), dibuat pemilik toko.
 
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="cashiers")
-    outlet = models.OneToOneField(Outlet, on_delete=models.CASCADE, related_name="cashier")
+    Akun yang sama boleh masuk di banyak perangkat sekaligus (HP, tablet, laptop).
+    """
+
+    store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name="cashier")
     username = models.CharField("nama pengguna", max_length=30, validators=[username_validator])
     pin_hash = models.CharField(max_length=128)
     is_active = models.BooleanField("aktif", default=True)
@@ -226,7 +327,6 @@ class Cashier(models.Model):
 
     class Meta:
         db_table = "hp_pos_cashier"
-        constraints = [models.UniqueConstraint(fields=["store", "username"], name="hp_pos_cashier_username_uniq")]
 
     def __str__(self) -> str:
         return self.username
@@ -304,9 +404,6 @@ class Sale(models.Model):
     DISCOUNT_PERCENT = "persen"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="sales")
-    # RESTRICT: outlet yang punya transaksi tidak bisa dihapus sendiri (cukup dinonaktifkan),
-    # tapi tetap ikut terhapus bila seluruh toko dihapus.
-    outlet = models.ForeignKey(Outlet, on_delete=models.RESTRICT, related_name="sales")
     cashier = models.ForeignKey(Cashier, null=True, blank=True, on_delete=models.SET_NULL, related_name="sales")
     cashier_name = models.CharField("kasir", max_length=30)
     number = models.CharField("nomor struk", max_length=20)
@@ -364,3 +461,93 @@ class SaleItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.qty} x {self.name}"
+
+
+# ---------------------------------------------------------------------------
+# Halaman toko (<toko>.hansproject.app/): template + satu warna + isi dari pemilik
+# ---------------------------------------------------------------------------
+def page_upload_to(instance, filename: str) -> str:
+    """Semua gambar halaman toko di satu folder per toko (mudah dihapus bersama tokonya)."""
+    store_id = instance.store_id if isinstance(instance, StorePage) else instance.page.store_id
+    return f"uploads/toko/{store_id}/{filename}"
+
+
+instagram_validator = RegexValidator(
+    r"^[A-Za-z0-9._]{1,30}$", "Isi nama pengguna Instagram saja (tanpa @ dan tanpa link), misalnya warungbusari."
+)
+
+
+class StorePage(models.Model):
+    """Pengaturan halaman toko. Field di sini adalah DRAF yang sedang diedit pemilik;
+    pengunjung melihat salinan yang diterbitkan (``live``) sampai pemilik menerbitkan lagi."""
+
+    TEMPLATES = [
+        ("sederhana", "Sederhana"),
+        ("etalase", "Etalase"),
+        ("menu", "Menu Kafe"),
+        ("berani", "Berani"),
+    ]
+    TEMPLATE_HINTS = {
+        "sederhana": "Rapi dan ramah. Cocok untuk warung, toko kelontong, dan usaha rumahan.",
+        "etalase": "Foto besar di depan dan barang unggulan berjejer. Cocok untuk toko yang punya foto barang.",
+        "menu": "Daftar harga bergaya papan menu. Cocok untuk kafe, kedai, dan rumah makan.",
+        "berani": "Warna penuh dan huruf besar. Cocok untuk toko yang ingin tampil mencolok.",
+    }
+    MAX_HIGHLIGHTS = 6
+
+    store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name="page")
+    template = models.CharField("template", max_length=12, choices=TEMPLATES, default="sederhana")
+    color = models.CharField("warna utama", max_length=7, default="#c2410c")
+    tagline = models.CharField(
+        "kalimat singkat", max_length=100, blank=True, help_text="Tampil di bawah nama toko. Contoh: Sembako lengkap, harga bersahabat."
+    )
+    about = models.TextField("tentang toko", max_length=500, blank=True)
+    hours = models.CharField("jam buka", max_length=100, blank=True, help_text="Contoh: Setiap hari 07.00–21.00")
+    phone = models.CharField("nomor telepon", max_length=20, blank=True, help_text="Pengunjung bisa langsung menelepon.")
+    instagram = models.CharField("Instagram", max_length=30, blank=True, validators=[instagram_validator])
+    maps_url = models.URLField(
+        "link Google Maps", max_length=300, blank=True,
+        help_text="Buka lokasi toko di Google Maps, tekan Bagikan, lalu salin link-nya ke sini.",
+    )
+    show_prices = models.BooleanField("tampilkan daftar harga", default=True, help_text="Semua barang yang sedang dijual, per kategori.")
+    logo = models.ImageField("logo", upload_to=page_upload_to, blank=True)
+    cover = models.ImageField("foto sampul", upload_to=page_upload_to, blank=True)
+
+    is_published = models.BooleanField("terbit", default=False)
+    live = models.JSONField("versi terbit", null=True, blank=True, editable=False)
+    published_at = models.DateTimeField("terakhir diterbitkan", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hp_pos_page"
+        verbose_name = "halaman toko"
+        verbose_name_plural = "halaman toko"
+
+    def __str__(self) -> str:
+        return f"Halaman {self.store_id}"
+
+
+class StoreHighlight(models.Model):
+    """Barang unggulan: dipilih dari data barang (boleh diberi foto) atau gambar lain (promo, suasana toko)."""
+
+    page = models.ForeignKey(StorePage, on_delete=models.CASCADE, related_name="highlights")
+    product = models.ForeignKey(
+        Product, null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="barang"
+    )
+    image = models.ImageField("foto", upload_to=page_upload_to, blank=True)
+    title = models.CharField("judul", max_length=60, blank=True)
+    caption = models.CharField("keterangan singkat", max_length=120, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "hp_pos_page_highlight"
+        ordering = ["order", "pk"]
+        verbose_name = "barang unggulan"
+        verbose_name_plural = "barang unggulan"
+
+    def __str__(self) -> str:
+        return self.display_title or "Gambar"
+
+    @property
+    def display_title(self) -> str:
+        return self.title or (self.product.name if self.product else "")

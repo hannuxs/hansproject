@@ -1,0 +1,25 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass akun-narrow" aria-labelledby="pp-title">
+  <h2 id="pp-title">{% icon "clock" %} Perpanjang langganan</h2>
+  {% if existing %}
+    <p>Sudah ada perpanjangan yang sedang berjalan ({{ existing.code }}).</p>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesanan' existing.code %}">{% icon "arrow-right" %}<span>Lihat pesanan</span></a></div>
+  {% elif form.fields.package.queryset.exists %}
+    <p class="muted">Menambah masa aktif 1 bulan dari tanggal habis sekarang ({{ w.active_until|date:"j F Y" }}), atau dari hari ini bila sudah lewat. Data warga dan surat tetap seperti semula.</p>
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      <fieldset class="field">
+        <legend class="field-label">Paket</legend>
+        {% for p in form.fields.package.queryset %}
+          <label class="choice"><input type="radio" name="package" value="{{ p.pk }}"{% if form.package.value|stringformat:"s" == p.pk|stringformat:"s" or forloop.first and not form.package.value %} checked{% endif %}><span><b>Paket {{ p.name }}</b> · {{ p.price_text }}{% if p.tagline %}<br><span class="muted small">{{ p.tagline }}</span>{% endif %}</span></label>
+        {% endfor %}
+        {{ form.package.errors }}
+      </fieldset>
+      <div class="akun-actions"><button class="btn" type="submit">{% icon "cart" %}<span>Buat pesanan perpanjangan</span></button></div>
+    </form>
+  {% else %}
+    <p class="muted">Paket SIM belum tersedia untuk dipesan. Hubungi kami lewat <a href="{% url 'akun:chat-baru' %}?topik=sim">Chat</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="pf-title">
+    <h2 id="pf-title">{% icon "megaphone" %} {% if item %}Ubah pengumuman{% else %}Pengumuman baru{% endif %}</h2>
+    <p class="muted small">Tampil di halaman warga{% if w.level != "rt" %}, dan bisa diteruskan ke halaman semua wilayah di bawah Anda{% endif %}.</p>
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+      {% if w.can_edit %}
+        <div class="akun-actions">
+          <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
+          {% if item %}<a class="btn btn-ghost" href="{% url 'sim:pengumuman' w.kode %}">Batal</a>{% endif %}
+        </div>
+      {% endif %}
+    </form>
+    {% if item and w.can_edit %}
+      <form method="post" action="{% url 'sim:pengumuman-hapus' w.kode item.pk %}" class="void-box" data-confirm="Hapus pengumuman ini?">
+        {% csrf_token %}<button class="btn btn-sm btn-ghost" type="submit">{% icon "trash" %}<span>Hapus</span></button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="pl-title">
+    <h2 id="pl-title">{% icon "list" %} Pengumuman Anda</h2>
+    {% if items %}
+      <ul class="mini-list" role="list">
+        {% for a in items %}
+          <li><a href="{% url 'sim:pengumuman-ubah' w.kode a.pk %}"><span><b>{{ a.judul }}</b><span class="muted small">{{ a.created_at|date:"j M Y" }}{% if a.teruskan %} · diteruskan ke bawah{% endif %}</span></span><span class="status status-{% if a.is_showing %}ok{% else %}off{% endif %}">{% if a.is_showing %}Tampil{% else %}Tidak tampil{% endif %}</span></a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Belum ada pengumuman.</p>
+    {% endif %}
+    {% if upper %}
+      <p class="form-sub">Dari wilayah di atas Anda</p>
+      <ul class="mini-list" role="list">
+        {% for a in upper %}<li><span><b>{{ a.judul }}</b><span class="muted small">{{ a.wilayah.short_label }} · {{ a.created_at|date:"j M Y" }}</span></span></li>{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

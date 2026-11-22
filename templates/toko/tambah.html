@@ -8,30 +8,32 @@
   <div>
     <p class="eyebrow">Toko</p>
     <h1 class="akun-title">Tambah toko</h1>
-    <p class="muted">Setiap toko/cabang punya akun kasir sendiri.</p>
+    <p class="muted">Setiap toko punya alamat kasir sendiri (contoh: cabangpasar.{{ STORE_BASE_DOMAIN }}), barang, laporan, dan satu akun kasir yang bisa masuk di banyak perangkat.</p>
   </div>
 </header>
 
-{% for store in stores %}
-  <section class="akun-card glass quota-card" aria-labelledby="kuota-{{ store.pk }}">
+{% for sub in subscriptions %}
+  <section class="akun-card glass quota-card" aria-labelledby="kuota-{{ sub.pk }}">
     <div class="card-head">
       <div>
-        <h2 id="kuota-{{ store.pk }}">{% icon "store" %} {{ store.name }}</h2>
-        <p class="muted small">{{ store.host }} · {{ store.outlet_quota_text }}</p>
+        <h2 id="kuota-{{ sub.pk }}">{% icon "store" %} Paket {{ sub.package_name }}</h2>
+        <p class="muted small">{{ sub.quota_text }} · {% for s in sub.store_list %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
       </div>
-      <span class="quota-badge" aria-label="{{ store.outlets_used }} dari {{ store.outlet_limit }} toko dipakai"><b>{{ store.outlets_used }}</b> / {{ store.outlet_limit }}</span>
+      <span class="quota-badge" aria-label="{{ sub.stores_used }} dari {{ sub.store_limit }} toko dipakai"><b>{{ sub.stores_used }}</b> / {{ sub.store_limit }}</span>
     </div>
-    {% if not store.can_edit %}
-      <p class="alert" role="note">{% icon "lock" %}<span>Langganan ini sedang terkunci. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> dulu untuk menambah toko.</span></p>
-    {% elif store.outlets_free %}
-      <p>Masih bisa menambah <b>{{ store.outlets_free }} toko</b> tanpa biaya tambahan.</p>
-      <div class="akun-actions"><a class="btn" href="{% url 'toko:outlet-baru' store.subdomain %}">{% icon "plus" %}<span>Buat toko baru</span></a></div>
+    {% if not sub.can_edit %}
+      <p class="alert" role="note">{% icon "lock" %}<span>Langganan ini sedang terkunci.{% if sub.store_list %} <a href="{% url 'toko:perpanjang' sub.store_list.0.subdomain %}">Perpanjang</a> dulu untuk menambah toko.{% endif %}</span></p>
+    {% elif sub.stores_free %}
+      <p>Masih bisa membuat <b>{{ sub.stores_free }} toko</b> lagi tanpa biaya tambahan.</p>
+      <div class="akun-actions"><a class="btn" href="{% url 'toko:buat' sub.pk %}">{% icon "plus" %}<span>Buat toko baru</span></a></div>
     {% else %}
       <p>Kuota toko di langganan ini sudah penuh.</p>
-      <div class="akun-actions">
-        {% if addon %}<a class="btn" href="{% url 'toko:beli-toko' store.subdomain %}">{% icon "cart" %}<span>Beli toko tambahan ({{ addon.price|rupiah }}{{ addon.unit }})</span></a>{% endif %}
-        <a class="btn btn-ghost" href="{% url 'toko:perpanjang' store.subdomain %}">{% icon "zap" %}<span>Naik paket</span></a>
-      </div>
+      {% if sub.store_list %}
+        <div class="akun-actions">
+          {% if addon %}<a class="btn" href="{% url 'toko:beli-toko' sub.store_list.0.subdomain %}">{% icon "cart" %}<span>Beli toko tambahan ({{ addon.price|rupiah }}{{ addon.unit }})</span></a>{% endif %}
+          <a class="btn btn-ghost" href="{% url 'toko:perpanjang' sub.store_list.0.subdomain %}">{% icon "zap" %}<span>Naik paket</span></a>
+        </div>
+      {% endif %}
       {% if snap.outlet_tip %}<p class="field-help">Butuh banyak toko? Paket Tumbuh berisi sampai 10 toko, biasanya lebih hemat daripada membeli banyak toko tambahan.</p>{% endif %}
     {% endif %}
   </section>
@@ -40,15 +42,15 @@
     <span class="empty-icon" aria-hidden="true">{% icon "store" %}</span>
     <h2>Belum punya aplikasi kasir</h2>
     <p class="muted">Pesan Paket Tunas (2 toko) atau Tumbuh (10 toko) dulu. Setelah aktif, toko pertama dibuat otomatis.</p>
-    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pilih paket</span></a></div>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}?layanan=kasir">{% icon "tag" %}<span>Pilih paket kasir</span></a></div>
   </section>
 {% endfor %}
 
-{% if stores %}
+{% if subscriptions %}
   <section class="akun-card glass" aria-labelledby="baru-title">
     <h2 id="baru-title">{% icon "plus" %} Langganan kasir terpisah</h2>
-    <p class="muted">Untuk usaha lain dengan alamat kasir dan laporan sendiri, pesan paket baru.</p>
-    <div class="akun-actions"><a class="btn btn-ghost" href="{% url 'akun:pesan-pilih' %}">{% icon "tag" %}<span>Pesan paket baru</span></a></div>
+    <p class="muted">Untuk usaha lain dengan masa aktif dan tagihan sendiri, pesan paket baru.</p>
+    <div class="akun-actions"><a class="btn btn-ghost" href="{% url 'akun:pesan-pilih' %}?layanan=kasir">{% icon "tag" %}<span>Pesan paket kasir baru</span></a></div>
   </section>
 {% endif %}
 {% endblock %}

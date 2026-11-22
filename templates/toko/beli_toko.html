@@ -2,10 +2,11 @@
 {% block toko %}
 <section class="akun-card glass akun-narrow" aria-labelledby="beli-title">
   <h2 id="beli-title">{% icon "cart" %} Beli toko tambahan</h2>
-  <p>Sekarang: <b>{{ store.outlets_used }} / {{ store.outlet_limit }}</b> toko ({{ store.outlet_quota_text }}).</p>
+  <p>Sekarang: <b>{{ subscription.stores_used }} / {{ subscription.store_limit }}</b> toko ({{ subscription.quota_text }}).</p>
+  <p class="muted">Setiap toko tambahan punya alamat kasir (subdomain), barang, laporan, dan akun kasir sendiri. Setelah kuota bertambah, buat tokonya di menu <b>Toko › Tambah toko</b>.</p>
   <ul class="kv" role="list">
     <li><span>Harga per toko</span><b>{{ addon.price|rupiah }}{{ addon.unit }}</b></li>
-    <li><span>Berlaku</span><b>sampai {{ store.active_until|date:"j F Y" }}, lalu ikut dihitung di setiap perpanjangan</b></li>
+    <li><span>Berlaku</span><b>sampai {{ subscription.active_until|date:"j F Y" }}, lalu ikut dihitung di setiap perpanjangan</b></li>
   </ul>
   <form method="post" class="akun-form" novalidate>
     {% csrf_token %}

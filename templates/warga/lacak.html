@@ -1,0 +1,40 @@
+{% extends "warga/base.html" %}
+{% block warga %}
+{% if baru %}
+  <section class="akun-card glass lacak-new" aria-labelledby="baru-title">
+    <h1 class="akun-title" id="baru-title">{% icon "check" %} Pengajuan terkirim</h1>
+    <p>Simpan <b>kode lacak</b> ini (foto layar atau salin). Hanya dengan kode ini Anda bisa melihat status surat.</p>
+    <p class="join-code mono" aria-label="Kode lacak">{{ s.lacak_token }}</p>
+    <p class="muted small">Atau simpan alamat ini: <span class="mono-sm">{{ lacak_url }}</span></p>
+  </section>
+{% endif %}
+
+<section class="akun-card glass" aria-labelledby="st-title">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">{{ w.label }}</p>
+      <h2 id="st-title">{{ s.jenis_nama }}</h2>
+    </div>
+    <span class="status status-{{ s.status_tone }}">{{ s.get_status_display }}</span>
+  </div>
+  <ul class="kv" role="list">
+    <li><span>Pemohon</span><b>{{ s.nama_masked }}{% if s.nik %} · NIK {{ s.nik_masked }}{% endif %}</b></li>
+    <li><span>Diajukan</span><b>{{ s.created_at|date:"j F Y, H:i" }}</b></li>
+    {% if s.is_issued %}
+      <li><span>Nomor surat</span><b class="mono">{{ s.nomor }}</b></li>
+      <li><span>Terbit</span><b>{{ s.tanggal|date:"j F Y" }}</b></li>
+    {% endif %}
+  </ul>
+  {% if s.status == "diajukan" %}
+    <p class="muted">Pengajuan sedang menunggu diproses pengurus. Buka lagi halaman ini nanti.</p>
+  {% elif s.status == "ditolak" %}
+    <p class="alert alert-error" role="status">{% icon "x" %}<span>Pengajuan ditolak.{% if s.catatan_pengurus %} Alasan: {{ s.catatan_pengurus }}{% endif %}</span></p>
+  {% elif s.is_issued %}
+    <p class="alert alert-success" role="status">{% icon "check" %}<span>Surat sudah terbit.{% if not can_print %} Silakan ambil surat ke pengurus wilayah.{% endif %}</span></p>
+    {% if s.catatan_pengurus %}<div class="admin-note"><b>{% icon "chat" %} Catatan dari pengurus</b><p>{{ s.catatan_pengurus|linebreaksbr }}</p></div>{% endif %}
+    {% if can_print %}
+      <div class="akun-actions"><a class="btn" href="{% url 'warga:lacak-cetak' s.lacak_token %}" target="_blank" rel="noopener">{% icon "printer" %}<span>Buka &amp; cetak surat</span></a></div>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

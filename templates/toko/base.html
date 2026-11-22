@@ -13,7 +13,7 @@
     <span class="avatar" aria-hidden="true">{{ store.name|slice:":1"|upper }}</span>
     <div class="toko-id-text">
       <h1 class="akun-title">{{ store.name }}</h1>
-      <p class="muted">Paket {{ store.package_name }} · aktif sampai {{ store.active_until|date:"j M Y" }}</p>
+      <p class="muted">Paket {{ subscription.package_name }} · aktif sampai {{ subscription.active_until|date:"j M Y" }} · <a href="{% url 'toko:daftar' %}">{{ subscription.stores_used }} / {{ subscription.store_limit }} toko</a></p>
     </div>
     <span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span>
   </div>
@@ -32,9 +32,11 @@
     <p class="alert" role="status">{% icon "alert" %}<span>Masa aktif sudah habis pada {{ store.active_until|date:"j F Y" }}. Kasir masih bisa dipakai sampai <b>{{ store.grace_until|date:"j F Y" }}</b>. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang sekarang</a>.</span></p>
   {% elif state == "terkunci" %}
     <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Kasir terkunci karena langganan belum diperpanjang. Laporan masih bisa dilihat dan diunduh. Data dihapus permanen setelah <b>{{ store.delete_on|date:"j F Y" }}</b>. <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> sebelum tanggal itu dan semua data kembali seperti semula.</span></p>
+  {% elif state == "nonaktif" %}
+    <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Toko ini <b>nonaktif</b>, jadi kasirnya tidak bisa masuk. Data tetap ada. Aktifkan lagi di menu <a href="{% url 'toko:pengaturan' store.subdomain %}">Pengaturan</a> (perlu sisa kuota toko).</span></p>
   {% elif state == "ditangguhkan" %}
     <p class="alert alert-error" role="alert">{% icon "lock" %}<span>Toko ini sedang ditangguhkan oleh admin HANS Project. Kasir tidak bisa dipakai sementara. Hubungi kami lewat <a href="{% url 'akun:chat-baru' %}?topik=kasir">Chat</a>.</span></p>
-  {% elif store.days_left <= 7 %}
+  {% elif state == "aktif" and store.days_left <= 7 %}
     <p class="alert" role="status">{% icon "clock" %}<span>Masa aktif tinggal {{ store.days_left }} hari (sampai {{ store.active_until|date:"j F Y" }}). <a href="{% url 'toko:perpanjang' store.subdomain %}">Perpanjang</a> supaya kasir tidak terkunci.</span></p>
   {% endif %}
 {% endwith %}
@@ -44,6 +46,8 @@
 {% if store.admin_note %}
   <div class="admin-note"><b>{% icon "chat" %} Catatan dari kami</b><p>{{ store.admin_note|linebreaksbr }}</p></div>
 {% endif %}
+
+{% if setup %}{% include "toko/_panduan.html" %}{% endif %}
 
 <nav class="toko-tabs scroll-hint-x" aria-label="Menu toko">
   {% for tab in tabs %}

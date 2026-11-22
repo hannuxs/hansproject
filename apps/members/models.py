@@ -119,6 +119,8 @@ class Order(models.Model):
     PROOF_STATUSES = (STATUS_PAYMENT, STATUS_CHECKING)
     # Pelanggan boleh membatalkan sebelum diaktifkan (termasuk yang sudah bayar -> bisa minta refund).
     CANCELLABLE_STATUSES = (STATUS_PAYMENT, STATUS_CHECKING, STATUS_CONSULT)
+    # Pembayaran sudah dicek & diterima admin: bukti pesanan + QR keaslian baru tersedia di sini.
+    VERIFIED_STATUSES = (STATUS_PROCESS, STATUS_ACTIVE, STATUS_DONE)
 
     TYPE_NEW = "baru"
     TYPE_RENEWAL = "perpanjang"
@@ -144,6 +146,12 @@ class Order(models.Model):
     subdomain = models.CharField("alamat toko", max_length=30, blank=True, db_index=True)
     store = models.ForeignKey(
         "pos.Store", null=True, blank=True, on_delete=models.SET_NULL, related_name="orders", verbose_name="toko"
+    )
+    # SIM: data instansi yang dipesan (tingkat, nomor, nama, kelurahan, ...) untuk pesanan baru,
+    # dan wilayah yang diperpanjang / dibuat saat aktivasi.
+    details = models.JSONField("rincian layanan", default=dict, blank=True)
+    wilayah = models.ForeignKey(
+        "sim.Wilayah", null=True, blank=True, on_delete=models.SET_NULL, related_name="orders", verbose_name="wilayah SIM"
     )
     activated_at = models.DateTimeField("diaktifkan", null=True, blank=True, editable=False)
     verify_token = models.CharField(
@@ -184,11 +192,25 @@ class Order(models.Model):
 
     @property
     def title(self) -> str:
+        """Contoh: "Kasir · Paket Tunas", "Perpanjang SIM · Paket Tumbuh", "Website & Aplikasi · Paket Rimba"."""
+        product = self.product_short
         if self.is_renewal:
-            return f"Perpanjang Paket {self.package_name}"
+            return f"Perpanjang {product} · Paket {self.package_name}".replace("  ", " ")
         if self.is_addon:
-            return f"Tambah {self.quantity} toko"
-        return f"Paket {self.package_name}"
+            return f"Kasir · Tambah {self.quantity} toko"
+        return f"{product} · Paket {self.package_name}" if product else f"Paket {self.package_name}"
+
+    @property
+    def product_short(self) -> str:
+        from apps.content.models import Package
+
+        return Package.PRODUCT_SHORT.get(self.package_category, "")
+
+    @property
+    def product_label(self) -> str:
+        from apps.content.models import Package
+
+        return Package.PRODUCT_LABELS.get(self.package_category, "")
 
     # --- Rincian harga (diisi admin per pesanan, mis. Paket Rimba) ---
     @property
@@ -207,6 +229,11 @@ class Order(models.Model):
         from django.urls import reverse
 
         return reverse("web:cek-pesanan", args=[self.verify_token]) if self.verify_token else ""
+
+    @property
+    def has_verified_proof(self) -> bool:
+        """Bukti pesanan + QR boleh dicetak: pembayaran sudah dicek admin (Sedang diproses / Aktif / Selesai)."""
+        return bool(self.verify_token) and self.status in self.VERIFIED_STATUSES
 
     @property
     def is_addon(self) -> bool:
@@ -236,6 +263,40 @@ class Order(models.Model):
     @property
     def is_pos(self) -> bool:
         return self.package_category == "kasir"
+
+    @property
+    def is_sim(self) -> bool:
+        return self.package_category == "sim"
+
+    @property
+    def is_subscription(self) -> bool:
+        """Layanan langganan (kasir/SIM): bayar dulu, diaktifkan admin. Selain itu jasa (konsultasi dulu)."""
+        return self.is_pos or self.is_sim
+
+    @property
+    def subject_label(self) -> str:
+        """Untuk apa pesanan ini (panel): alamat toko, nama instansi SIM, atau kosong untuk jasa."""
+        if self.package_category == "sim":
+            return self.sim_label
+        if self.store_id:
+            return self.store.host
+        return self.subdomain_host
+
+    @property
+    def sim_label(self) -> str:
+        """Nama wilayah yang dipesan, mis. 'RT 005 / RW 003, Kel. Sukamaju'."""
+        if self.wilayah_id:
+            return self.wilayah.label
+        d = self.details or {}
+        level = d.get("tingkat", "")
+        if level in ("rt", "rw"):
+            text = f"{level.upper()} {d.get('nomor', '')}"
+            if level == "rt" and d.get("rw"):
+                text += f" / RW {d['rw']}"
+            return text + (f", Kel. {d['kelurahan']}" if d.get("kelurahan") else "")
+        if level:
+            return f"{level.capitalize()} {d.get('nama', '')}".strip()
+        return ""
 
     @property
     def subdomain_host(self) -> str:
@@ -275,7 +336,7 @@ class Order(models.Model):
     @property
     def needs_consultation(self) -> bool:
         """Pesanan jasa (mis. Paket Rimba) yang dibahas lewat obrolan konsultasi."""
-        return not self.is_pos and self.status in (self.STATUS_CONSULT, self.STATUS_PROCESS)
+        return not self.is_subscription and self.status in (self.STATUS_CONSULT, self.STATUS_PROCESS)
 
     @property
     def consultation_chat(self):
@@ -328,6 +389,9 @@ TOPICS = [
     ("umum", "Pertanyaan umum"),
     ("konsultasi", "Konsultasi pesanan"),
     ("kasir", "Aplikasi kasir"),
+    ("sim", "Sistem Informasi Manajemen (SIM)"),
+    ("jasa", "Website & aplikasi"),
+    ("tiket", "Tiket online"),
     ("pesanan", "Pesanan saya"),
     ("refund", "Refund / pengembalian dana"),
     ("tambah-toko", "Tambah toko / cabang"),

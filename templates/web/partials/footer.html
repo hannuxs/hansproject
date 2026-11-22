@@ -4,7 +4,7 @@
     <div class="footer-grid">
       <div>
         {% include "components/brand.html" with href="/" %}
-        <p class="footer-about">Aplikasi kasir langganan untuk usaha kecil, dan jasa bikin website &amp; aplikasi. Daftar, pesan, dan tanya-tanya lewat akun Anda di website ini.</p>
+        <p class="footer-about">Penyedia solusi digital untuk usaha, instansi, dan organisasi. Pesan, pakai, dan tanya-tanya lewat satu akun di website ini.</p>
         {% if site.social_links %}
           <div class="footer-social">
             {% for key, label, url in site.social_links %}
@@ -22,9 +22,18 @@
         </ul>
       </div>
       <div>
+        <h2>Solusi</h2>
+        <ul>
+          <li><a href="{% url 'web:kasir' %}">Aplikasi Kasir</a></li>
+          <li><a href="{% url 'web:sim' %}">Sistem Informasi Manajemen (SIM)</a></li>
+          <li><a href="{% url 'web:jasa' %}">Website &amp; Aplikasi</a></li>
+          <li><a href="/#harga">Harga paket</a></li>
+        </ul>
+      </div>
+      <div>
         <h2>Informasi</h2>
         <ul>
-          <li><a href="/#harga">Harga paket</a></li>
+          <li><a href="{% url 'warga:lacak-cari' %}">Lacak surat (warga)</a></li>
           <li><a href="/#faq">Tanya jawab</a></li>
           <li><a href="{% url 'web:terms' %}">Syarat &amp; Ketentuan</a></li>
           <li><a href="{% url 'web:privacy' %}">Kebijakan Privasi</a></li>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Halaman warga SIM (tanpa login). Tidak diindeks & tidak di-cache (berisi data wilayah/pemohon).
+{% endcomment %}
+{% block title %}{{ page_title }} | Layanan Warga | HANS Project{% endblock %}
+{% block description %}Layanan surat online untuk warga.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block canonical %}{{ request.path }}{% endblock %}
+{% block og_url %}{{ request.path }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% static 'css/akun.css' %}"><link rel="stylesheet" href="{% static 'css/sim.css' %}">{% endblock %}
+{% block content %}
+<section class="section aurora akun">
+  <div class="container akun-wrap{% block wrap_class %} akun-narrow{% endblock %}">
+    {% block warga %}{% endblock %}
+    <p class="muted small center warga-foot">Layanan warga ini disediakan oleh pengurus wilayah dengan <a href="/">Sistem Informasi Manajemen (SIM) HANS Project</a>. Data Anda hanya dibuka pengurus wilayah yang Anda pilih.</p>
+  </div>
+</section>
+{% endblock %}

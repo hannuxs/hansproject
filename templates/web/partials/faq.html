@@ -1,9 +1,10 @@
-{% if snap.faqs %}
+{% comment %} Tanya jawab. Parameter: faqs (daftar FAQ untuk halaman ini), lead (opsional). {% endcomment %}
+{% if faqs %}
 <section class="section" id="faq" aria-labelledby="faq-title">
   <div class="container">
     {% include "components/section_head.html" with eyebrow="Tanya jawab" title="Pertanyaan yang sering ditanyakan" lead="Belum ketemu jawabannya? Tanya kami lewat akun Anda, atau DM Instagram." id="faq-title" center=True %}
     <div class="faq">
-      {% for f in snap.faqs %}
+      {% for f in faqs %}
         <details>
           <summary>{{ f.question }} {% icon "plus" %}</summary>
           <div class="prose">{{ f.answer|md }}</div>

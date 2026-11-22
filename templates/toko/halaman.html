@@ -1,0 +1,166 @@
+{% extends "toko/base.html" %}
+{% comment %}
+  Editor Halaman toko: template (4), satu warna (palet lengkap dibuat otomatis di server),
+  isi, barang unggulan (maks. 6). Semua perubahan = DRAF sampai pemilik menekan Terbitkan.
+{% endcomment %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{{ theme_url }}">{% endblock %}
+{% block toko %}
+<section class="akun-card glass page-status" aria-labelledby="hal-title">
+  <div class="card-head">
+    <h2 id="hal-title">{% icon "globe" %} Halaman toko</h2>
+    {% if page.is_published %}
+      <span class="status status-{% if changed %}wait{% else %}ok{% endif %}">{% if changed %}Ada perubahan belum terbit{% else %}Terbit{% endif %}</span>
+    {% else %}
+      <span class="status status-off">{% if page.live %}Disembunyikan{% else %}Belum terbit{% endif %}</span>
+    {% endif %}
+  </div>
+  <p>Halaman promosi toko Anda di <a href="{{ store.url }}" target="_blank" rel="noopener"><b>{{ store.host }}</b></a>: nama, barang unggulan, daftar harga, jam buka, dan cara menghubungi toko. Bagikan alamatnya ke pelanggan atau pasang di bio Instagram.</p>
+  {% if page.is_published %}
+    <p class="muted small">Terakhir diterbitkan {{ page.published_at|date:"j F Y, H:i" }}.{% if changed %} Perubahan terbaru masih draf: pengunjung belum melihatnya.{% endif %}</p>
+  {% else %}
+    <p class="muted small">Selama belum terbit, pengunjung {{ store.host }} melihat halaman “segera hadir”.</p>
+  {% endif %}
+  <div class="akun-actions">
+    <a class="btn btn-sm btn-ghost" href="{% url 'toko:halaman-pratinjau' store.subdomain %}">{% icon "eye" %}<span>Lihat pratinjau</span></a>
+    {% if store.can_edit %}
+      {% if not page.is_published or changed %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="aksi" value="terbitkan"><button class="btn btn-sm" type="submit">{% icon "send" %}<span>{% if page.is_published %}Terbitkan perubahan{% else %}Terbitkan{% endif %}</span></button></form>
+      {% endif %}
+    {% endif %}
+    {% if page.is_published %}
+      <a class="btn btn-sm btn-ghost" href="{{ store.url }}" target="_blank" rel="noopener">{% icon "external" %}<span>Buka halaman</span></a>
+      {% if store.can_edit %}
+        <form method="post" data-confirm="Sembunyikan halaman toko? Pengunjung akan melihat halaman “segera hadir” sampai Anda menerbitkannya lagi.">{% csrf_token %}<input type="hidden" name="aksi" value="sembunyikan"><button class="link-btn" type="submit">Sembunyikan</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if not store.can_sell %}<p class="alert" role="note">{% icon "lock" %}<span>Selama toko nonaktif, terkunci, atau ditangguhkan, halaman toko tidak tampil untuk pengunjung.</span></p>{% endif %}
+</section>
+
+<form method="post" enctype="multipart/form-data" class="akun-form page-form" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="aksi" value="simpan">
+  {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ form.non_field_errors }}</div></div>{% endif %}
+
+  <section class="akun-card glass" aria-labelledby="tpl-title">
+    <h2 id="tpl-title">{% icon "layout" %} 1. Pilih template</h2>
+    <p class="muted">Isi halaman sama untuk semua template, hanya tampilannya yang berbeda. Tekan <b>Lihat contoh</b> untuk mencoba dengan isi toko Anda.</p>
+    <div class="tpl-grid" role="radiogroup" aria-labelledby="tpl-title">
+      {% for value, label, hint in templates %}
+        <div class="tpl-option">
+          <label>
+            <input type="radio" name="template" value="{{ value }}"{% if form.template.value == value %} checked{% endif %}>
+            <span class="tpl-thumb tpl-thumb-{{ value }}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <b>{{ label }}</b>
+            <small>{{ hint }}</small>
+          </label>
+          <a class="tpl-try" href="{% url 'toko:halaman-pratinjau' store.subdomain %}?template={{ value }}">{% icon "eye" "icon-sm" %}<span>Lihat contoh</span></a>
+        </div>
+      {% endfor %}
+    </div>
+    {{ form.template.errors }}
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="warna-title">
+    <h2 id="warna-title">{% icon "palette" %} 2. Pilih warna</h2>
+    <p class="muted">Cukup <b>satu warna</b> yang mewakili toko Anda. Warna pendukung (latar, tombol, tulisan, label) kami racik otomatis supaya serasi dan tetap mudah dibaca.</p>
+    <div class="color-pick">
+      <label class="color-main" for="{{ form.color.auto_id }}">{{ form.color }}<span>Warna lain…</span></label>
+      <div class="swatches" role="group" aria-label="Pilihan warna cepat">
+        {% for hex, name in presets %}
+          <button class="swatch sw-{{ forloop.counter }}{% if form.color.value == hex %} is-on{% endif %}" type="button" data-swatch="{{ hex }}" title="{{ name }}" aria-label="{{ name }}"></button>
+        {% endfor %}
+      </div>
+    </div>
+    {{ form.color.errors }}
+  </section>
+
+  <section class="akun-card glass" aria-labelledby="isi-title">
+    <h2 id="isi-title">{% icon "edit" %} 3. Isi halaman</h2>
+    {{ form.tagline.as_field_group }}
+    {{ form.about.as_field_group }}
+    <div class="form-2col">
+      {{ form.hours.as_field_group }}
+      {{ form.phone.as_field_group }}
+    </div>
+    <div class="form-2col">
+      {{ form.instagram.as_field_group }}
+      {{ form.maps_url.as_field_group }}
+    </div>
+    {% if store.address %}
+      <p class="field-help">Alamat toko di halaman: <b>{{ store.address }}</b> (diubah di <a href="{% url 'toko:pengaturan' store.subdomain %}">Pengaturan</a>).</p>
+    {% else %}
+      <p class="field-help">Alamat toko belum diisi. Isi di <a href="{% url 'toko:pengaturan' store.subdomain %}">Pengaturan</a> supaya tampil di halaman.</p>
+    {% endif %}
+    {{ form.show_prices.as_field_group }}
+    <div class="form-2col img-fields">
+      <div>
+        {% if page.logo %}<img class="img-now img-now-logo" src="{{ page.logo.url }}" alt="Logo sekarang" width="72" height="72">{% endif %}
+        {{ form.logo.as_field_group }}
+        {% if page.logo %}{{ form.remove_logo.as_field_group }}{% endif %}
+      </div>
+      <div>
+        {% if page.cover %}<img class="img-now" src="{{ page.cover.url }}" alt="Foto sampul sekarang" width="240" height="135">{% endif %}
+        {{ form.cover.as_field_group }}
+        {% if page.cover %}{{ form.remove_cover.as_field_group }}{% endif %}
+      </div>
+    </div>
+    {% if store.can_edit %}
+      <div class="akun-actions">
+        <button class="btn" type="submit">{% icon "check" %}<span>Simpan draf</span></button>
+        <button class="btn btn-ghost" type="submit" name="lalu" value="pratinjau">{% icon "eye" %}<span>Simpan &amp; lihat pratinjau</span></button>
+      </div>
+    {% endif %}
+  </section>
+</form>
+
+<section class="akun-card glass" id="unggulan" aria-labelledby="unggulan-title">
+  <div class="card-head">
+    <h2 id="unggulan-title">{% icon "star" %} 4. Barang unggulan</h2>
+    <span class="muted">{{ highlights|length }} / {{ max_highlights }}</span>
+  </div>
+  <p class="muted">Pilih sedikit barang andalan untuk dipajang paling atas, paling banyak {{ max_highlights }}. Ambil dari data barang Anda (nama &amp; harga mengikuti data barang), atau unggah gambar lain seperti promo atau suasana toko.</p>
+  {% if highlights %}
+    <ol class="hl-admin" role="list">
+      {% for h in highlights %}
+        <li>
+          {% if h.image %}<img src="{{ h.image.url }}" alt="" width="64" height="64">{% else %}<span class="hl-letter" aria-hidden="true">{{ h.display_title|default:"?"|slice:":1"|upper }}</span>{% endif %}
+          <div class="hl-text">
+            <b>{{ h.display_title|default:"(barang sudah dihapus)" }}</b>
+            <span class="muted small">{% if h.product %}{{ h.product.price|rupiah }}{% if not h.product.is_active %} · sedang tidak dijual, tidak tampil{% endif %}{% else %}Gambar{% endif %}{% if h.caption %} · {{ h.caption }}{% endif %}</span>
+          </div>
+          {% if store.can_edit %}
+            <div class="hl-actions">
+              {% if not forloop.first %}<form method="post">{% csrf_token %}<input type="hidden" name="aksi" value="unggulan-naik"><input type="hidden" name="id" value="{{ h.pk }}"><button class="icon-btn" type="submit" aria-label="Naikkan {{ h.display_title }}">{% icon "arrow-up" %}</button></form>{% endif %}
+              {% if not forloop.last %}<form method="post">{% csrf_token %}<input type="hidden" name="aksi" value="unggulan-turun"><input type="hidden" name="id" value="{{ h.pk }}"><button class="icon-btn" type="submit" aria-label="Turunkan {{ h.display_title }}">{% icon "arrow-down" %}</button></form>{% endif %}
+              <form method="post" data-confirm="Hapus dari barang unggulan?">{% csrf_token %}<input type="hidden" name="aksi" value="unggulan-hapus"><input type="hidden" name="id" value="{{ h.pk }}"><button class="icon-btn danger" type="submit" aria-label="Hapus {{ h.display_title }}">{% icon "trash" %}</button></form>
+            </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="empty">Belum ada barang unggulan.</p>
+  {% endif %}
+
+  {% if store.can_edit %}
+    {% if highlights|length < max_highlights %}
+      <form method="post" enctype="multipart/form-data" class="akun-form hl-form" novalidate>
+        {% csrf_token %}<input type="hidden" name="aksi" value="unggulan">
+        <h3 class="form-sub">Tambah barang unggulan</h3>
+        {% if hl_form.non_field_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<div>{{ hl_form.non_field_errors }}</div></div>{% endif %}
+        {% if not has_products %}<p class="field-help">Belum ada barang yang dijual. <a href="{% url 'toko:barang-baru' store.subdomain %}">Tambah barang</a>, atau unggah gambar lain di bawah.</p>{% endif %}
+        {{ hl_form.product.as_field_group }}
+        {{ hl_form.image.as_field_group }}
+        <div class="form-2col">
+          {{ hl_form.title.as_field_group }}
+          {{ hl_form.caption.as_field_group }}
+        </div>
+        <div class="akun-actions"><button class="btn btn-sm" type="submit">{% icon "plus" %}<span>Tambahkan</span></button></div>
+      </form>
+    {% else %}
+      <p class="field-help">Sudah {{ max_highlights }} barang unggulan. Hapus salah satu untuk menggantinya.</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

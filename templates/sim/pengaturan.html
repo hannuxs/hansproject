@@ -1,0 +1,27 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass akun-narrow" aria-labelledby="set-title">
+  <h2 id="set-title">{% icon "settings" %} Kop surat, penanda tangan &amp; layanan warga</h2>
+  <form method="post" enctype="multipart/form-data" class="akun-form" novalidate>
+    {% csrf_token %}
+    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    {% if w.ttd or w.cap %}
+      <div class="field">
+        <span class="field-label">Gambar tersimpan</span>
+        <div class="sign-preview">
+          {% if w.ttd %}<img src="{% url 'sim:gambar' w.kode 'ttd' %}" alt="Tanda tangan tersimpan">{% endif %}
+          {% if w.cap %}<img src="{% url 'sim:gambar' w.kode 'cap' %}" alt="Cap tersimpan">{% endif %}
+        </div>
+        <p class="field-help">Gambar hanya dipakai saat mencetak dan tidak punya alamat publik. Bila warga boleh mencetak sendiri, gambar ikut tercetak di surat warga.</p>
+      </div>
+    {% endif %}
+    <div class="field">
+      <span class="field-label">Tingkat</span>
+      <p class="readonly">{{ w.get_level_display }}</p>
+    </div>
+    {% if w.can_edit %}
+      <div class="akun-actions"><button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button></div>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="warga-title">
+  <div class="card-head">
+    <h2 id="warga-title">{% icon "users" %} Kartu keluarga ({{ page.paginator.count }})</h2>
+    <div class="head-actions">
+      <a class="btn btn-sm btn-ghost" href="{% url 'sim:warga-unduh' w.kode %}">{% icon "arrow-down" %}<span>Unduh Excel (CSV)</span></a>
+      {% if w.can_edit %}
+        <a class="btn btn-sm btn-ghost" href="{% url 'sim:scan' w.kode %}">{% icon "scan" %}<span>Dari foto KK</span></a>
+        <a class="btn btn-sm" href="{% url 'sim:kk-baru' w.kode %}">{% icon "plus" %}<span>KK baru</span></a>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="get" class="filter-bar" role="search">
+    <div class="field"><label class="field-label" for="q">Cari</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Nama, NIK, No. KK, alamat"></div>
+    <div class="field">
+      <label class="field-label" for="status">Status KK</label>
+      <select id="status" name="status">
+        <option value="aktif"{% if status == "aktif" %} selected{% endif %}>Aktif</option>
+        <option value="pindah"{% if status == "pindah" %} selected{% endif %}>Sudah pindah</option>
+        <option value="semua"{% if status == "semua" %} selected{% endif %}>Semua</option>
+      </select>
+    </div>
+    <button class="btn btn-sm" type="submit">{% icon "list" %}<span>Tampilkan</span></button>
+  </form>
+
+  {% if page.object_list %}
+    <div class="table-wrap scroll-hint-x">
+      <table class="data-table">
+        <thead><tr><th scope="col">Kepala keluarga</th><th scope="col">No. KK</th><th scope="col">Alamat</th><th scope="col" class="num">Anggota</th></tr></thead>
+        <tbody>
+          {% for kk in page.object_list %}
+            <tr{% if kk.status != "aktif" %} class="row-off"{% endif %}>
+              <td><a href="{% url 'sim:kk' w.kode kk.pk %}"><b>{{ kk.kepala_nama }}</b></a></td>
+              <td class="mono-sm">{{ kk.no_kk|default:"–" }}</td>
+              <td class="muted">{{ kk.alamat|default:"–" }}{% if kk.rt %} RT {{ kk.rt }}{% endif %}{% if kk.rw %}/RW {{ kk.rw }}{% endif %}</td>
+              <td class="num">{{ kk.jumlah }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "sim/_pager.html" %}
+  {% elif q %}
+    <p class="empty">Tidak ada KK yang cocok.</p>
+  {% else %}
+    <p class="empty">Belum ada data warga. Mulai dari <a href="{% url 'sim:scan' w.kode %}">foto KK</a> atau tekan <b>KK baru</b>.</p>
+  {% endif %}
+</section>
+{% endblock %}

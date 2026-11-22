@@ -13,6 +13,7 @@ from django.db.models import F
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
 from django.template import loader
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.cache import patch_cache_control
 from django.views.decorators.csrf import csrf_exempt
@@ -62,12 +63,35 @@ def home(request):
         context = {
             "snap": snap,
             "site": snap.settings,
-            "demo_items": DEMO_ITEMS,
             "structured_data": seo.structured_data(snap),
+            # Tab harga: (kunci, paket, halaman solusi, nama singkat)
+            "pricing_tabs": [
+                ("kasir", snap.pos_packages, reverse("web:kasir"), "Kasir"),
+                ("sim", snap.sim_packages, reverse("web:sim"), "SIM"),
+            ],
         }
         return render_to_string("web/home.html", context, request=request)
 
     return _cached_page("home", render)
+
+
+SOLUTION_TEMPLATES = {"kasir": "web/kasir.html", "sim": "web/sim.html", "jasa": "web/jasa.html"}
+
+
+@require_safe
+def solution_page(request, key: str):
+    """Halaman lengkap satu solusi: /aplikasi-kasir/, /sistem-informasi-manajemen/, /website-aplikasi/."""
+    def render():
+        snap = services.get_snapshot()
+        context = {
+            "snap": snap,
+            "site": snap.settings,
+            "demo_items": DEMO_ITEMS,
+            "structured_data": seo.structured_data(snap, solution=key),
+        }
+        return render_to_string(SOLUTION_TEMPLATES[key], context, request=request)
+
+    return _cached_page(key, render)
 
 
 @require_safe
@@ -88,7 +112,7 @@ def legal_page(request, slug: str):
 def robots_txt(request):
     # Alamat panel sengaja TIDAK ditulis di sini (supaya tidak ketahuan).
     # Panel dilindungi header X-Robots-Tag: noindex.
-    body = f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /akun/\nDisallow: /cek/\n\nSitemap: {settings.SITE_URL}/sitemap.xml\n"
+    body = f"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /akun/\nDisallow: /cek/\nDisallow: /w/\nDisallow: /surat/\n\nSitemap: {settings.SITE_URL}/sitemap.xml\n"
     response = HttpResponse(body, content_type="text/plain; charset=utf-8")
     patch_cache_control(response, public=True, max_age=86400)
     return response
@@ -98,6 +122,8 @@ def robots_txt(request):
 def sitemap_xml(request):
     snap = services.get_snapshot()
     pages = [("/", snap.settings.updated_at)] + [
+        (reverse(f"web:{key}"), snap.settings.updated_at) for key in SOLUTION_TEMPLATES
+    ] + [
         (f"/{p.slug}/", p.updated_at) for p in LegalPage.objects.only("slug", "updated_at")
     ]
     body = render_to_string("web/sitemap.xml", {"pages": pages})
@@ -182,7 +208,9 @@ def cek_pesanan(request, token: str):
     if not 10 <= len(token) <= 40 or not ratelimit.allow(f"cek:{ip_hash(request)}", limit=60, window=600):
         raise Http404
     order = Order.objects.filter(verify_token=token).select_related("member").first()
-    if order is None:
+    # Bukti hanya sah setelah pembayaran dicek admin. Pesanan yang lalu dibatalkan tetap
+    # bisa dicek (supaya bukti cetakan lama ketahuan tidak berlaku lagi).
+    if order is None or not (order.has_verified_proof or order.status == Order.STATUS_CANCELLED):
         raise Http404
     snap = services.get_snapshot()
     response = HttpResponse(render_to_string("web/cek_pesanan.html", {

@@ -1,14 +1,13 @@
+{% comment %} Cara pesan: sama untuk semua solusi. Parameter opsional: product (nama solusi untuk judul). {% endcomment %}
 <section class="section aurora" id="cara-daftar" aria-labelledby="daftar-title">
   <div class="container">
-    {% include "components/section_head.html" with eyebrow="Cara daftar" title="Cara pesan aplikasi kasir" lead="Lima langkah mudah. Tidak ada pembayaran online di website ini." id="daftar-title" center=True %}
-    <ol class="steps" role="list">
-      <li class="step glass reveal"><span class="step-num">1</span><div><h3>Pilih paket</h3><p>Tunas, Tumbuh, atau Rimba.</p></div>{% icon "list" %}</li>
-      <li class="step glass reveal"><span class="step-num">2</span><div><h3>Daftar / masuk</h3><p>Tekan Pesan Sekarang, lalu daftar atau masuk ke akun Anda.</p></div>{% icon "login" %}</li>
-      <li class="step glass reveal"><span class="step-num">3</span><div><h3>Bayar</h3><p>Transfer bank atau scan QRIS.</p></div>{% icon "wallet" %}</li>
-      <li class="step glass reveal"><span class="step-num">4</span><div><h3>Kirim bukti bayar</h3><p>Kirim foto bukti bayar ke kami.</p></div>{% icon "send" %}</li>
-      <li class="step glass reveal"><span class="step-num">5</span><div><h3>Aplikasi aktif</h3><p>Aplikasi diaktifkan dan siap dipakai.</p></div>{% icon "power" %}</li>
+    {% include "components/section_head.html" with eyebrow="Cara mulai" title="Empat langkah, lalu langsung pakai" lead="Tidak ada pembayaran online di website ini." id="daftar-title" center=True %}
+    <ol class="steps steps-4" role="list">
+      <li class="step glass reveal"><span class="step-num">1</span><div><h3>Pilih solusi &amp; paket</h3><p>Lalu tekan Pesan Sekarang dan masuk dengan akun Google.</p></div>{% icon "list" %}</li>
+      <li class="step glass reveal"><span class="step-num">2</span><div><h3>Bayar</h3><p>Transfer bank atau scan QRIS.</p></div>{% icon "wallet" %}</li>
+      <li class="step glass reveal"><span class="step-num">3</span><div><h3>Kirim bukti bayar</h3><p>Unggah fotonya di halaman pesanan.</p></div>{% icon "send" %}</li>
+      <li class="step glass reveal"><span class="step-num">4</span><div><h3>Langsung dipakai</h3><p>Setelah kami cek, layanan Anda aktif.</p></div>{% icon "power" %}</li>
     </ol>
-
     {% if site.show_payment_info and snap.bank_accounts or site.show_payment_info and site.qris_image %}
       <div class="pay-box card glass">
         <div>
@@ -18,11 +17,10 @@
               {% for b in snap.bank_accounts %}<li>{{ b.bank_name }}: <b>{{ b.account_number }}</b> a.n. {{ b.account_holder }}</li>{% endfor %}
             </ul>
           {% endif %}
-          <p class="muted">Setelah bayar, kirim foto bukti bayar ke kami.</p>
+          <p class="muted">Setelah bayar, kirim foto bukti bayar di halaman pesanan Anda.</p>
         </div>
         {% if site.qris_image %}<img class="qris" src="{{ site.qris_image.url }}" width="200" height="200" alt="Kode QRIS HANS Project" loading="lazy">{% endif %}
       </div>
     {% endif %}
-    <p class="no-online">{% icon "shield" %} Tidak ada pembayaran online di website ini.</p>
   </div>
 </section>

@@ -34,8 +34,8 @@ QR_CODE = ImageRule(max_side=1200, output="PNG")
 RECEIPT = ImageRule(max_side=1600, output="WEBP", quality=85)  # bukti bayar: angka harus tetap terbaca
 
 
-def process_image(upload, rule: ImageRule = PHOTO) -> ContentFile:
-    limit = settings.UPLOAD_MAX_BYTES
+def process_image(upload, rule: ImageRule = PHOTO, *, max_bytes: int | None = None) -> ContentFile:
+    limit = max_bytes or settings.UPLOAD_MAX_BYTES
     if upload.size > limit:
         raise ValidationError(f"Ukuran file maksimal {limit // (1024 * 1024)} MB.")
 

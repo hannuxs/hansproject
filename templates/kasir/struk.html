@@ -22,14 +22,13 @@
     {% if sale.is_void %}<p class="struk-void">DIBATALKAN</p>{% endif %}
     <header class="struk-head">
       <h1>{{ store.name }}</h1>
-      {% if sale.outlet.address %}<p>{{ sale.outlet.address }}</p>{% elif store.address %}<p>{{ store.address }}</p>{% endif %}
+      {% if store.address %}<p>{{ store.address }}</p>{% endif %}
       {% if store.phone %}<p>Telp. {{ store.phone }}</p>{% endif %}
     </header>
     <div class="struk-meta">
       <p><span>No.</span><span>{{ sale.number }}</span></p>
       <p><span>Waktu</span><span>{{ sale.created_at|date:"d/m/Y H:i" }}</span></p>
       <p><span>Kasir</span><span>{{ sale.cashier_name }}</span></p>
-      {% if store.outlets.count > 1 %}<p><span>Outlet</span><span>{{ sale.outlet.name }}</span></p>{% endif %}
     </div>
     <ul class="struk-items" role="list">
       {% for item in sale.items.all %}

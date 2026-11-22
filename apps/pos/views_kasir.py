@@ -17,7 +17,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 from apps.core import ratelimit
 from apps.core.privacy import ip_hash
 
-from . import cashier_auth, services
+from . import cashier_auth, pages, palette, services
 from .forms import CashierLoginForm
 from .models import Store
 
@@ -30,7 +30,7 @@ def current_store(request) -> Store:
     name = getattr(request, "store_subdomain", None)
     if not name:
         raise Http404
-    store = Store.objects.filter(subdomain=name).select_related("owner").first()
+    store = Store.objects.filter(subdomain=name).select_related("subscription").first()
     if store is None or store.state() == Store.STATE_DELETED:
         raise Http404
     return store
@@ -63,19 +63,41 @@ def _locked(request, store: Store):
 
 
 # ---------------------------------------------------------------------------
-# Halaman depan toko (sementara, sebelum halaman promosi di fase 2)
+# Halaman depan toko (Halaman toko buatan pemilik, atau "segera hadir")
 # ---------------------------------------------------------------------------
 @require_safe
 def toko_home(request):
+    """Halaman toko yang sudah diterbitkan pemilik; bila belum, halaman "segera hadir"."""
     store = current_store(request)
-    response = render(request, "kasir/toko_home.html", {"store": store})
+    page = pages.page_or_none(store)
+    if page and page.is_published and page.live and store.can_sell:
+        response = render(request, "halaman/page.html", {"view": pages.build_view(store, page.live), "store": store})
+        response.store_indexable = True  # boleh muncul di Google (lihat StoreHostMiddleware)
+    else:
+        response = render(request, "kasir/toko_home.html", {"store": store, "available": store.can_sell})
     response["Cache-Control"] = "no-cache"
     return response
 
 
 @require_safe
 def robots_txt(request):
-    return HttpResponse("User-agent: *\nDisallow: /\n", content_type="text/plain; charset=utf-8")
+    store = Store.objects.filter(subdomain=getattr(request, "store_subdomain", None) or "").first()
+    page = pages.page_or_none(store) if store else None
+    if page and page.is_published and store.can_sell:
+        body = "User-agent: *\nAllow: /$\nDisallow: /\n"
+    else:
+        body = "User-agent: *\nDisallow: /\n"
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
+@require_safe
+def tema_css(request, version: str, color: str):
+    """Palet warna halaman toko dari satu warna (lihat palette.py). Isinya hanya bergantung pada alamatnya."""
+    if int(version) != palette.VERSION or not palette.normalize(color):
+        raise Http404
+    response = HttpResponse(palette.css(color), content_type="text/css; charset=utf-8")
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +159,6 @@ def pos(request):
         {
             "store": store,
             "cashier": request.cashier,
-            "outlet": request.cashier.outlet,
             "pos_data": {"products": products, "categories": categories, "pay_url": reverse("kasir:bayar")},
             "in_grace": store.state() == Store.STATE_GRACE,
         },
@@ -179,20 +200,18 @@ def bayar(request):
 @cashier_required
 def riwayat(request):
     today = timezone.localdate()
-    sales = services.sales_in_range(request.store, today, today, request.cashier.outlet)
-    report = services.build_report(request.store, today, today, request.cashier.outlet)
+    sales = services.sales_in_range(request.store, today, today)
+    report = services.build_report(request.store, today, today)
     return render(
         request,
         "kasir/riwayat.html",
-        {"store": request.store, "cashier": request.cashier, "outlet": request.cashier.outlet, "sales": sales, "report": report},
+        {"store": request.store, "cashier": request.cashier, "sales": sales, "report": report},
     )
 
 
 @require_safe
 @cashier_required
 def struk(request, pk: int):
-    # Kasir hanya bisa membuka struk dari outletnya sendiri.
-    sale = get_object_or_404(
-        request.store.sales.select_related("outlet").prefetch_related("items"), pk=pk, outlet=request.cashier.outlet
-    )
+    # Kasir hanya bisa membuka struk dari tokonya sendiri.
+    sale = get_object_or_404(request.store.sales.prefetch_related("items"), pk=pk)
     return render(request, "kasir/struk.html", {"store": request.store, "sale": sale, "back_url": reverse("kasir:pos")})

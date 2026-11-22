@@ -9,7 +9,7 @@
     </div>
   </div>
   {% include "toko/_filters.html" %}
-  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}{% if outlet %} · {{ outlet.name }}{% endif %}</p>
+  <p class="muted small">{{ start|date:"j M Y" }}{% if start != end %} – {{ end|date:"j M Y" }}{% endif %}</p>
 
   <div class="toko-stats">
     <div class="stat"><span>Penjualan</span><b>{{ report.revenue|rupiah }}</b></div>
@@ -54,10 +54,6 @@
     {% if report.by_method %}
       <ul class="kv" role="list">{% for m in report.by_method %}<li><span>{{ m.label }} ({{ m.count }})</span><b>{{ m.total|rupiah }}</b></li>{% endfor %}</ul>
     {% else %}<p class="empty">Belum ada penjualan.</p>{% endif %}
-    {% if report.by_outlet|length > 1 %}
-      <h3 class="form-sub">Per toko</h3>
-      <ul class="kv" role="list">{% for o in report.by_outlet %}<li><span>{{ o.label }} ({{ o.count }})</span><b>{{ o.total|rupiah }}</b></li>{% endfor %}</ul>
-    {% endif %}
   </section>
 </div>
 {% endblock %}

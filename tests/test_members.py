@@ -506,10 +506,9 @@ class ConsentTests(SeededTestCase):
         self.assertFalse(MemberSession.objects.filter(member=self.member).exists())
 
     def test_toko_dashboard_also_waits(self):
-        from apps.pos.models import Outlet, Store
+        from apps.pos.models import Store, Subscription
 
-        store = Store.objects.create(owner=self.member, subdomain="tokoku", name="Tokoku", package_name="Tunas",
-                                     active_until=timezone.localdate())
-        Outlet.objects.create(store=store, number=1, name="Utama")
+        sub = Subscription.objects.create(owner=self.member, package_name="Tunas", active_until=timezone.localdate())
+        Store.objects.create(subscription=sub, owner=self.member, subdomain="tokoku", name="Tokoku")
         r = self.client.get("/akun/toko/tokoku/")
         self.assertTrue(r["Location"].startswith("/akun/persetujuan/"))

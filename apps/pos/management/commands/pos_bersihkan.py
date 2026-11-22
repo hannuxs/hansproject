@@ -18,10 +18,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options["cek"]:
-            due = list(services.stores_due_for_deletion())
-            for store in due:
-                self.stdout.write(f"- {store.subdomain} (aktif sampai {store.active_until})")
-            self.stdout.write(f"{len(due)} toko akan dihapus.")
+            due = list(services.subscriptions_due_for_deletion())
+            count = 0
+            for sub in due:
+                hosts = [store.subdomain for store in sub.stores.all()]
+                count += len(hosts)
+                self.stdout.write(f"- Paket {sub.package_name} #{sub.pk}: {', '.join(hosts) or '-'} (aktif sampai {sub.active_until})")
+            self.stdout.write(f"{count} toko ({len(due)} langganan) akan dihapus.")
             return
         deleted = services.delete_expired_stores()
         self.stdout.write(self.style.SUCCESS(f"Selesai. {len(deleted)} toko dihapus permanen."))

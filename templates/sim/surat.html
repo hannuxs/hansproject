@@ -1,0 +1,34 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<section class="akun-card glass" aria-labelledby="surat-title">
+  <div class="card-head">
+    <h2 id="surat-title">{% icon "file" %} Surat</h2>
+    {% if w.can_edit %}<a class="btn btn-sm" href="{% url 'sim:surat-pilih' w.kode %}">{% icon "plus" %}<span>Buat surat</span></a>{% endif %}
+  </div>
+  <nav class="chip-row" aria-label="Saring surat">
+    {% for f in filters %}<a class="chip" href="{{ f.url }}"{% if f.active %} aria-current="page"{% endif %}>{{ f.label }}{% if f.key == "masuk" and inbox.surat %} ({{ inbox.surat }}){% endif %}</a>{% endfor %}
+  </nav>
+  <form method="get" class="filter-bar" role="search">
+    <input type="hidden" name="filter" value="{{ filter }}">
+    <div class="field"><label class="field-label" for="q">Cari</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="Nama pemohon, NIK, nomor surat"></div>
+    <button class="btn btn-sm" type="submit">{% icon "search" %}<span>Cari</span></button>
+  </form>
+  {% if page.object_list %}
+    <ul class="mini-list" role="list">
+      {% for s in page.object_list %}
+        <li><a href="{% url 'sim:surat-detail' w.kode s.pk %}">
+          <span><b>{{ s.jenis_nama }}</b><span class="muted small">{{ s.nama }}{% if s.nomor %} · No. {{ s.nomor }}{% endif %} · {{ s.get_sumber_display|lower }} · {{ s.created_at|date:"j M Y, H:i" }}{% if not s.penduduk_id and s.sumber == "online" and s.status == "diajukan" %} · <span class="warn-text">NIK belum cocok dengan data warga</span>{% endif %}</span></span>
+          <span class="status status-{{ s.status_tone }}">{{ s.get_status_display }}</span>
+        </a></li>
+      {% endfor %}
+    </ul>
+    {% include "sim/_pager.html" %}
+  {% elif q %}
+    <p class="empty">Tidak ada surat yang cocok.</p>
+  {% elif filter == "masuk" %}
+    <p class="empty">Tidak ada pengajuan yang menunggu. Warga bisa mengajukan surat lewat <a href="{{ w.public_path }}" target="_blank" rel="noopener">halaman warga</a>.</p>
+  {% else %}
+    <p class="empty">Belum ada surat.</p>
+  {% endif %}
+</section>
+{% endblock %}

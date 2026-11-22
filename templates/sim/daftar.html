@@ -1,0 +1,54 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% comment %}
+  SIM (Sistem Informasi Manajemen): semua instansi milik pengurus ini (RT/RW/Kelurahan/Kecamatan).
+  Dibuka dari menu Layanan.
+{% endcomment %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}"><link rel="stylesheet" href="{% static 'css/sim.css' %}">{% endblock %}
+{% block akun %}
+<p class="back-link"><a href="{% url 'akun:layanan' %}">{% icon "arrow-right" "icon-sm flip" %}<span>Layanan saya</span></a></p>
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Sistem Informasi Manajemen (SIM)</p>
+    <h1 class="akun-title">Instansi saya</h1>
+  </div>
+  <a class="btn btn-sm" href="{% url 'akun:pesan-pilih' %}?layanan=sim">{% icon "plus" %}<span>Tambah instansi</span></a>
+</header>
+
+{% for o in pending_orders %}
+  <p class="alert" role="status">{% icon "cart" %}<span>Pesanan {{ o.title }} untuk <b>{{ o.sim_label }}</b> sedang {{ o.get_status_display|lower }}. Instansi aktif setelah pembayaran dicek. <a href="{% url 'akun:pesanan' o.code %}">Lihat pesanan</a>.</span></p>
+{% endfor %}
+
+{% if wilayah_list %}
+  <ul class="store-cards" role="list">
+    {% for w in wilayah_list %}
+      <li class="akun-card glass store-card">
+        <div class="toko-id">
+          <span class="avatar" aria-hidden="true">{{ w.level_label|slice:":2"|upper }}</span>
+          <div class="toko-id-text">
+            <h3><a href="{% url 'sim:ringkasan' w.kode %}">{{ w.label }}</a></h3>
+            <p class="muted small">{{ w.get_level_display }}{% if w.parent %} · tergabung di {{ w.parent.short_label }}{% endif %} · aktif sampai {{ w.active_until|date:"j M Y" }}</p>
+          </div>
+          <span class="status status-{{ w.state_tone }}">{{ w.state_label }}</span>
+        </div>
+        <div class="toko-stats compact">
+          <div class="stat"><span>Warga aktif</span><b>{{ w.jiwa }}</b></div>
+          <div class="stat"><span>Surat menunggu</span><b>{{ w.counts.surat }}</b></div>
+          <div class="stat"><span>Perlu diketahui</span><b>{{ w.counts.ketahui }}</b></div>
+        </div>
+        <div class="akun-actions">
+          <a class="btn btn-sm" href="{% url 'sim:ringkasan' w.kode %}">{% icon "settings" %}<span>Kelola</span></a>
+          <a class="btn btn-sm btn-ghost" href="{{ w.public_path }}" target="_blank" rel="noopener">{% icon "globe" %}<span>Halaman warga</span></a>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% elif not pending_orders %}
+  <section class="akun-card glass empty-state" aria-labelledby="mulai-title">
+    <span class="empty-icon" aria-hidden="true">{% icon "users" %}</span>
+    <h2 id="mulai-title">Belum ada instansi</h2>
+    <p class="muted">SIM membantu pengurus RT/RW, kelurahan, dan kecamatan menyimpan data warga (dari foto KK/KTP), menerima permintaan surat online, dan mencetak surat dari mana saja.</p>
+    <div class="akun-actions"><a class="btn" href="{% url 'akun:pesan-pilih' %}?layanan=sim">{% icon "tag" %}<span>Pilih paket SIM</span></a></div>
+  </section>
+{% endif %}
+{% endblock %}

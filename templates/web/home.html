@@ -1,19 +1,18 @@
 {% extends "base.html" %}
-
+{% comment %}
+  Halaman utama: HANS Project sebagai penyedia solusi digital. Sengaja ringkas:
+  pembuka -> solusi -> harga (tab per solusi) -> cara mulai -> tanya jawab umum -> ajakan.
+  Penjelasan lengkap setiap solusi ada di halamannya sendiri.
+{% endcomment %}
 {% block head_extra %}
   <script type="application/ld+json">{{ structured_data|jsonld }}</script>
 {% endblock %}
 
 {% block content %}
-  {% include "web/partials/hero.html" %}
-  {% include "web/partials/problems.html" %}
-  {% include "web/partials/features.html" %}
-  {% include "web/partials/promo_page.html" %}
-  {% include "web/partials/pricing.html" %}
-  {% include "web/partials/service.html" %}
-  {% include "web/partials/compare.html" %}
+  {% include "web/partials/platform_hero.html" %}
+  {% include "web/partials/solutions.html" %}
+  {% include "web/partials/home_pricing.html" %}
   {% include "web/partials/steps.html" %}
-  {% if snap.testimonials %}{% include "web/partials/testimonials.html" %}{% endif %}
-  {% include "web/partials/faq.html" %}
+  {% include "web/partials/faq.html" with faqs=snap.faq_topics.umum %}
   {% include "web/partials/cta.html" %}
 {% endblock %}

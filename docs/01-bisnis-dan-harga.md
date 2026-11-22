@@ -21,6 +21,16 @@ HANS Project menjual dua jenis layanan:
 
 Nama paket bertema pertumbuhan pohon: Tunas → Tumbuh → Rimba.
 
+> **Pembaruan 22 November 2026 — platform solusi digital.** HANS Project kini satu identitas: *penyedia solusi digital*.
+> Setiap solusi berlangganan punya **Paket Tunas & Tumbuh** sendiri:
+> - **Aplikasi Kasir**: Tunas & Tumbuh (isi di bawah).
+> - **Sistem Informasi Manajemen (SIM)**: SIM Tunas (cocok RT/RW, baca otomatis 100 dokumen/bln, 1 GB) dan SIM Tumbuh
+>   (kelurahan/kecamatan, 1.000 dokumen/bln, 5 GB, rekap unit di bawahnya, support prioritas). **Harga belum
+>   ditentukan pemilik** (Rp0 = tampil "Segera diumumkan", belum bisa dipesan) — isi di panel.
+> - **Tiket Online**: segera hadir, belum ada paket.
+> Rimba tetap jasa terpisah (website/aplikasi/sistem informasi custom). Halaman utama hanya merangkum; detail tiap
+> solusi ada di `/aplikasi-kasir/`, `/sistem-informasi-manajemen/`, `/website-aplikasi/`.
+
 **Jangan tampilkan ketiga paket sebagai tiga kolom setara dalam satu tabel harga utama.** Tunas dan Tumbuh adalah produk yang sama dengan level berbeda, sedangkan Rimba adalah jenis layanan yang lain sama sekali. Kalau disejajarkan, pelanggan akan membandingkan hal yang tidak sebanding. Tabel perbandingan teknis (di bagian bawah file ini) boleh memuat ketiganya.
 
 ---
@@ -43,7 +53,7 @@ Tagline: *Catat jualan, hitung uang, cetak struk. Cukup pakai HP.*
 | Toko Anda punya alamat di internet sendiri, contoh: `warungbudi.hansproject.app` | Subdomain *.hansproject.app |
 | Halaman promosi toko sendiri (lihat penjelasan di bawah) | Landing page toko dengan editor terbatas |
 | Tempat simpan catatan yang cukup untuk usaha kecil | Penyimpanan 1 GB |
-| Untuk 2 toko, masing-masing toko punya akun sendiri | 2 outlet, 1 akun login per outlet |
+| Untuk 2 toko, masing-masing punya alamat kasir, barang, laporan, dan akun kasir sendiri | 2 toko, 1 subdomain & 1 akun kasir per toko |
 | 1 kali per bulan boleh minta ganti tampilan (logo, warna, tulisan di struk) | 1 revisi tampilan per bulan |
 | Bisa tanya-tanya di jam kerja | Support (jam kerja) — *saluran: lewat akun; PERLU KONFIRMASI pemilik* |
 
@@ -59,7 +69,7 @@ Tagline: *Catat jualan, hitung uang, cetak struk. Cukup pakai HP.*
 |---|---|
 | Ada ikon aplikasi di HP, tinggal pencet seperti aplikasi biasa. Tidak perlu download dari Play Store | Progressive Web App (PWA), bisa diinstal dari browser |
 | Tempat simpan catatan lebih besar | Penyimpanan 5 GB |
-| Untuk sampai 10 toko atau cabang | 10 outlet, 1 akun login per outlet |
+| Untuk sampai 10 toko atau cabang, masing-masing terpisah | 10 toko, 1 subdomain & 1 akun kasir per toko |
 | Boleh minta 3 tambahan kemampuan baru di aplikasi per tahun, dikerjakan lebih dulu | 3 request fitur/modifikasi prioritas per tahun |
 | Pertanyaan Anda dijawab lebih dulu | Customer service prioritas |
 
@@ -88,7 +98,7 @@ Setiap pelanggan kasir **boleh** (kalau mau) punya halaman promosi sederhana unt
 
 **Tambah toko/cabang: Rp15.000 per toko, per bulan**
 - Berlaku untuk Tunas dan Tumbuh.
-- Teknis: add-on outlet.
+- Teknis: add-on toko (subdomain + akun kasir sendiri).
 - Harganya sengaja sedikit lebih mahal daripada harga per toko di dalam paket, supaya pelanggan yang butuh banyak toko terdorong naik paket. Contoh: Tunas + 5 toko tambahan = Rp100.000, sedikit lebih mahal dari Tumbuh. Boleh ditampilkan sebagai tips "lebih hemat naik ke Tumbuh", tapi tidak wajib.
 
 **Tambah tempat simpan (kalau sudah penuh)**: berlaku untuk semua paket.
@@ -133,14 +143,14 @@ Jasa pembuatan website (company profile, toko online, dll.) masuk ke paket ini. 
 | Harga | Rp25.000/bln | Rp99.000/bln | Mulai Rp349.000 + Rp200.000/bln |
 | Jenis | Aplikasi kasir (POS) | Aplikasi kasir (POS) | Custom development |
 | Penyimpanan | 1 GB | 5 GB | 10 GB |
-| Outlet | 2 | 10 | Sesuai kebutuhan |
-| Akun login | 1 per outlet | 1 per outlet | Sesuai kebutuhan |
+| Jumlah toko | 2 | 10 | Sesuai kebutuhan |
+| Akun kasir | 1 per toko, bisa di banyak perangkat | 1 per toko, bisa di banyak perangkat | Sesuai kebutuhan |
 | Alamat web | Subdomain | Subdomain | Custom domain |
 | Halaman promosi toko | Ya (editor terbatas) | Ya (editor terbatas) | Custom penuh |
 | Aplikasi HP | – | PWA | Android & iOS (Play Store / App Store) |
 | Modifikasi | 1 revisi tampilan/bln | 3 request fitur prioritas/thn | Bebas sesuai kontrak |
 | Support | Jam kerja | Prioritas | Dedicated |
-| Tambah outlet | Rp15.000/outlet/bln | Rp15.000/outlet/bln | – |
+| Tambah toko | Rp15.000/toko/bln | Rp15.000/toko/bln | – |
 | Tambah penyimpanan | Mulai Rp10.000/bln | Mulai Rp10.000/bln | Mulai Rp10.000/bln |
 
 ---

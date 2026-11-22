@@ -1,4 +1,5 @@
-{% if snap.comparison_rows %}
+{% comment %} Tabel detail teknis. Parameter: columns (paket), rows ((label, nilai...)). {% endcomment %}
+{% if rows %}
 <section class="section" id="detail-teknis" aria-labelledby="teknis-title">
   <div class="container">
     {% include "components/section_head.html" with eyebrow="Untuk yang paham teknologi" title="Detail teknis semua paket" lead="Perbandingan lengkap dengan istilah teknis. Ketuk untuk membuka." id="teknis-title" center=True %}
@@ -6,19 +7,19 @@
       <summary>Lihat tabel detail teknis {% icon "chevron-down" %}</summary>
       <div class="table-wrap scroll-hint-x">
         <table class="compare">
-          <caption class="visually-hidden">Perbandingan teknis Paket {% for p in snap.comparison_columns %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</caption>
+          <caption class="visually-hidden">Perbandingan teknis Paket {% for p in columns %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</caption>
           <thead>
             <tr>
               <td></td>
-              {% for p in snap.comparison_columns %}<th scope="col" class="{% if p.is_highlighted %}is-hl{% endif %}">{{ p.icon }} {{ p.name }}</th>{% endfor %}
+              {% for p in columns %}<th scope="col" class="{% if p.is_highlighted %}is-hl{% endif %}">{{ p.icon }} {{ p.name }}</th>{% endfor %}
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">Harga</th>
-              {% for p in snap.comparison_columns %}<td class="{% if p.is_highlighted %}is-hl{% endif %}">{{ p.price_compact }}</td>{% endfor %}
+              {% for p in columns %}<td class="{% if p.is_highlighted %}is-hl{% endif %}">{% if p.is_priced %}{{ p.price_compact }}{% else %}Segera diumumkan{% endif %}</td>{% endfor %}
             </tr>
-            {% for label, values in snap.comparison_rows %}
+            {% for label, values in rows %}
               <tr>
                 <th scope="row">{{ label }}</th>
                 {% for value in values %}<td>{{ value }}</td>{% endfor %}

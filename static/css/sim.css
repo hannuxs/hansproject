@@ -1,0 +1,72 @@
+/* ==========================================================================
+   SIM (Sistem Informasi Manajemen): dashboard pengurus (/akun/sim/...) & halaman warga (/w/..., /surat/...).
+   Melengkapi akun.css + toko.css (kelas toko-* dipakai ulang).
+   ========================================================================== */
+
+.form-grid .field.wide { grid-column: 1 / -1; }
+.inline-form { display: inline-flex; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.warga-foot { margin-top: 24px; }
+.warga-head .akun-title { word-break: break-word; }
+
+/* Saringan surat */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.chip {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px;
+  background: var(--white); color: var(--ink); font-weight: 700; font-size: 0.9rem; text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.chip:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--orange-light); }
+.chip[aria-current="page"] { background: var(--grad-deep); color: var(--white); box-shadow: none; }
+
+/* Scan KK/KTP */
+.scan-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 12px 0 0; padding: 0; list-style: none; }
+.scan-grid a {
+  display: grid; gap: 8px; height: 100%; padding: 10px; background: var(--white); color: var(--ink); text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.scan-grid a:hover { box-shadow: inset 0 0 0 2px var(--orange-light); }
+.scan-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--cream); }
+.scan-grid span { display: grid; gap: 2px; min-width: 0; word-break: break-word; }
+.scan-grid .status { justify-self: start; }
+.scan-view { display: grid; gap: 18px; margin-top: 12px; }
+@media (min-width: 900px) { .scan-view { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+.scan-image { margin: 0; }
+.scan-image img { width: 100%; height: auto; background: var(--cream); box-shadow: inset 0 0 0 1px var(--line); }
+.scan-view textarea { width: 100%; font-size: 0.85rem; }
+.member-rows { display: grid; gap: 12px; }
+.member-row { margin: 0; padding: 12px 14px 14px; border: 0; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.member-row legend { padding: 0 4px; font-weight: 800; color: var(--maroon); }
+@media (min-width: 760px) { .member-row .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Format surat */
+.format-layout { display: grid; gap: 18px; }
+@media (min-width: 1000px) { .format-layout { grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr); align-items: start; } }
+.format-layout textarea { font-family: var(--mono); font-size: 0.875rem; }
+.format-help { position: sticky; top: calc(var(--header-h) + 12px); }
+.format-danger { display: flex; flex-wrap: wrap; gap: 10px; }
+.token-list { display: grid; gap: 4px; margin: 6px 0 12px; padding: 0; list-style: none; font-size: 0.875rem; }
+.token-list li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.token-list code, .format-help code { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; background: var(--cream); box-shadow: inset 0 0 0 1px var(--line); }
+.token-list span { color: var(--muted); }
+
+/* Jaringan wilayah */
+.join-code {
+  display: inline-block; margin: 8px 0 12px; padding: 10px 16px; font-size: clamp(1.2rem, 2vw + 0.8rem, 1.6rem);
+  font-weight: 800; letter-spacing: 0.12em; color: var(--maroon); background: var(--white); word-break: break-all;
+  box-shadow: inset 0 0 0 2px var(--orange-light);
+}
+.chain { display: grid; gap: 6px; margin: 8px 0; padding: 0; list-style: none; }
+.chain li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; padding: 10px 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Pengaturan & lain-lain */
+.sign-preview { display: flex; flex-wrap: wrap; gap: 12px; }
+.sign-preview img { max-height: 90px; width: auto; padding: 6px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.steps-list { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 1.4em; }
+.choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.choice + .choice { margin-top: 8px; }
+.choice input { margin-top: 4px; }
+.lacak-new { text-align: center; }
+.lacak-new .join-code { font-size: clamp(1rem, 2vw + 0.6rem, 1.35rem); letter-spacing: 0.04em; }

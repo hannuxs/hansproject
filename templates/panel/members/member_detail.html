@@ -12,7 +12,7 @@
     {% if orders %}
       <p class="field-label">Pesanan</p>
       <ul class="mini-list" role="list">
-        {% for o in orders %}<li><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> — Paket {{ o.package_name }} — {{ o.get_status_display }}</li>{% endfor %}
+        {% for o in orders %}<li><a href="{% url 'panel:pesanan-update' o.pk %}">{{ o.code }}</a> — {{ o.title }} —{{ o.get_status_display }}</li>{% endfor %}
       </ul>
     {% endif %}
   {% endwith %}

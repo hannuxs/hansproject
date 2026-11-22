@@ -1,0 +1,16 @@
+{% extends "warga/base.html" %}
+{% block warga %}
+<section class="akun-card glass" aria-labelledby="c-title">
+  <p class="eyebrow">Cek keaslian surat</p>
+  <h1 class="akun-title" id="c-title">{% icon "check" %} Surat ini tercatat</h1>
+  <p class="muted">Data di bawah berasal dari catatan Sistem Informasi Manajemen (SIM). Cocokkan dengan surat yang Anda pegang; nama ditampilkan tersamar.</p>
+  <ul class="kv" role="list">
+    <li><span>Jenis surat</span><b>{{ s.judul }}</b></li>
+    <li><span>Nomor</span><b class="mono">{{ s.nomor }}</b></li>
+    <li><span>Tanggal</span><b>{{ s.tanggal|date:"j F Y" }}</b></li>
+    <li><span>Diterbitkan oleh</span><b>{{ w.label }}{% if s.penanda_tangan %} ({{ s.jabatan }}: {{ s.penanda_tangan }}){% endif %}</b></li>
+    <li><span>Atas nama</span><b>{{ s.nama_masked }}</b></li>
+    {% if s.mengetahui %}<li><span>Mengetahui</span><b>{{ s.get_mengetahui_display }}{% if s.mengetahui_nama and s.mengetahui == "diketahui" %} ({{ s.mengetahui_jabatan }}: {{ s.mengetahui_nama }}){% endif %}</b></li>{% endif %}
+  </ul>
+</section>
+{% endblock %}

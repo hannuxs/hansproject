@@ -1,0 +1,80 @@
+{% extends "akun/base.html" %}
+{% load static %}
+{% comment %}
+  Menu "Layanan": semua solusi milik pelanggan di satu tempat. Setiap solusi punya halaman
+  pengelolaannya sendiri (Aplikasi Kasir -> /akun/toko/, SIM -> /akun/sim/).
+{% endcomment %}
+{% block head_extra %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/toko.css' %}">{% endblock %}
+{% block akun %}
+<header class="dash-head">
+  <div>
+    <p class="eyebrow">Layanan</p>
+    <h1 class="akun-title">Layanan saya</h1>
+  </div>
+  <a class="btn btn-sm" href="{% url 'akun:pesan-pilih' %}">{% icon "plus" %}<span>Pesan layanan</span></a>
+</header>
+
+<section class="akun-card glass svc-row" aria-labelledby="l-kasir">
+  <div class="svc-head">
+    <span class="sol-icon" aria-hidden="true">{% icon "calculator" %}</span>
+    <div><h2 id="l-kasir">Aplikasi Kasir</h2><p class="muted small">Toko, barang, kasir, transaksi, laporan, dan halaman toko.</p></div>
+  </div>
+  {% if svc.stores %}
+    <ul class="mini-list" role="list">
+      {% for store in svc.stores %}
+        <li><a href="{% url 'toko:ringkasan' store.subdomain %}"><span><b>{{ store.name }}</b><span class="muted small">{{ store.host }} · Paket {{ store.package_name }}</span></span><span class="status status-{{ store.state_tone }}">{{ store.state_label }}</span></a></li>
+      {% endfor %}
+    </ul>
+    <div class="akun-actions"><a class="btn btn-sm" href="{% url 'toko:daftar' %}">{% icon "store" %}<span>Kelola semua toko</span></a></div>
+  {% else %}
+    <p class="muted">Belum berlangganan.</p>
+    <div class="akun-actions"><a class="btn btn-sm btn-ghost" href="{% url 'akun:pesan-pilih' %}?layanan=kasir">{% icon "tag" %}<span>Lihat paket kasir</span></a></div>
+  {% endif %}
+</section>
+
+<section class="akun-card glass svc-row" aria-labelledby="l-sim">
+  <div class="svc-head">
+    <span class="sol-icon" aria-hidden="true">{% icon "database" %}</span>
+    <div><h2 id="l-sim">Sistem Informasi Manajemen (SIM)</h2><p class="muted small">Data warga dari foto KK/KTP, surat online, dan jaringan RT–RW–kelurahan–kecamatan.</p></div>
+  </div>
+  {% if svc.wilayah %}
+    <ul class="mini-list" role="list">
+      {% for w in svc.wilayah %}
+        <li><a href="{% url 'sim:ringkasan' w.kode %}"><span><b>{{ w.label }}</b><span class="muted small">{% if w.menunggu %}{{ w.menunggu }} surat menunggu{% else %}Tidak ada surat menunggu{% endif %} · Paket {{ w.package_name|default:"SIM" }}</span></span><span class="status status-{{ w.state_tone }}">{{ w.state_label }}</span></a></li>
+      {% endfor %}
+    </ul>
+    <div class="akun-actions"><a class="btn btn-sm" href="{% url 'sim:daftar' %}">{% icon "database" %}<span>Kelola SIM</span></a></div>
+  {% else %}
+    <p class="muted">Belum berlangganan.</p>
+    <div class="akun-actions"><a class="btn btn-sm btn-ghost" href="{% url 'akun:pesan-pilih' %}?layanan=sim">{% icon "tag" %}<span>Lihat paket SIM</span></a></div>
+  {% endif %}
+</section>
+
+<section class="akun-card glass svc-row" aria-labelledby="l-jasa">
+  <div class="svc-head">
+    <span class="sol-icon" aria-hidden="true">{% icon "code" %}</span>
+    <div><h2 id="l-jasa">Website &amp; Aplikasi</h2><p class="muted small">Proyek website/aplikasi yang dibuat khusus untuk Anda.</p></div>
+  </div>
+  {% if svc.jasa_orders %}
+    {% include "akun/_order_list.html" with orders=svc.jasa_orders %}
+  {% else %}
+    <p class="muted">Belum ada proyek.</p>
+    <div class="akun-actions"><a class="btn btn-sm btn-ghost" href="{% url 'akun:pesan-pilih' %}?layanan=jasa">{% icon "chat" %}<span>Konsultasi gratis</span></a></div>
+  {% endif %}
+</section>
+
+{% if svc.pending %}
+  <section class="akun-card glass" aria-labelledby="l-proses">
+    <h2 id="l-proses">{% icon "clock" %} Sedang diproses</h2>
+    <p class="muted small">Layanan aktif setelah pembayaran kami cek.</p>
+    {% include "akun/_order_list.html" with orders=svc.pending %}
+  </section>
+{% endif %}
+
+<section class="akun-card glass svc-row is-soon" aria-labelledby="l-tiket">
+  <div class="svc-head">
+    <span class="sol-icon" aria-hidden="true">{% icon "ticket" %}</span>
+    <div><h2 id="l-tiket">Tiket Online <span class="badge badge-soft">Segera hadir</span></h2><p class="muted small">Penjualan tiket speedboat, konser, dan acara lainnya. <a href="{% url 'akun:chat-baru' %}?topik=tiket">Ceritakan kebutuhan Anda</a>.</p></div>
+  </div>
+</section>
+{% endblock %}

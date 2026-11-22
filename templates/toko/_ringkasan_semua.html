@@ -1,0 +1,63 @@
+{% load l10n %}
+{% comment %} Ringkasan penjualan semua toko (menu Layanan › Aplikasi Kasir). Parameter: overview, chart. {% endcomment %}
+<section class="toko-stats" aria-label="Penjualan semua toko">
+  <div class="stat glass"><span>Penjualan hari ini</span><b>{{ overview.today.revenue|rupiah }}</b><small>{{ overview.today.count }} transaksi · kemarin {{ overview.yesterday.revenue|rupiah }}</small></div>
+  <div class="stat glass"><span>7 hari terakhir</span><b>{{ overview.week.revenue|rupiah }}</b><small>{{ overview.week.count }} transaksi</small></div>
+  <div class="stat glass"><span>Bulan ini</span><b>{{ overview.month.revenue|rupiah }}</b><small>{{ overview.month.count }} transaksi</small></div>
+  <div class="stat glass"><span>Rata-rata per transaksi</span><b>{{ overview.month.average|rupiah }}</b><small>bulan ini</small></div>
+</section>
+
+<section class="akun-card glass" aria-labelledby="tren-title">
+  <div class="card-head">
+    <h2 id="tren-title">{% icon "chart" %} Penjualan 14 hari terakhir</h2>
+    <span class="muted small">Semua toko</span>
+  </div>
+  {% if overview.trend_peak %}
+    <figure class="trend-chart">
+      <svg viewBox="0 0 {{ chart.width|unlocalize }} {{ chart.height|unlocalize }}" role="img" aria-labelledby="tren-title tren-desc">
+        <desc id="tren-desc">Grafik batang penjualan per hari. Angka lengkap ada di tabel di bawah grafik.</desc>
+        <line class="trend-base" x1="0" y1="{{ chart.base|unlocalize }}" x2="{{ chart.width|unlocalize }}" y2="{{ chart.base|unlocalize }}"></line>
+        {% for b in chart.bars %}
+          <g class="trend-bar{% if b.is_peak %} is-peak{% endif %}" tabindex="0">
+            <title>{{ b.day|date:"D, j M" }}: {{ b.total|rupiah }}</title>
+            <rect class="trend-hit" x="{{ b.hit_x|unlocalize }}" y="0" width="{{ chart.slot|unlocalize }}" height="{{ chart.base|unlocalize }}"></rect>
+            {% if b.path %}<path d="{{ b.path }}"></path>{% endif %}
+            {% if b.peak_text %}<text class="trend-label" x="{{ b.label_x|unlocalize }}" y="{{ b.label_y|unlocalize }}" text-anchor="middle">{{ b.peak_text }}</text>{% endif %}
+          </g>
+        {% endfor %}
+      </svg>
+      <figcaption class="trend-dates" aria-hidden="true">{% for b in chart.bars %}{% if b.show_date %}<span>{{ b.day|date:"j M" }}</span>{% endif %}{% endfor %}</figcaption>
+    </figure>
+  {% else %}
+    <p class="empty">Belum ada penjualan dalam 14 hari terakhir.</p>
+  {% endif %}
+  <details class="table-toggle">
+    <summary>Lihat sebagai tabel</summary>
+    <div class="table-wrap scroll-hint-x">
+      <table class="data-table">
+        <thead><tr><th scope="col">Tanggal</th><th scope="col" class="num">Penjualan</th></tr></thead>
+        <tbody>{% for d in overview.trend %}<tr><td>{{ d.day|date:"D, j M Y" }}</td><td class="num">{{ d.total|rupiah }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+
+<div class="toko-cols">
+  <section class="akun-card glass" aria-labelledby="top-title">
+    <h2 id="top-title">{% icon "star" %} Terlaris bulan ini</h2>
+    {% if overview.top_products %}
+      <ol class="rank-list">{% for p in overview.top_products %}<li><span>{{ p.name }}</span><b>{{ p.qty }} terjual</b><span class="muted small">{{ p.sale__store__name }}</span></li>{% endfor %}</ol>
+    {% else %}<p class="empty">Belum ada penjualan bulan ini.</p>{% endif %}
+  </section>
+  <section class="akun-card glass" aria-labelledby="baru-title">
+    <h2 id="baru-title">{% icon "receipt" %} Transaksi terbaru</h2>
+    {% if overview.recent %}
+      <ul class="mini-list" role="list">
+        {% for s in overview.recent %}
+          <li><a href="{% url 'toko:transaksi-detail' s.store.subdomain s.pk %}"><span><b>{{ s.total|rupiah }}</b><span class="muted small">{{ s.store.name }}</span></span><span class="muted small">{{ s.created_at|date:"j M, H:i" }}</span></a></li>
+        {% endfor %}
+      </ul>
+    {% else %}<p class="empty">Belum ada transaksi.</p>{% endif %}
+  </section>
+</div>

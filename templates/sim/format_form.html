@@ -1,0 +1,56 @@
+{% extends "sim/base.html" %}
+{% block sim %}
+<p class="back-link"><a href="{% url 'sim:format' w.kode %}">{% icon "arrow-right" "icon-sm flip" %}<span>Semua format</span></a></p>
+<div class="format-layout">
+  <section class="akun-card glass" aria-labelledby="ff-title">
+    <div class="card-head">
+      <h2 id="ff-title">{% icon "edit" %} {% if jenis %}{{ jenis.nama }}{% else %}Format surat baru{% endif %}</h2>
+      {% if jenis %}<a class="btn btn-sm btn-ghost" href="{% url 'sim:format-contoh' w.kode jenis.pk %}" target="_blank" rel="noopener">{% icon "eye" %}<span>Lihat contoh cetak</span></a>{% endif %}
+    </div>
+    <form method="post" class="akun-form" novalidate>
+      {% csrf_token %}
+      {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+      {% if w.can_edit %}
+        <div class="akun-actions">
+          <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
+          <a class="btn btn-ghost" href="{% url 'sim:format' w.kode %}">Batal</a>
+        </div>
+      {% endif %}
+    </form>
+    {% if jenis and w.can_edit %}
+      <div class="void-box format-danger">
+        {% if has_default %}
+          <form method="post" action="{% url 'sim:format-reset' w.kode jenis.pk %}" data-confirm="Kembalikan isi format ini ke bawaan? Perubahan Anda pada format ini hilang.">
+            {% csrf_token %}<button class="btn btn-sm btn-ghost" type="submit">{% icon "history" %}<span>Kembalikan ke bawaan</span></button>
+          </form>
+        {% endif %}
+        <form method="post" action="{% url 'sim:format-hapus' w.kode jenis.pk %}" data-confirm="Hapus format {{ jenis.nama }}? Surat yang sudah dibuat tetap tersimpan.">
+          {% csrf_token %}<button class="btn btn-sm btn-ghost" type="submit">{% icon "trash" %}<span>Hapus format</span></button>
+        </form>
+      </div>
+    {% endif %}
+  </section>
+
+  <aside class="akun-card glass format-help" aria-labelledby="isian-title">
+    <h2 id="isian-title">{% icon "help" %} Isian yang bisa dipakai</h2>
+    <p class="muted small">Tulis di isi surat dengan kurung kurawal, mis. <code>{nama}</code>. Isian yang kosong dicetak sebagai titik-titik supaya bisa diisi tangan.</p>
+    <p class="form-sub">Data pemohon</p>
+    <ul class="token-list" role="list">{% for key, label in standard_fields %}<li><code>{{ "{" }}{{ key }}{{ "}" }}</code> <span>{{ label }}</span></li>{% endfor %}</ul>
+    <p class="form-sub">Otomatis</p>
+    <ul class="token-list" role="list">
+      <li><code>{nama_wilayah}</code> <span>{{ w.label }}</span></li>
+      <li><code>{jabatan}</code> <span>{{ w.signer_title }}</span></li>
+      <li><code>{penanda_tangan}</code> <span>{{ w.ketua_nama|default:"nama ketua" }}</span></li>
+      <li><code>{tanggal_surat}</code> <span>tanggal terbit</span></li>
+      <li><code>{tempat_surat}</code> <span>{{ w.place_name|default:"kelurahan" }}</span></li>
+      <li><code>{nomor_surat}</code> <span>nomor otomatis</span></li>
+    </ul>
+    <p class="form-sub">Tips</p>
+    <ul class="note-list">
+      <li>Pisahkan paragraf dengan satu baris kosong.</li>
+      <li>Baris seperti <code>Nama Usaha : {nama_usaha}</code> otomatis dirapikan menjadi tabel.</li>
+      <li>Kolom tambahan (mis. <code>nama_usaha</code>) ditanyakan ke warga di formulir pengajuan.</li>
+    </ul>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,822 @@
+"""Dashboard pengurus wilayah di hansproject.app/akun/sim/<kode>/...
+
+Setiap view mengambil wilayah lewat ``wilayah_view`` (milik pelanggan yang login), lalu
+SEMUA data diambil lewat relasi wilayah itu (``wilayah.kk_set``, ``wilayah.surat_set``, dst.),
+jadi pengurus tidak bisa membuka data wilayah lain dengan menebak nomor.
+
+Wilayah di atasnya (mis. RW untuk RT) hanya melihat angka rekap dan surat yang memang
+dikirim untuk "diketahui", tidak pernah daftar warga wilayah di bawahnya.
+"""
+from __future__ import annotations
+
+import csv
+import logging
+from datetime import date
+from functools import wraps
+from urllib.parse import urlencode
+
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count, Q
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods, require_POST, require_safe
+
+from apps.content import services as content_services
+from apps.content.models import Package
+from apps.core import ratelimit
+from apps.members import auth
+from apps.members.files import serve_private
+from apps.members.models import Order
+from apps.members.navigation import akun_tabs
+from apps.pos.models import STATE_DELETED
+
+from . import ocr, printing, services
+from .forms import (
+    AckForm,
+    JenisSuratForm,
+    JoinForm,
+    KKForm,
+    PendudukForm,
+    PengumumanForm,
+    RejectForm,
+    RenewForm,
+    ScanUploadForm,
+    WilayahSettingsForm,
+    surat_form_class,
+    surat_initial,
+)
+from .models import (
+    GENDERS,
+    MARITAL,
+    RELATIONS,
+    RELIGIONS,
+    DokumenScan,
+    KartuKeluarga,
+    Penduduk,
+    Pengumuman,
+    Surat,
+    Wilayah,
+    new_join_code,
+)
+
+log = logging.getLogger("hans")
+
+NOTICES = {
+    "kk": "Data KK tersimpan.",
+    "kk-hapus": "KK beserta anggotanya dihapus.",
+    "anggota": "Data anggota keluarga tersimpan.",
+    "anggota-hapus": "Anggota keluarga dihapus.",
+    "scan": "Dokumen tersimpan.",
+    "scan-hapus": "Dokumen scan dihapus.",
+    "scan-kk": "Data KK dibuat dari hasil scan. Periksa lagi setiap anggota keluarganya.",
+    "surat": "Surat tersimpan.",
+    "terbit": "Surat terbit dan sudah bernomor. Silakan cetak.",
+    "tolak": "Pengajuan ditolak. Pemohon bisa melihat alasannya lewat kode lacak.",
+    "format": "Format surat tersimpan.",
+    "format-hapus": "Format surat dihapus.",
+    "format-reset": "Format surat dikembalikan ke bawaan.",
+    "format-bawaan": "Format surat bawaan yang belum ada sudah ditambahkan.",
+    "pengumuman": "Pengumuman tersimpan.",
+    "pengumuman-hapus": "Pengumuman dihapus.",
+    "gabung": "Permintaan bergabung terkirim. Tunggu persetujuan pengurus wilayah di atas.",
+    "gabung-batal": "Permintaan bergabung dibatalkan.",
+    "keluar": "Wilayah Anda tidak lagi terhubung ke wilayah di atasnya.",
+    "terima": "Wilayah bergabung ke jaringan Anda.",
+    "tolak-gabung": "Permintaan bergabung ditolak.",
+    "lepas": "Wilayah dilepas dari jaringan Anda.",
+    "diketahui": "Surat sudah dinyatakan diketahui.",
+    "kode-baru": "Kode undangan baru dibuat. Kode lama tidak berlaku lagi.",
+    "pengaturan": "Pengaturan tersimpan.",
+    "terkunci": "Langganan sedang terkunci atau ditangguhkan, jadi data belum bisa diubah. Perpanjang dulu.",
+}
+
+TABS = [
+    ("ringkasan", "Ringkasan", "home", "sim:ringkasan"),
+    ("warga", "Data warga", "users", "sim:warga"),
+    ("scan", "Scan KK/KTP", "scan", "sim:scan"),
+    ("surat", "Surat", "file", "sim:surat"),
+    ("format", "Format surat", "edit", "sim:format"),
+    ("pengumuman", "Pengumuman", "megaphone", "sim:pengumuman"),
+    ("jaringan", "Jaringan", "link", "sim:jaringan"),
+    ("pengaturan", "Pengaturan", "settings", "sim:pengaturan"),
+]
+
+
+def _with_query(url: str, **params) -> str:
+    params = {k: v for k, v in params.items() if v not in (None, "")}
+    return f"{url}?{urlencode(params)}" if params else url
+
+
+def _url(name: str, w: Wilayah, *args, **query) -> str:
+    return _with_query(reverse(name, args=[w.kode, *args]), **query)
+
+
+def wilayah_view(tab: str, *, edit: bool = False):
+    """Wajib login & pemilik wilayah. ``edit``: tolak perubahan saat langganan terkunci."""
+
+    def decorator(func):
+        @auth.member_required
+        @wraps(func)
+        def wrapper(request, kode: str, *args, **kwargs):
+            w = get_object_or_404(Wilayah.objects.owned_by(request.member).select_related("parent", "package"), kode=kode)
+            if w.state() == STATE_DELETED:
+                raise Http404
+            if edit and not w.can_edit and request.method == "POST":
+                return redirect(_url("sim:ringkasan", w, ok="terkunci"))
+            request.wilayah = w
+            request.sim_tab = tab
+            return func(request, w, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _render(request, template: str, context: dict | None = None, status: int = 200):
+    snap = content_services.get_snapshot()
+    w = getattr(request, "wilayah", None)
+    ctx = {
+        "snap": snap,
+        "site": snap.settings,
+        "member": getattr(request, "_member", None),
+        "w": w,
+        "tabs": [
+            {"key": k, "label": label, "icon": icon, "url": reverse(name, args=[w.kode]), "active": k == request.sim_tab}
+            for k, label, icon, name in TABS
+        ] if w else [],
+        "notice": NOTICES.get(request.GET.get("ok", "")),
+        "renewal": _open_renewal(w) if w else None,
+        "inbox": _inbox_counts(w) if w else None,
+        "akun_tabs": akun_tabs("sim", request.member),
+    }
+    ctx.update(context or {})
+    return render(request, template, ctx, status=status)
+
+
+def _open_renewal(w: Wilayah) -> Order | None:
+    return Order.objects.filter(wilayah=w, order_type=Order.TYPE_RENEWAL, status__in=Order.OPEN_STATUSES).first()
+
+
+def _inbox_counts(w: Wilayah) -> dict:
+    return {
+        "surat": w.surat_set.filter(status=Surat.STATUS_SUBMITTED).count(),
+        "ketahui": Surat.objects.filter(mengetahui_wilayah=w, mengetahui=Surat.ACK_WAITING).count(),
+        "gabung": w.join_requests.count(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Daftar wilayah milik pengurus
+# ---------------------------------------------------------------------------
+@require_safe
+@auth.member_required
+def daftar(request):
+    request.sim_tab = ""
+    wilayah = list(Wilayah.objects.owned_by(request.member).not_deleted().select_related("parent"))
+    for w in wilayah:
+        w.counts = _inbox_counts(w)
+        w.jiwa = w.penduduk_set.filter(status=Penduduk.STATUS_ACTIVE).count()
+    snap = content_services.get_snapshot()
+    pending = request.member.orders.filter(package_category=Package.CATEGORY_SIM, order_type=Order.TYPE_NEW,
+                                           status__in=Order.OPEN_STATUSES)
+    return _render(request, "sim/daftar.html", {
+        "wilayah_list": wilayah, "packages": snap.sim_packages, "pending_orders": pending, "page_title": "Instansi saya",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Ringkasan
+# ---------------------------------------------------------------------------
+@require_safe
+@wilayah_view("ringkasan")
+def ringkasan(request, w: Wilayah):
+    q = request.GET.get("q", "")
+    results = services.search_penduduk(w, q) if q else None
+    children = list(w.children.not_deleted())
+    network_stats = services.stats_for([c.pk for c in services.descendants(w)]) if children else None
+    latest = w.surat_set.select_related("jenis")[:6]
+    return _render(request, "sim/ringkasan.html", {
+        "stats": services.stats_for([w.pk]),
+        "network_stats": network_stats,
+        "children": children,
+        "q": q,
+        "results": results,
+        "latest": latest,
+        "public_url": request.build_absolute_uri(w.public_path),
+        "page_title": w.short_label,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Data warga: KK & anggota
+# ---------------------------------------------------------------------------
+@require_safe
+@wilayah_view("warga")
+def warga(request, w: Wilayah):
+    q = (request.GET.get("q") or "").strip()[:60]
+    status = request.GET.get("status", "aktif")
+    kk_list = w.kk_set.annotate(jumlah=Count("anggota", filter=Q(anggota__status=Penduduk.STATUS_ACTIVE)))
+    if status in (KartuKeluarga.STATUS_ACTIVE, KartuKeluarga.STATUS_MOVED):
+        kk_list = kk_list.filter(status=status)
+    if q:
+        if q.isdigit():
+            kk_list = kk_list.filter(Q(no_kk__startswith=q) | Q(anggota__nik__startswith=q)).distinct()
+        else:
+            kk_list = kk_list.filter(Q(kepala_nama__icontains=q) | Q(alamat__icontains=q) | Q(anggota__nama__icontains=q)).distinct()
+    page = Paginator(kk_list.order_by("kepala_nama", "pk"), 30).get_page(request.GET.get("hal"))
+    return _render(request, "sim/warga.html", {
+        "page": page, "q": q, "status": status, "pager_query": urlencode({"q": q, "status": status}),
+        "page_title": "Data warga",
+    })
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("warga", edit=True)
+def kk_form(request, w: Wilayah, pk: int | None = None):
+    kk = get_object_or_404(w.kk_set, pk=pk) if pk else None
+    if kk is None and request.method == "POST" and w.kk_set.count() >= services.MAX_KK_PER_WILAYAH:
+        raise Http404
+    form = KKForm(request.POST or None, instance=kk, wilayah=w)
+    if request.method == "POST" and form.is_valid():
+        kk = form.save()
+        return redirect(_url("sim:kk", w, kk.pk, ok="kk"))
+    return _render(request, "sim/kk_form.html", {"form": form, "kk": kk, "page_title": "Ubah KK" if kk else "KK baru"},
+                   status=400 if form.errors else 200)
+
+
+@require_safe
+@wilayah_view("warga")
+def kk_detail(request, w: Wilayah, pk: int):
+    kk = get_object_or_404(w.kk_set, pk=pk)
+    return _render(request, "sim/kk_detail.html", {
+        "kk": kk,
+        "anggota": kk.anggota.all(),
+        "scans": kk.scan_set.all()[:10],
+        "page_title": f"KK {kk.kepala_nama}",
+    })
+
+
+@require_POST
+@wilayah_view("warga", edit=True)
+def kk_hapus(request, w: Wilayah, pk: int):
+    kk = get_object_or_404(w.kk_set, pk=pk)
+    kk.delete()
+    return redirect(_url("sim:warga", w, ok="kk-hapus"))
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("warga", edit=True)
+def penduduk_form(request, w: Wilayah, kk: int | None = None, pk: int | None = None):
+    person = get_object_or_404(w.penduduk_set.select_related("kk"), pk=pk) if pk else None
+    family = person.kk if person else get_object_or_404(w.kk_set, pk=kk)
+    form = PendudukForm(request.POST or None, instance=person, kk=family)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(_url("sim:kk", w, family.pk, ok="anggota"))
+    return _render(request, "sim/penduduk_form.html", {
+        "form": form, "kk": family, "person": person, "page_title": "Ubah anggota" if person else "Tambah anggota",
+    }, status=400 if form.errors else 200)
+
+
+@require_POST
+@wilayah_view("warga", edit=True)
+def penduduk_hapus(request, w: Wilayah, pk: int):
+    person = get_object_or_404(w.penduduk_set, pk=pk)
+    family = person.kk_id
+    person.delete()
+    return redirect(_url("sim:kk", w, family, ok="anggota-hapus"))
+
+
+def _csv_safe(value) -> str:
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+@require_safe
+@wilayah_view("warga")
+def warga_unduh(request, w: Wilayah):
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="data-warga-{w.kode}-{timezone.localdate():%Y%m%d}.csv"'
+    response.write("﻿")  # BOM agar Excel membaca UTF-8
+    writer = csv.writer(response)
+    writer.writerow([
+        "No KK", "Kepala keluarga", "Alamat", "RT", "RW", "NIK", "Nama", "Jenis kelamin", "Tempat lahir", "Tanggal lahir",
+        "Agama", "Pendidikan", "Pekerjaan", "Status perkawinan", "Hubungan", "Kewarganegaraan", "Ayah", "Ibu", "Status",
+    ])
+    people = w.penduduk_set.select_related("kk").order_by("kk__kepala_nama", "kk_id", "urutan", "pk")
+    for p in people.iterator(chunk_size=500):
+        writer.writerow([_csv_safe(x) for x in (
+            p.kk.no_kk, p.kk.kepala_nama, p.kk.alamat, p.kk.rt, p.kk.rw, p.nik, p.nama, p.get_jenis_kelamin_display(),
+            p.tempat_lahir, p.tanggal_lahir.isoformat() if p.tanggal_lahir else "", p.agama, p.pendidikan, p.pekerjaan,
+            p.status_perkawinan, p.hubungan, p.kewarganegaraan, p.nama_ayah, p.nama_ibu, p.get_status_display(),
+        )])
+    log.info("Data warga wilayah #%s diunduh oleh pengurus #%s.", w.pk, request.member.pk)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Scan KK/KTP (OCR)
+# ---------------------------------------------------------------------------
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("scan", edit=True)
+def scan(request, w: Wilayah):
+    form = ScanUploadForm(request.POST or None, request.FILES or None)
+    error = ""
+    if request.method == "POST":
+        limit, used = _scan_quota(w)
+        if limit is not None and used >= limit:
+            error = (f"Kuota baca otomatis paket Anda ({limit} dokumen per bulan) sudah habis bulan ini. "
+                     "Coba lagi bulan depan, atau naik ke Paket Tumbuh saat perpanjang.")
+        elif not ratelimit.allow(f"sim-scan:{w.pk}", limit=services.MAX_SCANS_PER_DAY, window=86400):
+            error = "Batas unggah hari ini tercapai. Coba lagi besok."
+        elif form.is_valid():
+            doc = DokumenScan(wilayah=w, jenis=form.cleaned_data["jenis"], judul=form.cleaned_data["judul"])
+            doc.gambar.save(form.cleaned_data["gambar"].name, form.cleaned_data["gambar"], save=False)
+            doc.save()
+            _run_ocr(doc)
+            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
+    page = Paginator(w.scan_set.select_related("kk"), 24).get_page(request.GET.get("hal"))
+    limit, used = _scan_quota(w)
+    return _render(request, "sim/scan.html", {
+        "form": form, "error": error, "page": page, "ocr_ready": ocr.is_available(), "page_title": "Scan KK/KTP",
+        "scan_limit": limit, "scan_used": used,
+    }, status=400 if (error or form.errors) else 200)
+
+
+def _scan_quota(w: Wilayah) -> tuple[int | None, int]:
+    """(batas per bulan dari paket, jumlah scan bulan ini). Batas None = tanpa batas."""
+    limit = w.package.scan_limit if w.package_id and w.package else None
+    # Rentang waktu (bukan __date): MariaDB tanpa tabel zona waktu tidak bisa memakai __date.
+    start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    used = w.scan_set.filter(created_at__gte=start).count() if limit is not None else 0
+    return limit, used
+
+
+def _run_ocr(doc: DokumenScan) -> None:
+    result = ocr.read_text(doc.gambar, kind=doc.jenis)
+    if result.ok:
+        doc.teks, doc.hasil, doc.ocr_status, doc.ocr_pesan = result.text, result.data, DokumenScan.OCR_DONE, ""
+    else:
+        doc.ocr_status = DokumenScan.OCR_FAILED if result.available else DokumenScan.OCR_UNAVAILABLE
+        doc.ocr_pesan = result.message[:200]
+    doc.save(update_fields=["teks", "hasil", "ocr_status", "ocr_pesan"])
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("scan", edit=True)
+def scan_detail(request, w: Wilayah, pk: int):
+    doc = get_object_or_404(w.scan_set.select_related("kk"), pk=pk)
+    if request.method == "POST":
+        action = request.POST.get("aksi")
+        if action == "baca":
+            if ratelimit.allow(f"sim-ocr:{w.pk}", limit=60, window=3600):
+                _run_ocr(doc)
+            return redirect(_url("sim:scan-detail", w, doc.pk))
+        if action == "teks":
+            doc.teks = (request.POST.get("teks") or "")[:20000]
+            doc.save(update_fields=["teks"])
+            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
+        if action == "hubungkan":
+            kk_pk = request.POST.get("kk", "")
+            doc.kk = get_object_or_404(w.kk_set, pk=int(kk_pk)) if kk_pk.isdigit() else None
+            doc.save(update_fields=["kk"])
+            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
+        if action == "buat-kk" and doc.jenis == DokumenScan.TYPE_KK:
+            kk = _kk_from_scan(w, doc, request.POST)
+            return redirect(_url("sim:kk", w, kk.pk, ok="scan-kk"))
+        if action == "hapus":
+            doc.delete()
+            return redirect(_url("sim:scan", w, ok="scan-hapus"))
+        raise Http404
+    hasil = doc.hasil if isinstance(doc.hasil, dict) else {}
+    found = [r for r in hasil.get("anggota", []) if isinstance(r, dict)] if doc.jenis == DokumenScan.TYPE_KK else []
+    rows = []
+    for i in range(min(max(len(found) + 3, 4), 15)):
+        row = dict(found[i]) if i < len(found) else {}
+        row["index"] = str(i)
+        rows.append(row)
+    return _render(request, "sim/scan_detail.html", {
+        "doc": doc,
+        "hasil": hasil,
+        "member_rows": rows,
+        "genders": GENDERS, "religions": RELIGIONS, "maritals": MARITAL, "relations": RELATIONS,
+        "kk_choices": w.kk_set.order_by("kepala_nama")[:500],
+        "page_title": str(doc),
+    })
+
+
+def _digits(value: str, n: int) -> str:
+    value = "".join(ch for ch in (value or "") if ch.isdigit())
+    return value if len(value) == n else ""
+
+
+@transaction.atomic
+def _kk_from_scan(w: Wilayah, doc: DokumenScan, post) -> KartuKeluarga:
+    """Buat KK + anggota dari draf hasil OCR yang SUDAH diperiksa/diubah pengurus di formulir."""
+    no_kk = _digits(post.get("no_kk", ""), 16)
+    kk = w.kk_set.filter(no_kk=no_kk).first() if no_kk else None
+    if kk is None:
+        kk = KartuKeluarga.objects.create(
+            wilayah=w,
+            no_kk=no_kk,
+            kepala_nama=(post.get("kepala_nama") or "TANPA NAMA").strip().upper()[:100],
+            alamat=(post.get("alamat") or "").strip()[:200],
+            rt=(post.get("rt") or "").strip()[:5],
+            rw=(post.get("rw") or "").strip()[:5],
+            kode_pos=_digits(post.get("kode_pos", ""), 5),
+        )
+    existing = set(w.penduduk_set.exclude(nik="").values_list("nik", flat=True))
+    count = 0
+    for i in range(15):
+        prefix = f"a{i}_"
+        nama = (post.get(prefix + "nama") or "").strip().upper()
+        if not nama or post.get(prefix + "lewati"):
+            continue
+        nik = _digits(post.get(prefix + "nik", ""), 16)
+        if nik and nik in existing:
+            continue
+        born = None
+        try:
+            born = date.fromisoformat(post.get(prefix + "tanggal_lahir", "")) if post.get(prefix + "tanggal_lahir") else None
+        except ValueError:
+            born = None
+        gender = post.get(prefix + "jenis_kelamin", "")
+        Penduduk.objects.create(
+            wilayah=w, kk=kk, nik=nik, nama=nama[:100],
+            jenis_kelamin=gender if gender in ("L", "P") else "",
+            tempat_lahir=(post.get(prefix + "tempat_lahir") or "").strip()[:60],
+            tanggal_lahir=born,
+            agama=(post.get(prefix + "agama") or "")[:20],
+            pendidikan=(post.get(prefix + "pendidikan") or "")[:60],
+            pekerjaan=(post.get(prefix + "pekerjaan") or "").strip()[:60],
+            status_perkawinan=(post.get(prefix + "status_perkawinan") or "")[:20],
+            hubungan=(post.get(prefix + "hubungan") or "")[:20],
+            urutan=i + 1,
+        )
+        if nik:
+            existing.add(nik)
+        count += 1
+    doc.kk = kk
+    doc.save(update_fields=["kk"])
+    log.info("KK #%s dibuat/diisi dari scan #%s (%s anggota).", kk.pk, doc.pk, count)
+    return kk
+
+
+@require_safe
+@wilayah_view("scan")
+def scan_gambar(request, w: Wilayah, pk: int):
+    doc = get_object_or_404(w.scan_set, pk=pk)
+    return serve_private(doc.gambar)
+
+
+# ---------------------------------------------------------------------------
+# Surat
+# ---------------------------------------------------------------------------
+SURAT_FILTERS = {
+    "masuk": ("Perlu diproses", Q(status=Surat.STATUS_SUBMITTED)),
+    "terbit": ("Sudah terbit", Q(status=Surat.STATUS_ISSUED)),
+    "ditolak": ("Ditolak", Q(status__in=[Surat.STATUS_REJECTED, Surat.STATUS_CANCELLED])),
+    "semua": ("Semua", Q()),
+}
+
+
+@require_safe
+@wilayah_view("surat")
+def surat(request, w: Wilayah):
+    key = request.GET.get("filter", "masuk")
+    if key not in SURAT_FILTERS:
+        key = "masuk"
+    qs = w.surat_set.filter(SURAT_FILTERS[key][1]).select_related("jenis", "penduduk")
+    q = (request.GET.get("q") or "").strip()[:60]
+    if q:
+        qs = qs.filter(Q(nama__icontains=q) | Q(nik__startswith=q) | Q(nomor__icontains=q))
+    page = Paginator(qs, 30).get_page(request.GET.get("hal"))
+    pager_query = urlencode({"filter": key, "q": q})
+    filters = [{"key": k, "label": label, "active": k == key, "url": _url("sim:surat", w, filter=k)} for k, (label, _) in SURAT_FILTERS.items()]
+    return _render(request, "sim/surat.html", {
+        "page": page, "filters": filters, "q": q, "filter": key, "pager_query": pager_query, "page_title": "Surat",
+    })
+
+
+@require_safe
+@wilayah_view("surat")
+def surat_pilih(request, w: Wilayah):
+    person = None
+    pid = request.GET.get("penduduk", "")
+    if pid.isdigit():
+        person = w.penduduk_set.filter(pk=int(pid)).first()
+    return _render(request, "sim/surat_pilih.html", {
+        "jenis_list": w.jenis_surat.filter(aktif=True), "person": person, "page_title": "Buat surat",
+    })
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("surat", edit=True)
+def surat_baru(request, w: Wilayah, jenis: str):
+    jenis_obj = get_object_or_404(w.jenis_surat, kode=jenis, aktif=True)
+    form_class = surat_form_class(jenis_obj, public=False)
+    initial = {}
+    person = None
+    pid = request.GET.get("penduduk", "") or request.POST.get("penduduk", "")
+    if pid.isdigit():
+        person = w.penduduk_set.select_related("kk").filter(pk=int(pid)).first()
+        if person:
+            initial = services.prefill_from_penduduk(person)
+    form = form_class(request.POST or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        s = services.create_request(w, jenis_obj, form.cleaned_data, source=Surat.SOURCE_DIRECT)
+        if person and not s.penduduk_id:
+            s.penduduk = person
+            s.save(update_fields=["penduduk"])
+        if request.POST.get("terbitkan"):
+            services.issue(s)
+            return redirect(_url("sim:surat-detail", w, s.pk, ok="terbit"))
+        return redirect(_url("sim:surat-detail", w, s.pk, ok="surat"))
+    return _render(request, "sim/surat_form.html", {
+        "form": form, "jenis": jenis_obj, "person": person, "page_title": jenis_obj.nama,
+    }, status=400 if form.errors else 200)
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("surat", edit=True)
+def surat_detail(request, w: Wilayah, pk: int):
+    s = get_object_or_404(w.surat_set.select_related("jenis", "penduduk__kk"), pk=pk)
+    editable = s.status == Surat.STATUS_SUBMITTED
+    form = surat_form_class(s.jenis, public=False)(initial=surat_initial(s)) if editable and s.jenis else None
+    reject_form = RejectForm()
+    if request.method == "POST" and editable:
+        action = request.POST.get("aksi")
+        if action in ("simpan", "terbit") and s.jenis:
+            form = surat_form_class(s.jenis, public=False)(request.POST)
+            if form.is_valid():
+                _update_surat(s, form.cleaned_data)
+                if action == "terbit":
+                    try:
+                        services.issue(s, signer=request.POST.get("penanda_tangan", ""), title=request.POST.get("jabatan", ""))
+                    except services.SuratError:
+                        pass
+                    return redirect(_url("sim:surat-detail", w, s.pk, ok="terbit"))
+                return redirect(_url("sim:surat-detail", w, s.pk, ok="surat"))
+        elif action == "tolak":
+            reject_form = RejectForm(request.POST)
+            if reject_form.is_valid():
+                try:
+                    services.reject(s, reject_form.cleaned_data["alasan"])
+                except services.SuratError:
+                    pass
+                return redirect(_url("sim:surat-detail", w, s.pk, ok="tolak"))
+    elif request.method == "POST" and request.POST.get("aksi") == "catatan":
+        s.catatan_pengurus = (request.POST.get("catatan") or "")[:1000]
+        s.save(update_fields=["catatan_pengurus", "updated_at"])
+        return redirect(_url("sim:surat-detail", w, s.pk, ok="surat"))
+    return _render(request, "sim/surat_detail.html", {
+        "s": s,
+        "form": form,
+        "reject_form": reject_form,
+        "lacak_url": request.build_absolute_uri(s.lacak_path),
+        "page_title": f"{s.jenis_nama} — {s.nama}",
+    }, status=400 if (form is not None and form.errors) or reject_form.errors else 200)
+
+
+def _update_surat(s: Surat, cleaned: dict) -> None:
+    data = {}
+    for key, _ in services.STANDARD_FIELDS:
+        if key in ("nama", "nik"):
+            continue
+        value = cleaned.get(key)
+        data[key] = value.isoformat() if isinstance(value, date) else str(value or "")
+    for spec in s.jenis.kolom or []:
+        value = cleaned.get(f"x_{spec['key']}")
+        data[spec["key"]] = value.isoformat() if isinstance(value, date) else str(value or "")
+    s.nama = cleaned["nama"][:100]
+    s.nik = cleaned.get("nik", "") or ""
+    s.data = data
+    s.save(update_fields=["nama", "nik", "data", "updated_at"])
+
+
+@require_safe
+@wilayah_view("surat")
+def surat_cetak(request, w: Wilayah, pk: int):
+    s = get_object_or_404(w.surat_set.select_related("jenis"), pk=pk)
+    return printing.render_letter(request, s, w, images_url=lambda kind: _url("sim:gambar", w, kind), draft=not s.is_issued)
+
+
+# ---------------------------------------------------------------------------
+# Format surat
+# ---------------------------------------------------------------------------
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("format", edit=True)
+def format_list(request, w: Wilayah):
+    if request.method == "POST" and request.POST.get("aksi") == "bawaan":
+        services.seed_jenis_surat(w)
+        return redirect(_url("sim:format", w, ok="format-bawaan"))
+    return _render(request, "sim/format_list.html", {
+        "jenis_list": w.jenis_surat.annotate(jumlah=Count("surat_set")), "page_title": "Format surat",
+    })
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("format", edit=True)
+def format_form(request, w: Wilayah, pk: int | None = None):
+    jenis = get_object_or_404(w.jenis_surat, pk=pk) if pk else None
+    if jenis is None and request.method == "POST" and w.jenis_surat.count() >= services.MAX_JENIS_SURAT:
+        raise Http404
+    form = JenisSuratForm(request.POST or None, instance=jenis, wilayah=w)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(_url("sim:format", w, ok="format"))
+    return _render(request, "sim/format_form.html", {
+        "form": form,
+        "jenis": jenis,
+        "has_default": bool(jenis and services.default_spec(jenis.kode, w.level)),
+        "standard_fields": services.STANDARD_FIELDS,
+        "page_title": jenis.nama if jenis else "Format surat baru",
+    }, status=400 if form.errors else 200)
+
+
+@require_POST
+@wilayah_view("format", edit=True)
+def format_hapus(request, w: Wilayah, pk: int):
+    get_object_or_404(w.jenis_surat, pk=pk).delete()
+    return redirect(_url("sim:format", w, ok="format-hapus"))
+
+
+@require_POST
+@wilayah_view("format", edit=True)
+def format_reset(request, w: Wilayah, pk: int):
+    jenis = get_object_or_404(w.jenis_surat, pk=pk)
+    spec = services.default_spec(jenis.kode, w.level)
+    if spec is None:
+        raise Http404
+    for key in ("nama", "judul", "kode_surat", "keterangan", "isi", "kolom"):
+        setattr(jenis, key, spec[key])
+    jenis.butuh_mengetahui = spec["butuh_mengetahui"] and bool(w.parent_level)
+    jenis.save()
+    return redirect(_url("sim:format", w, ok="format-reset"))
+
+
+@require_safe
+@wilayah_view("format")
+def format_contoh(request, w: Wilayah, pk: int):
+    """Pratinjau format dengan data contoh, untuk melihat hasil cetak sebelum dipakai."""
+    jenis = get_object_or_404(w.jenis_surat, pk=pk)
+    sample = Surat(
+        wilayah=w, jenis=jenis, jenis_nama=jenis.nama, judul=jenis.judul, nama="BUDI SANTOSO", nik="3201010101900001",
+        data={
+            "jenis_kelamin": "L", "tempat_lahir": "BOGOR", "tanggal_lahir": "1990-01-01", "agama": "Islam",
+            "status_perkawinan": "Kawin", "pekerjaan": "WIRASWASTA", "kewarganegaraan": "WNI",
+            "alamat": "JL. MELATI NO. 1", "keperluan": "Contoh keperluan",
+        },
+    )
+    sample.isi = services.render_text(jenis.isi, sample, w)
+    return printing.render_letter(request, sample, w, images_url=lambda kind: _url("sim:gambar", w, kind), draft=True, sample=True)
+
+
+# ---------------------------------------------------------------------------
+# Pengumuman
+# ---------------------------------------------------------------------------
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("pengumuman", edit=True)
+def pengumuman(request, w: Wilayah, pk: int | None = None):
+    item = get_object_or_404(w.pengumuman_set, pk=pk) if pk else None
+    form = PengumumanForm(request.POST or None, instance=item, wilayah=w)
+    if request.method == "POST" and form.is_valid():
+        if item is None and w.pengumuman_set.count() >= 200:
+            raise Http404
+        form.save()
+        return redirect(_url("sim:pengumuman", w, ok="pengumuman"))
+    upper = [p for p in Pengumuman.objects.filter(wilayah__in=services.ancestors(w), teruskan=True, aktif=True)[:10]]
+    return _render(request, "sim/pengumuman.html", {
+        "form": form, "item": item, "items": w.pengumuman_set.all()[:50], "upper": upper, "page_title": "Pengumuman",
+    }, status=400 if form.errors else 200)
+
+
+@require_POST
+@wilayah_view("pengumuman", edit=True)
+def pengumuman_hapus(request, w: Wilayah, pk: int):
+    get_object_or_404(w.pengumuman_set, pk=pk).delete()
+    return redirect(_url("sim:pengumuman", w, ok="pengumuman-hapus"))
+
+
+# ---------------------------------------------------------------------------
+# Jaringan wilayah
+# ---------------------------------------------------------------------------
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("jaringan", edit=True)
+def jaringan(request, w: Wilayah):
+    is_join = request.method == "POST" and request.POST.get("aksi") == "gabung"
+    join_form = JoinForm(request.POST if is_join else None)
+    error = ""
+    if request.method == "POST":
+        action = request.POST.get("aksi")
+        if action == "gabung" and join_form.is_valid():
+            if not ratelimit.allow(f"sim-join:{w.pk}", limit=10, window=3600):
+                error = "Terlalu banyak percobaan. Coba lagi nanti."
+            else:
+                try:
+                    services.request_join(w, join_form.cleaned_data["kode"])
+                    return redirect(_url("sim:jaringan", w, ok="gabung"))
+                except services.NetworkError as exc:
+                    error = str(exc)
+        elif action == "batal-gabung":
+            w.join_request = None
+            w.save(update_fields=["join_request", "updated_at"])
+            return redirect(_url("sim:jaringan", w, ok="gabung-batal"))
+        elif action == "keluar":
+            services.leave_parent(w)
+            return redirect(_url("sim:jaringan", w, ok="keluar"))
+        elif action in ("terima", "tolak") and request.POST.get("wilayah", "").isdigit():
+            try:
+                services.decide_join(w, int(request.POST["wilayah"]), accept=action == "terima")
+            except Wilayah.DoesNotExist:
+                raise Http404
+            return redirect(_url("sim:jaringan", w, ok="terima" if action == "terima" else "tolak-gabung"))
+        elif action == "lepas" and request.POST.get("wilayah", "").isdigit():
+            services.remove_child(w, int(request.POST["wilayah"]))
+            return redirect(_url("sim:jaringan", w, ok="lepas"))
+        elif action == "kode-baru":
+            w.join_code = new_join_code()
+            w.save(update_fields=["join_code", "updated_at"])
+            return redirect(_url("sim:jaringan", w, ok="kode-baru"))
+    children = list(w.children.not_deleted())
+    for child in children:
+        child.stats = services.stats_for([child.pk] + [d.pk for d in services.descendants(child)])
+    return _render(request, "sim/jaringan.html", {
+        "join_form": join_form,
+        "error": error,
+        "ancestors": services.ancestors(w),
+        "children": children,
+        "requests": w.join_requests.all(),
+        "ack_list": Surat.objects.filter(mengetahui_wilayah=w).select_related("wilayah").order_by("mengetahui", "-issued_at")[:50],
+        "page_title": "Jaringan wilayah",
+    }, status=400 if (error or join_form.errors) else 200)
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("jaringan", edit=True)
+def ketahui(request, w: Wilayah, pk: int):
+    """Surat dari wilayah di bawah yang perlu 'diketahui' (hanya surat yang dikirim ke wilayah ini)."""
+    s = get_object_or_404(Surat.objects.select_related("wilayah", "jenis"), pk=pk, mengetahui_wilayah=w)
+    form = AckForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            services.acknowledge(s, w, accept=request.POST.get("aksi") != "tolak", note=form.cleaned_data["catatan"])
+        except services.SuratError:
+            pass
+        return redirect(_url("sim:jaringan", w, ok="diketahui"))
+    if request.GET.get("cetak"):
+        return printing.render_letter(request, s, s.wilayah, images_url=None, draft=False)
+    return _render(request, "sim/ketahui.html", {"s": s, "form": form, "page_title": f"Mengetahui: {s.jenis_nama}"})
+
+
+# ---------------------------------------------------------------------------
+# Pengaturan & perpanjangan
+# ---------------------------------------------------------------------------
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("pengaturan", edit=True)
+def pengaturan(request, w: Wilayah):
+    form = WilayahSettingsForm(request.POST or None, request.FILES or None, instance=w)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(_url("sim:pengaturan", w, ok="pengaturan"))
+    return _render(request, "sim/pengaturan.html", {"form": form, "page_title": "Pengaturan"},
+                   status=400 if form.errors else 200)
+
+
+@require_safe
+@wilayah_view("pengaturan")
+def gambar(request, w: Wilayah, kind: str):
+    field = {"ttd": w.ttd, "cap": w.cap}.get(kind)
+    if not field:
+        raise Http404
+    return serve_private(field)
+
+
+@require_http_methods(["GET", "HEAD", "POST"])
+@wilayah_view("ringkasan")
+def perpanjang(request, w: Wilayah):
+    existing = _open_renewal(w)
+    form = RenewForm(request.POST or None, initial={"package": w.package_id})
+    if request.method == "POST":
+        if existing:
+            return redirect("akun:pesanan", code=existing.code)
+        if form.is_valid():
+            package = form.cleaned_data["package"]
+            order = Order.objects.create(
+                member=request.member,
+                order_type=Order.TYPE_RENEWAL,
+                wilayah=w,
+                package=package,
+                package_name=package.name,
+                package_category=package.category,
+                price_text=package.price_text,
+                amount=package.price,
+                status=Order.STATUS_PAYMENT,
+            )
+            log.info("Perpanjangan SIM %s untuk wilayah #%s.", order.code, w.pk)
+            return redirect(_with_query(reverse("akun:pesanan", args=[order.code]), ok="dibuat"))
+    return _render(request, "sim/perpanjang.html", {"form": form, "existing": existing, "page_title": "Perpanjang"},
+                   status=400 if form.errors else 200)

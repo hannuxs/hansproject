@@ -115,7 +115,7 @@ class PackageForm(forms.ModelForm):
         model = Package
         fields = [
             "name", "code", "category", "icon", "tagline", "description",
-            "price_prefix", "price", "price_suffix", "monthly_price", "outlet_count",
+            "price_prefix", "price", "price_suffix", "monthly_price", "outlet_count", "scan_limit",
             "badge", "is_highlighted", "includes_from", "order", "is_active",
         ]
         widgets = {
@@ -124,10 +124,18 @@ class PackageForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        qs = Package.objects.filter(category=Package.CATEGORY_POS)
+        # Paket dari solusi mana pun (mis. SIM Tumbuh berisi SIM Tunas); kecocokan solusi dicek di clean().
+        qs = Package.objects.order_by("category", "order", "pk")
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         self.fields["includes_from"].queryset = qs
+
+    def clean(self):
+        cleaned = super().clean()
+        parent, category = cleaned.get("includes_from"), cleaned.get("category")
+        if parent and category and parent.category != category:
+            self.add_error("includes_from", f"Pilih paket dari solusi yang sama ({Package.PRODUCT_LABELS.get(category, category)}).")
+        return cleaned
 
 
 PackageFeatureFormSet = inlineformset_factory(
@@ -161,10 +169,10 @@ class ComparisonRowForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         values = self.instance.values if isinstance(self.instance.values, dict) else {}
-        self.packages = list(Package.objects.order_by("order", "id"))
+        self.packages = list(Package.objects.order_by("category", "order", "id"))
         for pkg in self.packages:
             self.fields[f"val_{pkg.code}"] = forms.CharField(
-                label=f"Paket {pkg.name}", max_length=120, required=False, initial=values.get(pkg.code, ""),
+                label=str(pkg), max_length=120, required=False, initial=values.get(pkg.code, ""),
             )
 
     def save(self, commit=True):
@@ -178,7 +186,7 @@ class ComparisonRowForm(forms.ModelForm):
 class FaqForm(forms.ModelForm):
     class Meta:
         model = Faq
-        fields = ["question", "answer", "order", "is_active"]
+        fields = ["topic", "question", "answer", "order", "is_active"]
         widgets = {"answer": forms.Textarea(attrs={"rows": 7})}
 
 
@@ -241,8 +249,8 @@ BankAccountFormSet = modelformset_factory(
 # Pelanggan (akun yang masuk dengan Google)
 # ---------------------------------------------------------------------------
 class OrderAdminForm(forms.ModelForm):
-    """Ubah status pesanan. Pesanan kasir yang diubah menjadi Aktif otomatis membuat /
-    memperpanjang toko (lihat apps/pos/services.activate_order)."""
+    """Ubah status pesanan. Pesanan kasir/SIM yang diubah menjadi Aktif otomatis membuat /
+    memperpanjang toko atau instansi (apps/pos/services & apps/sim/services .activate_order)."""
 
     approve_subdomain = forms.BooleanField(
         label="Setujui ganti alamat toko", required=False,
@@ -272,11 +280,23 @@ class OrderAdminForm(forms.ModelForm):
                 self.add_error("status", problem)
             else:
                 self._activate = True
+        elif becomes_active and order.is_sim:
+            from apps.sim import services as sim_services
+
+            problem = sim_services.activation_problem(order)
+            if problem:
+                self.add_error("status", problem)
+            else:
+                self._activate = True
         return cleaned
 
     def save(self, commit=True):
         order = super().save(commit=False)
-        if self._activate:
+        if self._activate and order.is_sim:
+            from apps.sim import services as sim_services
+
+            sim_services.activate_order(order)
+        elif self._activate:
             from apps.pos import services as pos_services
 
             pos_services.activate_order(order, approve_subdomain=self.cleaned_data.get("approve_subdomain", False))

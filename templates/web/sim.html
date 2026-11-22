@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% comment %} Halaman solusi: Sistem Informasi Manajemen (SIM). {% endcomment %}
+{% block title %}Sistem Informasi Manajemen (SIM) untuk RT, RW, Kelurahan | HANS Project{% endblock %}
+{% block description %}Sistem Informasi Manajemen (SIM) online: foto KK/KTP jadi data, surat online dengan kode lacak, format surat fleksibel, cetak dari mana saja, RT–RW–kelurahan–kecamatan terhubung.{% endblock %}
+{% block og_title %}Sistem Informasi Manajemen (SIM) | HANS Project{% endblock %}
+{% block canonical %}{% url 'web:sim' %}{% endblock %}
+{% block og_url %}{% url 'web:sim' %}{% endblock %}
+{% block head_extra %}<script type="application/ld+json">{{ structured_data|jsonld }}</script>{% endblock %}
+{% block content %}
+  {% include "web/partials/sim.html" %}
+  {% include "web/partials/sim_pricing.html" %}
+  {% include "web/partials/compare.html" with columns=snap.sim_comparison_columns rows=snap.sim_comparison_rows %}
+  {% include "web/partials/steps.html" %}
+  {% include "web/partials/faq.html" with faqs=snap.faq_topics.sim %}
+  {% include "web/partials/cta.html" with cta_lead="Pilih Paket Tunas atau Tumbuh untuk instansi Anda. Data warga dan surat langsung bisa dikelola setelah aktif." %}
+{% endblock %}

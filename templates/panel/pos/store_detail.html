@@ -3,11 +3,13 @@
   <ul class="kv" role="list">
     <li><span>Alamat</span><b><a href="{{ object.url }}" target="_blank" rel="noopener">{{ object.host }}</a> · <a href="{{ object.kasir_url }}" target="_blank" rel="noopener">kasir</a></b></li>
     <li><span>Keadaan</span><b>{{ object.state_label }}</b></li>
+    <li><span>Langganan</span><b>Paket {{ object.subscription.package_name }} · {{ object.subscription.stores_used }} / {{ object.subscription.store_limit }} toko aktif ({{ object.subscription.quota_text }})</b></li>
     <li><span>Aktif sampai</span><b>{{ object.active_until|date:"j M Y" }}</b></li>
     <li><span>Masa tenggang sampai</span><b>{{ object.grace_until|date:"j M Y" }}</b></li>
     <li><span>Data dihapus setelah</span><b>{{ object.delete_on|date:"j M Y" }}</b></li>
     <li><span>Pemilik</span><b><a href="{% url 'panel:pelanggan-update' object.owner_id %}">{{ object.owner.display_name }}</a> · {{ object.owner.email }} · {{ object.owner.phone_display|default:"–" }}</b></li>
-    <li><span>Outlet aktif</span><b>{{ object.outlets.all|length }} dibuat, batas {{ object.outlet_limit }}</b></li>
+    <li><span>Toko lain di langganan ini</span><b>{% for s in object.subscription.stores.all %}{% if s.pk != object.pk %}<a href="{% url 'panel:toko-update' s.pk %}">{{ s.name }}</a> ({{ s.host }}{% if not s.is_active %}, nonaktif{% endif %}){% if not forloop.last %}, {% endif %}{% endif %}{% empty %}–{% endfor %}</b></li>
+    <li><span>Akun kasir</span><b>{% with c=object.cashier_or_none %}{% if c %}{{ c.username }}{% if not c.is_active %} (nonaktif){% endif %}{% else %}belum dibuat{% endif %}{% endwith %}</b></li>
     <li><span>Barang</span><b>{{ object.products.count }}</b></li>
     <li><span>Transaksi</span><b>{{ object.sales.count }}</b></li>
     <li><span>Dibuat</span><b>{{ object.created_at|date:"j M Y, H:i" }}</b></li>
@@ -20,5 +22,5 @@
       </ul>
     {% endif %}
   {% endwith %}
-  <p class="field-help">Menghapus toko menghapus permanen semua barang, outlet, akun kasir, dan transaksinya. Toko yang tidak diperpanjang dihapus otomatis 30 hari setelah masa aktif habis.</p>
+  <p class="field-help">Paket, masa aktif, status, kuota, dan catatan berlaku untuk SEMUA toko di langganan ini. Menghapus toko menghapus permanen barang, akun kasir, dan transaksinya. Langganan yang tidak diperpanjang dihapus otomatis (semua tokonya) 30 hari setelah masa aktif habis.</p>
 </section>

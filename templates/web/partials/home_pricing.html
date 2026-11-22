@@ -1,0 +1,50 @@
+{% comment %}
+  Harga di halaman utama: satu tab per solusi berlangganan (Aplikasi Kasir, SIM), masing-masing
+  Paket Tunas & Tumbuh. Tab memakai radio + CSS (tetap jalan tanpa JavaScript).
+  Isi paket lengkap, tambahan, dan tabel teknis ada di halaman solusinya.
+{% endcomment %}
+<section class="section aurora" id="harga" aria-labelledby="harga-title">
+  <div class="pillars" aria-hidden="true"><i></i><i></i></div>
+  <div class="container">
+    {% include "components/section_head.html" with eyebrow="Harga" title="Paket Tunas & Tumbuh untuk setiap solusi" lead="Bayar bulanan. Tunas untuk mulai, Tumbuh untuk yang lebih besar." id="harga-title" center=True %}
+    <div class="ptabs">
+      <input class="ptab-input" type="radio" name="harga-solusi" id="harga-kasir" value="kasir" checked>
+      <input class="ptab-input" type="radio" name="harga-solusi" id="harga-sim" value="sim">
+      <div class="ptab-list">
+        <label for="harga-kasir">{% icon "calculator" %}<span>Aplikasi Kasir</span></label>
+        <label for="harga-sim">{% icon "database" %}<span>SIM</span></label>
+      </div>
+
+      {% for key, packages, page_url, label in pricing_tabs %}
+        <div class="ptab-panel ptab-{{ key }}">
+          <div class="plans plans-compact">
+            {% for pkg in packages %}
+              <article class="plan {% if pkg.is_highlighted %}plan-hl{% else %}glass{% endif %}" aria-labelledby="hp-{{ pkg.code }}">
+                {% if pkg.badge %}<span class="badge">{% icon "star" "icon-sm" %}{{ pkg.badge }}</span>{% endif %}
+                <div class="plan-head">
+                  <span class="plan-emoji" aria-hidden="true">{{ pkg.icon }}</span>
+                  <h3 class="plan-name" id="hp-{{ pkg.code }}"><small>{{ label }}</small>Paket {{ pkg.name }}</h3>
+                </div>
+                {% if pkg.tagline %}<p class="plan-for"><b>Cocok untuk:</b> {{ pkg.tagline }}</p>{% endif %}
+                {% include "components/price.html" %}
+                {% if pkg.includes_from %}<p class="plan-inherit">Semua isi Paket {{ pkg.includes_from.name }}, ditambah:</p>{% endif %}
+                <ul class="plan-features" role="list">
+                  {% for item in pkg.features.all|slice:":4" %}<li>{% icon "check" %}<span>{{ item.simple }}</span></li>{% endfor %}
+                </ul>
+                {% if pkg.is_highlighted %}{% include "components/order_button.html" with style="btn-light" %}{% else %}{% include "components/order_button.html" with style="" %}{% endif %}
+              </article>
+            {% empty %}
+              <p class="muted center">Paket sedang disiapkan.</p>
+            {% endfor %}
+          </div>
+          <p class="ptab-more"><a href="{{ page_url }}#harga">Lihat isi lengkap &amp; perbandingan paket {{ label }} {% icon "arrow-right" "icon-sm" %}</a></p>
+        </div>
+      {% endfor %}
+    </div>
+    {% with pkg=snap.service_packages.0 %}
+      {% if pkg %}
+        <p class="custom-note glass">{% icon "code" %}<span>Butuh sistem yang dibuat khusus? <b>Paket {{ pkg.name }}</b> {{ pkg.price_prefix|lower }} {{ pkg.price|rupiah }} {{ pkg.price_suffix }}. <a href="{% url 'web:jasa' %}">Lihat jasa website &amp; aplikasi</a>.</span></p>
+      {% endif %}
+    {% endwith %}
+  </div>
+</section>

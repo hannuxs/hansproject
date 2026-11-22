@@ -55,9 +55,10 @@ class StoreHostMiddleware:
             return self.get_response(request)
         request.urlconf = "apps.pos.urls_store"
         response = self.get_response(request)
-        # Halaman toko belum untuk mesin pencari (halaman promosi menyusul di fase 2),
-        # dan halaman kasir berisi data toko: jangan disimpan di cache.
-        response["X-Robots-Tag"] = "noindex, nofollow"
+        # Hanya halaman toko yang sudah diterbitkan pemilik yang boleh masuk mesin pencari.
+        # Halaman kasir berisi data toko: jangan disimpan di cache.
+        if not getattr(response, "store_indexable", False):
+            response["X-Robots-Tag"] = "noindex, nofollow"
         if request.path.startswith("/kasir/"):
             response["Cache-Control"] = "no-store, max-age=0"
         return response
