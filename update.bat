@@ -31,6 +31,18 @@ echo.
 echo [3/6] Memasang dependensi baru...
 "%PY%" -m pip install --quiet --disable-pip-version-check --require-hashes --only-binary=:all: -r "%ROOT%\requirements\base.txt" || goto :fail
 
+rem Pembaca foto KK/KTP (opsional): perbarui juga bila sudah dipasang lewat pasang-ocr.bat,
+rem dengan varian yang sama (GPU NVIDIA atau CPU). Kedua varian tidak boleh tercampur.
+set "OCR_KIND="
+"%PY%" -c "import rapidocr_onnxruntime" >nul 2>&1 && set "OCR_KIND=cpu"
+"%PY%" -c "import sys, onnxruntime as o; sys.exit(0 if 'CUDAExecutionProvider' in o.get_available_providers() else 1)" >nul 2>&1 && set "OCR_KIND=gpu"
+if "%OCR_KIND%"=="gpu" (
+  "%PY%" -m pip install --quiet --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps -r "%ROOT%\requirements\ocr-gpu.txt" || goto :fail
+)
+if "%OCR_KIND%"=="cpu" (
+  "%PY%" -m pip install --quiet --disable-pip-version-check --require-hashes --only-binary=:all: -r "%ROOT%\requirements\ocr.txt" || goto :fail
+)
+
 echo.
 echo [4/6] Memperbarui struktur tabel (migrasi)...
 "%PY%" manage.py migrate --noinput || goto :fail

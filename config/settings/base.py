@@ -266,6 +266,8 @@ TESSERACT_LANG = env_str("TESSERACT_LANG", "ind+eng")
 # Folder data bahasa (ind/eng/osd). Kosong = tools/tessdata di folder proyek bila ada (diisi pasang-ocr.bat),
 # selain itu folder bawaan Tesseract.
 TESSERACT_DATA_DIR = env_str("TESSERACT_DATA_DIR") or str(BASE_DIR / "tools" / "tessdata")
+# Pembaca foto (PaddleOCR): auto = pakai GPU NVIDIA bila paket GPU terpasang (pasang-ocr.bat), selain itu CPU.
+OCR_DEVICE = env_str("OCR_DEVICE", "auto")
 # Jumlah proses Tesseract sekaligus saat membaca satu KK (per kolom tabel). 1–4.
 TESSERACT_WORKERS = 3
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000

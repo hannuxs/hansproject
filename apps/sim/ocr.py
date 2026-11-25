@@ -74,7 +74,18 @@ def tesseract_cmd() -> str | None:
 
 
 def is_available() -> bool:
-    return tesseract_cmd() is not None
+    from . import ocr_foto
+
+    return tesseract_cmd() is not None or ocr_foto.available()
+
+
+def kk_score(data: dict) -> float:
+    """Seberapa lengkap hasil baca KK (untuk memilih hasil terbaik dari dua mesin)."""
+    members = [m for m in data.get("anggota", []) if isinstance(m, dict)]
+    score = sum(1 + sum(1 for v in m.values() if v) / 17 + (len(m.get("nik", "")) == 16) for m in members)
+    score += 0.2 * sum(1 for k in ("alamat", "rt", "rw", "kelurahan", "kecamatan", "kota", "provinsi", "kode_pos") if data.get(k))
+    score += 0.5 * (len(data.get("no_kk", "")) == 16)
+    return score
 
 
 def _data_dir_args() -> list[str]:
@@ -451,15 +462,23 @@ def _empty(value: str) -> bool:
     return not re.sub(r"[\s\-–—_.|:;,'\"~=]+", "", value or "")
 
 
+def _squash(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").upper()
+
+
 def _snap(value: str, options: list[str], cutoff: float) -> str:
-    """Cocokkan hasil baca ke ejaan baku terdekat (mis. 'SLTA/SEDERAJAI' -> 'SLTA/SEDERAJAT')."""
+    """Cocokkan hasil baca ke ejaan baku terdekat (mis. 'SLTA/SEDERAJAI' -> 'SLTA/SEDERAJAT',
+    'TIDAK/BELUMSEKOLAH' -> 'TIDAK/BELUM SEKOLAH'). Spasi diabaikan saat membandingkan."""
     upper = _clean(value).upper()
     if not upper:
         return ""
     if upper in options:
         return upper
-    match = difflib.get_close_matches(upper, options, n=1, cutoff=cutoff)
-    return match[0] if match else ""
+    squashed = {_squash(o): o for o in options}
+    if _squash(upper) in squashed:
+        return squashed[_squash(upper)]
+    match = difflib.get_close_matches(_squash(upper), list(squashed), n=1, cutoff=cutoff)
+    return squashed[match[0]] if match else ""
 
 
 def _gender(text: str) -> str:
@@ -479,12 +498,13 @@ def _pick(text: str, pairs) -> str:
     if not upper:
         return ""
     items = list(pairs.items()) if isinstance(pairs, dict) else list(pairs)
-    for word, value in items:
-        if word in upper:
+    squashed = _squash(upper)
+    for word, value in items:  # urutan dari yang terpanjang; spasi diabaikan ('BELUMKAWIN', 'KEPALAKELUARGA')
+        if _squash(word) in squashed:
             return value
-    words = [w for w, _ in items]
-    match = difflib.get_close_matches(upper, words, n=1, cutoff=0.7)
-    return dict(items)[match[0]] if match else ""
+    lookup = {_squash(w): v for w, v in items}
+    match = difflib.get_close_matches(squashed, list(lookup), n=1, cutoff=0.7)
+    return lookup[match[0]] if match else ""
 
 
 def _name(text: str) -> str:
@@ -501,7 +521,9 @@ def _place(text: str) -> str:
 
 
 def _blood(text: str) -> str:
-    upper = re.sub(r"\s+", " ", (text or "").upper()).strip(" -.")
+    # Huruf O tunggal kadang terbaca sebagai lingkaran/titik Tionghoa oleh model PaddleOCR.
+    text = (text or "").translate(str.maketrans({"。": "O", "〇": "O", "○": "O", "°": "O"}))
+    upper = re.sub(r"\s+", " ", text.upper()).strip(" -.")
     if not upper:
         return ""
     if "TIDAK" in upper or "TAHU" in upper:
@@ -557,10 +579,12 @@ def parse_head_lines(lines: list[str]) -> dict:
             value = _head_value(line[match.end():end])
             if key and value and key not in data:
                 data[key] = value
-        if "no_kk" not in data:
-            niks = find_niks(line.replace(" ", "")) if re.search(r"\bN[o0]\b|KELUARGA", line, re.I) else []
-            if niks:
-                data["no_kk"] = niks[0]
+        if "no_kk" not in data and re.search(r"\bN[o0]\b|N[o0][.,:]|KELUARGA", line, re.I):
+            squeezed = line.replace(" ", "")
+            # 'No.b6404...': noda yang menempel di depan angka juga diterima.
+            found = find_niks(squeezed) or re.findall(r"(?<!\d)\d{16}(?!\d)", squeezed)
+            if found:
+                data["no_kk"] = found[0]
         if "tanggal_dikeluarkan" not in data and re.search(r"dikeluarkan", line, re.I):
             data["tanggal_dikeluarkan"] = parse_date(line)
     if "rt_rw" in data:
@@ -838,29 +862,47 @@ def _read_structured(cmd: str, path: str, folder: str) -> tuple[dict, str] | Non
         # No. KK: tanpa logo di kiri & tanpa tepi kanan (noda), dibaca dengan beberapa variasi.
         no_area = head.crop((int(head.width * 0.15), 0, int(head.width * 0.9), head.height))
         no_kk = _kk_number(cmd, no_area, no_band, folder, pool) if no_band else ""
-    data = parse_head_lines(head_lines + foot_text.splitlines())
+    return assemble_kk(rows_a, rows_b, head_lines, foot_text.splitlines(), no_kk=no_kk, digits_ready=True)
+
+
+def assemble_kk(rows_a: list[dict], rows_b: list[dict], head_lines: list[str], foot_lines: list[str], *,
+                no_kk: str = "", digits_ready: bool = False, fix=None, method: str = "tabel") -> tuple[dict, str]:
+    """Rakit hasil baca KK: kepala (label : nilai), baris tabel atas & bawah -> anggota keluarga.
+
+    ``rows_a``/``rows_b``: teks per sel (kunci TABLE_A/TABLE_B). ``digits_ready``: kolom NIK/tanggal sudah
+    dinormalkan (hasil voting). ``fix``: fungsi opsional untuk memulihkan spasi pada teks nama/tempat.
+    """
+    fix = fix or (lambda key, text: text)
+    data = parse_head_lines([fix("head", line) for line in head_lines] + list(foot_lines))
     # Pasangkan baris tabel atas & bawah dari bawah ke atas (keduanya berisi 10 baris anggota di bagian akhir).
     offset = len(rows_b) - len(rows_a)
     members = []
+
+    def norm(raw: dict) -> dict:
+        return {key: value if (digits_ready and key in DIGIT_COLUMNS) else _normalize(key, fix(key, value))
+                for key, value in raw.items()}
+
     for i, raw in enumerate(rows_a):
         if not _is_data_row(raw):
             continue
-        row = {key: _normalize(key, value) if key not in DIGIT_COLUMNS else value for key, value in raw.items()}
+        row = norm(raw)
         j = i + offset
         if 0 <= j < len(rows_b) and _is_data_row(rows_b[j]):
-            row.update({key: _normalize(key, value) if key not in DIGIT_COLUMNS else value for key, value in rows_b[j].items()})
+            row.update(norm(rows_b[j]))
         if _is_member(row):
             if not row.get("kewarganegaraan"):
                 row["kewarganegaraan"] = "WNI"
             members.append(row)
     data["anggota"] = members[:15]
-    data["metode"] = "tabel"
+    data["metode"] = method
     if no_kk:
-        data["no_kk"] = _region_fix(no_kk, [m.get("nik", "") for m in members])
+        data["no_kk"] = no_kk
+    if data.get("no_kk"):
+        data["no_kk"] = _region_fix(data["no_kk"], [m.get("nik", "") for m in members])
     text_lines = [line for line in head_lines if line]
     for m in members:
         text_lines.append(" | ".join(str(v) for v in m.values() if v))
-    text_lines += ["", foot_text.strip()]
+    text_lines += [""] + [line for line in foot_lines if line.strip()]
     return data, "\n".join(text_lines).strip()
 
 
@@ -875,11 +917,32 @@ def _prepare_plain(path: str, out_dir: str) -> str:
         return _save(img, out_dir, "input.png")
 
 
+def _read_photo(kind: str, source: str, cmd: str | None = None) -> tuple[dict, str] | None:
+    """Mesin utama untuk foto: PaddleOCR (RapidOCR/ONNX) + OpenCV. None bila tidak terpasang/gagal."""
+    from . import ocr_foto
+
+    if kind not in ("kk", "ktp") or not ocr_foto.available():
+        return None
+    try:
+        if kind == "kk":
+            return ocr_foto.read_kk(source, tesseract=cmd)
+        text = ocr_foto.read_lines(source)
+        return parse_ktp(text), text
+    except Exception as exc:  # noqa: BLE001 - mesin pihak ketiga (OpenCV/ONNX): jatuh ke Tesseract, jangan gagal
+        log.warning("Pembaca foto gagal (%s), pakai Tesseract.", type(exc).__name__)
+        return None
+
+
 def read_text(field_file, *, kind: str = "kk") -> OcrResult:
-    """OCR sebuah gambar di penyimpanan pribadi. Tidak pernah melempar error ke view."""
+    """OCR sebuah gambar di penyimpanan pribadi. Tidak pernah melempar error ke view.
+
+    Urutan: pembaca foto (PaddleOCR) -> bila hasilnya lemah/tidak terpasang, Tesseract -> pilih yang terlengkap.
+    """
+    from . import ocr_foto
+
     cmd = tesseract_cmd()
-    if not cmd:
-        return OcrResult(False, message="Mesin pembaca (Tesseract OCR) belum terpasang di server.", available=False)
+    if not cmd and not ocr_foto.available():
+        return OcrResult(False, message="Mesin pembaca belum terpasang di server.", available=False)
     if not _LOCK.acquire(timeout=30):
         return OcrResult(False, message="Mesin pembaca sedang dipakai. Tekan 'Baca ulang' sebentar lagi.")
     try:
@@ -890,18 +953,29 @@ def read_text(field_file, *, kind: str = "kk") -> OcrResult:
             with Image.open(source) as probe:
                 if probe.width * probe.height > MAX_OCR_PIXELS:
                     raise ValueError("too large")
+            photo = _read_photo(kind, source, cmd)
             structured = None
-            if kind == "kk":
+            weak = photo is None or (kind == "kk" and len(photo[0].get("anggota", [])) == 0) or (kind == "ktp" and not photo[0].get("nik"))
+            if weak and cmd and kind == "kk":
                 try:
                     structured = _read_structured(cmd, source, tmp)
                 except (OSError, subprocess.SubprocessError) as exc:
                     log.warning("OCR tabel KK gagal (%s), pakai pembacaan teks biasa.", type(exc).__name__)
-            if structured:
-                data, text = structured
-            else:
+            candidates = [c for c in (photo, structured) if c]
+            if kind == "kk" and candidates:
+                data, text = max(candidates, key=lambda c: kk_score(c[0]))
+            elif photo and not weak:
+                data, text = photo
+            elif cmd:
                 prepared = _prepare_plain(source, tmp)
                 text = _run(cmd, prepared, psm=4 if kind == "ktp" else 6, lang=_lang_arg(cmd)).strip()
                 data = parse_ktp(text) if kind == "ktp" else parse_kk(text) if kind == "kk" else {}
+                if kind == "ktp" and photo and len(photo[0]) > len(data):
+                    data, text = photo
+            elif photo:
+                data, text = photo
+            else:
+                data, text = {}, ""
             if kind == "kk":
                 data = finish_kk(data)
             if not text.strip() and not data.get("anggota"):

@@ -1,0 +1,11 @@
+# OPSIONAL - varian GPU NVIDIA dari ocr.in (dipasang otomatis oleh pasang-ocr.bat bila ada kartu NVIDIA).
+# onnxruntime-gpu 1.26 = build CUDA 12 terakhir (driver NVIDIA >= 528); 1.27+ butuh CUDA 13 (driver >= 580).
+# Pustaka CUDA/cuDNN ikut sebagai paket pip (nvidia-*), jadi tidak perlu memasang CUDA Toolkit.
+# Paket "onnxruntime" (CPU) SENGAJA tidak ikut: bentrok dengan onnxruntime-gpu. Pasang dengan --no-deps.
+# Ubah file ini, lalu jalankan dari folder requirements:
+#   pip-compile --generate-hashes --strip-extras --unsafe-package onnxruntime --output-file=ocr-gpu.txt ocr-gpu.in
+-c base.txt
+rapidocr-onnxruntime==1.4.4
+onnxruntime-gpu[cuda,cudnn]==1.26.0
+# cuDNN 9.28 (terbaru) gagal dimuat onnxruntime-gpu 1.26 (CUDNN_BACKEND_API_FAILED); 9.10 teruji di RTX 2050.
+nvidia-cudnn-cu12==9.10.2.21

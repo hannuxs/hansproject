@@ -67,7 +67,19 @@ Semua halaman warga `no-store` + `noindex` dan diblokir di `robots.txt`.
 - **Pengajuan warga**: NIK wajib 16 angka, kotak persetujuan wajib, honeypot, rate limit 5/jam per IP-hash
   dan 150/hari per wilayah. NIK dicocokkan dengan data warga **hanya untuk pengurus** (tidak ada bocoran
   “NIK terdaftar/tidak” ke publik).
-- **OCR**: `apps/sim/ocr.py` memanggil Tesseract tanpa shell, maks. 40 detik per panggilan, satu dokumen
+- **Pembaca foto (utama)**: `apps/sim/ocr_foto.py` = PaddleOCR PP-OCRv4 (RapidOCR + ONNX Runtime) + OpenCV,
+  paket opsional `requirements/ocr.txt` (CPU) atau `requirements/ocr-gpu.txt` (GPU NVIDIA: onnxruntime-gpu 1.26 =
+  build CUDA 12 terakhir, cuDNN 9.10; dipasang `--no-deps` karena bentrok dengan onnxruntime CPU). `pasang-ocr.bat`
+  memilih varian otomatis dan memeriksa dengan `scripts/ocr_check.py`; `update.bat` memperbarui varian yang sama.
+  Saat dimuat, `_engine()` memastikan sesi benar-benar memakai CUDA (ONNX Runtime diam-diam pindah ke CPU bila
+  driver/cuDNN bermasalah). Ukuran di RTX 2050: baca 1 foto KK ±1,5 dtk (GPU) vs ±2,6 dtk (CPU), hasil identik. Alur KK: sudut tabel dicari dari titik
+  persilangan garis atau kontur jaring garis (beberapa calon, dipilih yang menghasilkan tabel 10 + 9 kolom utuh),
+  perspektif diluruskan & halaman diputar mendatar, satu kali baca seluruh halaman, cek terbalik (label kepala KK
+  harus di atas tabel), grid dari gambar "garis saja" (morfologi), teks dipasangkan ke sel, sel penting yang kosong
+  dibaca ulang dari potongannya, spasi yang hilang dipulihkan (teks berspasi di KK yang sama, daftar kata nama/tempat
+  umum, dan posisi spasi dari Tesseract untuk teks panjang). `read_text` memilih hasil terlengkap (`kk_score`) bila
+  PaddleOCR lemah lalu Tesseract juga dicoba.
+- **OCR Tesseract (cadangan)**: `apps/sim/ocr.py` memanggil Tesseract tanpa shell, maks. 40 detik per panggilan, satu dokumen
   sekaligus (beberapa kolom dibaca paralel, `TESSERACT_WORKERS`), pixel dicek sebelum dibuka.
   KK dibaca **mengikuti struktur tabel Dukcapil**: gambar diluruskan, garis tabel dideteksi dari proyeksi
   piksel (kolom = konsensus garis di banyak baris), tiap kolom dipotong & dibaca terpisah (NIK & tanggal

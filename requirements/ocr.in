@@ -1,0 +1,6 @@
+# OPSIONAL - pembaca foto KK/KTP untuk SIM (dipasang oleh pasang-ocr.bat, bukan install.bat).
+# PaddleOCR PP-OCRv4 lewat RapidOCR + ONNX Runtime (CPU) dan OpenCV; model ikut di dalam paket, tidak ada unduhan saat dipakai.
+# Ubah file ini, lalu jalankan dari folder requirements:
+#   pip-compile --allow-unsafe --generate-hashes --strip-extras --output-file=ocr.txt ocr.in
+-c base.txt
+rapidocr-onnxruntime==1.4.4

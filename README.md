@@ -89,6 +89,7 @@ Semua setelan teknis ada di file **`.env`** (buka dengan Notepad). Setiap baris 
 | `STORE_BASE_DOMAIN` | Domain alamat toko kasir: `<nama>.hansproject.app`. Semua subdomain toko otomatis diizinkan. Di komputer pengembangan kosongkan (otomatis `localhost`) |
 | `TESSERACT_CMD` | SIM: lokasi `tesseract.exe` untuk membaca teks foto KK/KTP. Kosongkan bila terpasang di `C:\Program Files\Tesseract-OCR\` |
 | `TESSERACT_LANG` | Bahasa OCR, bawaan `ind+eng` (data bahasa yang belum terpasang otomatis dilewati) |
+| `OCR_DEVICE` | Pembaca foto KK/KTP: `auto` (bawaan, GPU NVIDIA bila paket GPU terpasang) atau `cpu` |
 | `TESSERACT_DATA_DIR` | Folder data bahasa OCR. Kosongkan: memakai `tools\tessdata` (diisi `pasang-ocr.bat`) |
 
 Setelah mengubah `.env`, **jalankan ulang website** (stop lalu start, atau restart service).
@@ -242,12 +243,15 @@ SIM adalah solusi umum untuk instansi dan organisasi; bidang lain (kesehatan, pe
 
 **Alur:** pengurus memesan paket SIM dan mengisi data instansinya → setelah bukti bayar dicek, ubah pesanan menjadi **Aktif** → wilayah + 12 format surat bawaan otomatis dibuat (kelurahan/kecamatan juga mendapat format ahli waris). Masa aktif, tenggang 7 hari, terkunci, dan penghapusan 30 hari **sama seperti aplikasi kasir**. Saat terkunci, pengajuan surat online ditutup.
 
-**Membaca foto KK/KTP (OCR):** memakai **Tesseract**, berjalan di server sendiri (foto tidak dikirim ke pihak lain).
-1. Jalankan **`pasang-ocr.bat`** (sekali saja): memasang Tesseract lewat winget dan data bahasa Indonesia ke `tools\tessdata` (file diperiksa sidik SHA-256-nya).
-2. Bila Tesseract dipasang di tempat lain, isi `TESSERACT_CMD` di `.env`.
-3. Tidak perlu menjalankan ulang website. Tanpa Tesseract, foto tetap tersimpan dan formulir diisi manual sambil melihat gambarnya.
+**Membaca foto KK/KTP (OCR):** berjalan di server sendiri (foto tidak dikirim ke pihak lain). Memakai **GPU NVIDIA** bila ada (lebih cepat), selain itu CPU.
+- Mesin utama: **PaddleOCR PP-OCRv4** (model deep learning, lewat RapidOCR + ONNX Runtime) dengan **OpenCV**: kuat untuk foto HP (fotokopi, cahaya tidak rata, miring/perspektif, foto diputar 90° atau terbalik). Model ikut di dalam paket.
+- Cadangan & pemeriksa spasi antarkata: **Tesseract** (bila hasil PaddleOCR kurang lengkap, misalnya hasil scan beresolusi kecil, hasil yang paling lengkap yang dipakai).
 
-KK dibaca mengikuti **struktur tabel KK Dukcapil** (garis tabel dideteksi, tiap kolom dibaca terpisah) dan hasilnya **langsung mengisi formulir KK beserta semua anggota** (biasanya 5–15 detik). Pengurus mencocokkan dengan gambar di sebelahnya, membetulkan bila perlu, lalu menekan Simpan; data tidak pernah tersimpan tanpa diperiksa. Nama kepala keluarga tidak diketik: otomatis dari anggota yang hubungannya *Kepala Keluarga*. Hasil terbaik: foto seluruh lembar, lurus dari atas, terang, tajam. Hanya satu dokumen dibaca pada satu waktu supaya server tetap ringan.
+1. Jalankan **`pasang-ocr.bat`** (sekali saja): memasang paket `requirements\ocr.txt` (dikunci versi & sidik SHA-256; bila ada kartu NVIDIA otomatis `ocr-gpu.txt` = ONNX Runtime GPU + CUDA 12 + cuDNN sebagai paket pip, tanpa CUDA Toolkit, unduhan ±1,5 GB, butuh driver NVIDIA 528+; bila GPU tidak bisa dipakai, otomatis kembali ke CPU), Tesseract lewat winget, dan data bahasa Indonesia ke `tools\tessdata` (juga diperiksa sidiknya). Lalu jalankan ulang website.
+2. Bila Tesseract dipasang di tempat lain, isi `TESSERACT_CMD` di `.env`.
+3. `update.bat` ikut memperbarui paket pembaca foto bila sudah terpasang. Tanpa mesin pembaca, foto tetap tersimpan dan formulir diisi manual sambil melihat gambarnya.
+
+KK dibaca mengikuti **struktur tabel KK Dukcapil** (sudut tabel dicari, perspektif diluruskan, garis baris & kolom dideteksi, setiap teks dipasangkan ke selnya; sel penting yang kosong dibaca ulang) dan hasilnya **langsung mengisi formulir KK beserta semua anggota** (biasanya 7–15 detik). Pengurus mencocokkan dengan gambar di sebelahnya, membetulkan bila perlu, lalu menekan Simpan; data tidak pernah tersimpan tanpa diperiksa. Nama kepala keluarga tidak diketik: otomatis dari anggota yang hubungannya *Kepala Keluarga*. Hasil terbaik: foto seluruh lembar KK, terang dan tajam (boleh tegak atau mendatar). Hanya satu dokumen dibaca pada satu waktu supaya server tetap ringan.
 
 **Privasi:** data warga hanya bisa dibuka pengurus wilayah itu sendiri. Wilayah di atasnya (RW/kelurahan/kecamatan) hanya melihat **angka rekap** dan surat yang dikirim untuk “diketahui”. Panel pengelola juga **tidak** menampilkan data warga. Foto KK/KTP, tanda tangan, dan cap disimpan di folder pribadi tanpa alamat publik.
 

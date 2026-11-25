@@ -5,12 +5,12 @@
   <h2 id="up-title">{% icon "scan" %} Scan KK / KTP</h2>
   <p class="muted">Potret KK atau KTP (asli maupun fotokopi) dengan HP. Isinya dibaca otomatis lalu <b>langsung mengisi formulir</b> data KK beserta semua anggotanya. Anda tinggal mencocokkan dengan gambar, membetulkan bila perlu, lalu menyimpan. Gambar disimpan aman (tidak punya alamat publik).</p>
   <ul class="tips-list muted small">
-    <li>Foto <b>seluruh lembar</b> dari atas, tegak lurus, memenuhi layar.</li>
+    <li>Foto <b>seluruh lembar</b> KK; boleh tegak atau mendatar, sistem memutar &amp; meluruskannya sendiri.</li>
     <li>Tempat terang, tanpa bayangan dan pantulan lampu; letakkan di alas berwarna terang.</li>
     <li>Pastikan tulisan tajam (ketuk layar untuk fokus sebelum memotret).</li>
   </ul>
   {% if not ocr_ready %}
-    <p class="alert" role="note">{% icon "info" %}<span>Mesin pembaca (Tesseract OCR) belum terpasang di server, jadi isi belum bisa dibaca otomatis. Gambar tetap tersimpan dan formulir bisa diisi manual sambil melihat gambarnya.</span></p>
+    <p class="alert" role="note">{% icon "info" %}<span>Mesin pembaca belum terpasang di server, jadi isi belum bisa dibaca otomatis. Gambar tetap tersimpan dan formulir bisa diisi manual sambil melihat gambarnya.</span></p>
   {% endif %}
   {% if scan_limit is not None %}<p class="muted small">Kuota baca otomatis bulan ini: <b>{{ scan_used }} / {{ scan_limit }}</b> dokumen (Paket {{ w.package_name }}).</p>{% endif %}
   {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}

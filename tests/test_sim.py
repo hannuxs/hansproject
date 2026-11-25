@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.content.models import Package
 from apps.members.models import Order
-from apps.sim import ocr, services
+from apps.sim import ocr, ocr_foto, services
 from apps.sim.models import (
     LEVEL_RT,
     LEVEL_RW,
@@ -139,7 +139,7 @@ class OcrParserTests(SimpleTestCase):
 
     @override_settings(TESSERACT_CMD="")
     def test_missing_engine_is_reported_not_raised(self):
-        with mock.patch.object(ocr, "tesseract_cmd", return_value=None):
+        with mock.patch.object(ocr, "tesseract_cmd", return_value=None), mock.patch.object(ocr_foto, "available", return_value=False):
             result = ocr.read_text(mock.Mock(), kind="kk")
         self.assertFalse(result.ok)
         self.assertFalse(result.available)
@@ -439,8 +439,9 @@ class ScanTests(PrivateMediaMixin, SeededTestCase):
         self.w = make_wilayah(self.owner)
         login_member(self.client, self.owner)
 
+    @mock.patch.object(ocr_foto, "available", return_value=False)
     @mock.patch.object(ocr, "tesseract_cmd", return_value=None)
-    def test_upload_then_create_kk(self, _cmd):
+    def test_upload_then_create_kk(self, _cmd, _foto):
         r = self.client.post(reverse("sim:scan", args=[self.w.kode]), {"jenis": "kk", "judul": "KK Ahmad", "gambar": png_upload("kk.png")})
         self.assertEqual(r.status_code, 302)
         doc = DokumenScan.objects.get()
@@ -528,8 +529,9 @@ class ScanTests(PrivateMediaMixin, SeededTestCase):
         doc.refresh_from_db()
         self.assertEqual((doc.penduduk, doc.kk), (person, kk))
 
+    @mock.patch.object(ocr_foto, "available", return_value=False)
     @mock.patch.object(ocr, "tesseract_cmd", return_value=None)
-    def test_monthly_scan_quota_from_package(self, _cmd):
+    def test_monthly_scan_quota_from_package(self, _cmd, _foto):
         pkg = Package.objects.get(code="sim-tunas")
         Package.objects.filter(pk=pkg.pk).update(scan_limit=1)
         Wilayah.objects.filter(pk=self.w.pk).update(package=pkg, package_name=pkg.name)
@@ -916,4 +918,69 @@ class KkReaderTesseractTests(SimpleTestCase):
         self.assertEqual(members[1]["tanggal_lahir"], "1990-01-01")
         self.assertEqual(members[1]["pendidikan"], "DIPLOMA IV/STRATA I")
         self.assertEqual(members[2]["golongan_darah"], "TIDAK TAHU")
+        self.assertEqual(members[0]["status_perkawinan"], "Kawin Tercatat")
+
+
+class PhotoReaderUnitTests(SimpleTestCase):
+    """Pemulihan spasi & pencocokan ejaan untuk pembaca foto (tanpa mesin OCR)."""
+
+    def test_split_joined_words(self):
+        vocab = set(ocr_foto.COMMON_WORDS) | {"HAIRUL", "MULYATI"}
+        self.assertEqual(ocr_foto.split_joined("HAIRULFITRI", vocab), "HAIRUL FITRI")
+        self.assertEqual(ocr_foto.split_joined("SITIAMINAH", vocab), "SITI AMINAH")
+        self.assertEqual(ocr_foto.split_joined("RAHMADABDULLAH", vocab), "RAHMAD ABDULLAH")
+        self.assertEqual(ocr_foto.split_joined("SYUKURH", vocab), "SYUKUR H")  # inisial di akhir
+        self.assertEqual(ocr_foto.split_joined("FITRIA", vocab), "FITRIA")  # nama asli, bukan FITRI + A
+        self.assertEqual(ocr_foto.split_joined("NURDIN", vocab), "NURDIN")  # tidak dipecah jadi NUR DIN
+        self.assertEqual(ocr_foto.split_joined("ALESHA", vocab), "ALESHA")
+
+    def test_fixer_uses_spaced_text_from_same_document(self):
+        boxes = [ocr_foto.Box("MULYATI HAMIDAH", 0, 0, 10, 5, 1.0), ocr_foto.Box(":JL.MANGGIS 1", 0, 0, 10, 5, 1.0)]
+        fix = ocr_foto._fixer(boxes)
+        self.assertEqual(fix("nama_ibu", "MULYATIHAMIDAH"), "MULYATI HAMIDAH")
+        self.assertEqual(fix("head", "Alamat :JL.MANGGIS 1"), "Alamat :JL. MANGGIS 1")
+
+    def test_dictionary_values_ignore_missing_spaces(self):
+        self.assertEqual(ocr._normalize("status_perkawinan", "BELUMKAWIN"), "Belum Kawin")
+        self.assertEqual(ocr._normalize("status_perkawinan", "KAWINBELUMTERCATAT"), "Kawin Belum Tercatat")
+        self.assertEqual(ocr._normalize("hubungan", "KEPALAKELUARGA"), "Kepala Keluarga")
+        self.assertEqual(ocr._normalize("pendidikan", "TIDAK/BELUMSEKOLAH"), "TIDAK/BELUM SEKOLAH")
+        self.assertEqual(ocr._normalize("pekerjaan", "MENGURUSRUMAHTANGGA"), "MENGURUS RUMAH TANGGA")
+        self.assertEqual(ocr._normalize("golongan_darah", "TIDAKTAHU"), "TIDAK TAHU")
+        self.assertEqual(ocr.parse_head_lines(["No.b 6404053103080024"])["no_kk"], "6404053103080024")
+
+
+@skipUnless(ocr_foto.available(), "PaddleOCR (rapidocr-onnxruntime) belum terpasang")
+class PhotoReaderTests(SimpleTestCase):
+    """Foto KK sintetis (data palsu) yang diputar 90° dan miring perspektif, seperti difoto dengan HP."""
+
+    def test_reads_rotated_perspective_photo(self):
+        import tempfile
+
+        import cv2
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as tmp:
+            flat = f"{tmp}/kk.png"
+            KkReaderTesseractTests().make_kk(flat)
+            img = cv2.imread(flat)
+            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)  # difoto tegak
+            h, w = img.shape[:2]
+            canvas = np.full((h + 200, w + 200, 3), 200, np.uint8)  # alas meja di sekeliling
+            src = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+            dst = np.float32([[130, 90], [w + 120, 60], [w + 160, h + 150], [60, h + 120]])
+            canvas = cv2.warpPerspective(img, cv2.getPerspectiveTransform(src, dst), (w + 200, h + 200),
+                                         dst=canvas, borderMode=cv2.BORDER_TRANSPARENT)
+            path = f"{tmp}/foto.jpg"
+            cv2.imwrite(path, canvas, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            data, _ = ocr_foto.read_kk(path)
+        data = ocr.finish_kk(data)
+        self.assertEqual(data["no_kk"], "3201010101900099")
+        self.assertEqual(data["kepala_nama"], "BUDI SANTOSO")
+        self.assertEqual((data.get("kelurahan"), data.get("rt"), data.get("rw")), ("SUKAMAJU", "005", "003"))
+        members = data["anggota"]
+        self.assertEqual([m["nama"] for m in members], ["BUDI SANTOSO", "SITI AMINAH", "RIZKY PRATAMA"])
+        self.assertEqual([m["nik"] for m in members], ["3201011205850001", "3201014101900002", "3201011503150003"])
+        self.assertEqual([m["hubungan"] for m in members], ["Kepala Keluarga", "Istri", "Anak"])
+        self.assertEqual(members[1]["tanggal_lahir"], "1990-01-01")
         self.assertEqual(members[0]["status_perkawinan"], "Kawin Tercatat")
