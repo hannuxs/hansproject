@@ -27,7 +27,7 @@ from .models import (
     Testimonial,
 )
 
-SNAPSHOT_KEY = "content:snapshot:v2"
+SNAPSHOT_KEY = "content:snapshot:v3"
 PAGE_KEY_PREFIX = "content:page:"
 # Halaman publik yang di-cache (halaman utama + halaman tiap solusi).
 PUBLIC_PAGES = ("home", "kasir", "sim", "jasa")

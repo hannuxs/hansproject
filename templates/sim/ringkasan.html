@@ -10,7 +10,7 @@
     {% if results %}
       <ul class="mini-list" role="list">
         {% for p in results %}
-          <li><a href="{% url 'sim:kk' w.kode p.kk_id %}"><span><b>{{ p.nama }}</b><span class="muted small">NIK {{ p.nik|default:"–" }} · {{ p.hubungan|default:"anggota" }} · KK {{ p.kk.kepala_nama }}</span></span><span class="status status-{% if p.status == 'aktif' %}ok{% else %}off{% endif %}">{{ p.get_status_display }}</span></a></li>
+          <li><a href="{% url 'sim:kk' w.kode p.kk_id %}"><span><b>{{ p.nama }}</b><span class="muted small">NIK {{ p.nik|default:"–" }} · {{ p.hubungan|default:"anggota" }} · KK {{ p.kk.kepala_label }}</span></span><span class="status status-{% if p.status == 'aktif' %}ok{% else %}off{% endif %}">{{ p.get_status_display }}</span></a></li>
         {% endfor %}
       </ul>
     {% else %}

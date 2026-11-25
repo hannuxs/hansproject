@@ -4,7 +4,7 @@
 <section class="akun-card glass akun-narrow" aria-labelledby="form-title">
   <p class="eyebrow">Buat surat</p>
   <h2 id="form-title">{{ jenis.nama }}</h2>
-  {% if person %}<p class="muted">Data diambil dari data warga: <b>{{ person.nama }}</b> (KK {{ person.kk.kepala_nama }}). Periksa dan lengkapi bila perlu.</p>{% endif %}
+  {% if person %}<p class="muted">Data diambil dari data warga: <b>{{ person.nama }}</b> (KK {{ person.kk.kepala_label }}). Periksa dan lengkapi bila perlu.</p>{% endif %}
   <form method="post" class="akun-form" novalidate>
     {% csrf_token %}
     {% if person %}<input type="hidden" name="penduduk" value="{{ person.pk }}">{% endif %}

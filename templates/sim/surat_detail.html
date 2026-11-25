@@ -14,7 +14,7 @@
     {% if s.nomor %}<li><span>Nomor surat</span><b class="mono">{{ s.nomor }}</b></li>{% endif %}
     {% if s.tanggal %}<li><span>Tanggal surat</span><b>{{ s.tanggal|date:"j F Y" }}</b></li>{% endif %}
     <li><span>Pemohon</span><b>{{ s.nama }}{% if s.nik %} · NIK <span class="mono">{{ s.nik }}</span>{% endif %}</b></li>
-    <li><span>Data warga</span><b>{% if s.penduduk %}<a href="{% url 'sim:kk' w.kode s.penduduk.kk_id %}">Cocok: {{ s.penduduk.nama }} (KK {{ s.penduduk.kk.kepala_nama }})</a>{% else %}<span class="warn-text">Tidak ditemukan di data warga wilayah ini</span> <span class="muted">(periksa identitas pemohon sebelum menerbitkan)</span>{% endif %}</b></li>
+    <li><span>Data warga</span><b>{% if s.penduduk %}<a href="{% url 'sim:kk' w.kode s.penduduk.kk_id %}">Cocok: {{ s.penduduk.nama }} (KK {{ s.penduduk.kk.kepala_label }})</a>{% else %}<span class="warn-text">Tidak ditemukan di data warga wilayah ini</span> <span class="muted">(periksa identitas pemohon sebelum menerbitkan)</span>{% endif %}</b></li>
     {% if s.kontak %}<li><span>Kontak pemohon</span><b>{{ s.kontak }}</b></li>{% endif %}
     {% if s.mengetahui %}<li><span>Mengetahui</span><b>{{ s.get_mengetahui_display }}{% if s.mengetahui_wilayah %} ({{ s.mengetahui_wilayah.short_label }}){% endif %}{% if s.mengetahui_catatan %}: {{ s.mengetahui_catatan }}{% endif %}</b></li>{% endif %}
     {% if s.status == "ditolak" and s.catatan_pengurus %}<li><span>Alasan ditolak</span><b>{{ s.catatan_pengurus }}</b></li>{% endif %}
@@ -64,6 +64,18 @@
     <div class="field"><label class="field-label" for="catatan">Mis. "Surat bisa diambil di rumah Ketua RT setelah pukul 18.00"</label><textarea id="catatan" name="catatan" rows="2" maxlength="1000">{{ s.catatan_pengurus }}</textarea></div>
     <button class="btn btn-sm" type="submit">{% icon "check" %}<span>Simpan catatan</span></button>
   </form>
+</section>
+{% endif %}
+{% if s.status != "diajukan" and w.can_edit %}
+<section class="akun-card glass akun-narrow" aria-labelledby="hapus-title">
+  <details class="void-box">
+    <summary id="hapus-title">Hapus surat ini</summary>
+    <form method="post" data-confirm="Hapus surat {{ s.nomor|default:s.jenis_nama }} atas nama {{ s.nama }}? QR keaslian dan kode lacaknya langsung tidak berlaku, dan tidak bisa dikembalikan.">
+      {% csrf_token %}<input type="hidden" name="aksi" value="hapus">
+      <p class="field-help">Untuk surat yang salah terbit atau tidak jadi dipakai. Setelah dihapus, QR pada surat yang sudah tercetak akan menampilkan &ldquo;tidak ditemukan&rdquo;{% if s.nomor %}, dan nomor {{ s.nomor }} tidak dipakai lagi untuk surat lain{% endif %}.</p>
+      <button class="btn btn-sm btn-ghost" type="submit">{% icon "trash" %}<span>Hapus permanen</span></button>
+    </form>
+  </details>
 </section>
 {% endif %}
 {% endblock %}

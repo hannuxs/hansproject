@@ -12,5 +12,8 @@
       <a class="btn" href="#solusi">Lihat solusi {% icon "arrow-down" %}</a>
       <a class="btn btn-ghost" href="#harga">{% icon "tag" %}<span>Lihat harga</span></a>
     </div>
+    {% if site.users_count %}
+      <p class="proof-pill">{% icon "users" %}<span>Website buatan HANS Project sudah dipakai <b>±{{ site.users_count|floatformat:"0g" }} orang</b></span></p>
+    {% endif %}
   </div>
 </section>

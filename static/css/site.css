@@ -549,6 +549,9 @@ html.hide-tech .tech, html:not(.js):has(.tech-toggle input:not(:checked)) .tech 
 .platform-hero-inner .eyebrow { justify-content: center; }
 .platform-hero .hero-lead { margin-inline: auto; max-width: 36rem; }
 .platform-hero .hero-cta { justify-content: center; }
+/* Bukti sosial: jumlah orang yang pernah memakai website buatan HANS Project (diatur di panel) */
+.proof-pill { display: inline-flex; align-items: center; gap: 8px; margin: 22px auto 0; padding: 8px 16px; border-radius: 999px; background: color-mix(in srgb, var(--green) 12%, transparent); font-size: 0.95rem; font-weight: 600; line-height: 1.35; text-align: left; text-wrap: balance; }
+.proof-pill .icon { flex: none; color: var(--green); }
 
 /* Kartu solusi (seluruh kartu bisa diklik lewat tautan judul) */
 .solutions-section { padding-top: clamp(8px, 2vw, 24px); }

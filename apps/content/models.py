@@ -125,6 +125,13 @@ class SiteSettings(models.Model):
         "tampilkan bagian testimoni", default=False,
         help_text="Hanya tampil bila ada testimoni yang diaktifkan.",
     )
+    users_count = models.PositiveIntegerField(
+        "jumlah orang yang pernah memakai website buatan kami", null=True, blank=True, default=900,
+        help_text=(
+            "Jumlah ORANG (bukan jumlah kunjungan). Tampil di pembuka halaman utama sebagai "
+            "\"Website buatan HANS Project sudah dipakai ±900 orang\". Kosongkan untuk menyembunyikan."
+        ),
+    )
 
     # SEO
     seo_title = models.CharField(

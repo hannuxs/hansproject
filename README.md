@@ -89,6 +89,7 @@ Semua setelan teknis ada di file **`.env`** (buka dengan Notepad). Setiap baris 
 | `STORE_BASE_DOMAIN` | Domain alamat toko kasir: `<nama>.hansproject.app`. Semua subdomain toko otomatis diizinkan. Di komputer pengembangan kosongkan (otomatis `localhost`) |
 | `TESSERACT_CMD` | SIM: lokasi `tesseract.exe` untuk membaca teks foto KK/KTP. Kosongkan bila terpasang di `C:\Program Files\Tesseract-OCR\` |
 | `TESSERACT_LANG` | Bahasa OCR, bawaan `ind+eng` (data bahasa yang belum terpasang otomatis dilewati) |
+| `TESSERACT_DATA_DIR` | Folder data bahasa OCR. Kosongkan: memakai `tools\tessdata` (diisi `pasang-ocr.bat`) |
 
 Setelah mengubah `.env`, **jalankan ulang website** (stop lalu start, atau restart service).
 
@@ -232,7 +233,7 @@ SIM adalah solusi umum untuk instansi dan organisasi; bidang lain (kesehatan, pe
 
 | Alamat | Untuk siapa | Isi |
 |---|---|---|
-| `hansproject.app/akun/sim/<kode>/` | **Pengurus wilayah** (login Google) | Ringkasan & cari warga, Data warga (KK & anggota, unduh CSV), Scan KK/KTP (foto → teks → data KK), Surat (masuk, buat, terbitkan, cetak), Format surat (ubah isi & kolom), Pengumuman, Jaringan (gabung ke RW/kelurahan, terima RT, surat “diketahui”), Pengaturan kop surat, Perpanjang |
+| `hansproject.app/akun/sim/<kode>/` | **Pengurus wilayah** (login Google) | Ringkasan & cari warga, Data warga (KK & anggota mengikuti format KK Dukcapil, unduh CSV; tombol **Scan KK/KTP** di dalamnya: foto → formulir KK + anggota terisi otomatis), Surat (masuk, buat, terbitkan, cetak, hapus), Format surat (ubah isi & kolom), Pengumuman, Jaringan (gabung ke RW/kelurahan, terima RT, surat “diketahui”), Pengaturan kop surat, Perpanjang |
 | `hansproject.app/w/<kode>/` | **Warga** (tanpa login) | Pengumuman, ajukan surat online, lacak surat |
 | `hansproject.app/surat/lacak/<kode-lacak>/` | Warga pemohon | Status surat; cetak sendiri bila pengurus mengizinkan |
 | `hansproject.app/surat/cek/<kode>/` | Siapa saja (dari QR di surat) | Cek keaslian surat (nama tersamar) |
@@ -241,12 +242,12 @@ SIM adalah solusi umum untuk instansi dan organisasi; bidang lain (kesehatan, pe
 
 **Alur:** pengurus memesan paket SIM dan mengisi data instansinya → setelah bukti bayar dicek, ubah pesanan menjadi **Aktif** → wilayah + 12 format surat bawaan otomatis dibuat (kelurahan/kecamatan juga mendapat format ahli waris). Masa aktif, tenggang 7 hari, terkunci, dan penghapusan 30 hari **sama seperti aplikasi kasir**. Saat terkunci, pengajuan surat online ditutup.
 
-**Membaca teks foto KK/KTP (OCR):** memakai **Tesseract**, berjalan di server sendiri (foto tidak dikirim ke pihak lain).
-1. Pasang Tesseract untuk Windows (mis. installer UB Mannheim), centang data bahasa **Indonesian** (`ind`).
-2. Bila tidak dipasang di `C:\Program Files\Tesseract-OCR\`, isi `TESSERACT_CMD` di `.env`.
-3. Jalankan ulang website. Tanpa Tesseract, foto tetap tersimpan dan data diisi manual sambil melihat gambarnya.
+**Membaca foto KK/KTP (OCR):** memakai **Tesseract**, berjalan di server sendiri (foto tidak dikirim ke pihak lain).
+1. Jalankan **`pasang-ocr.bat`** (sekali saja): memasang Tesseract lewat winget dan data bahasa Indonesia ke `tools\tessdata` (file diperiksa sidik SHA-256-nya).
+2. Bila Tesseract dipasang di tempat lain, isi `TESSERACT_CMD` di `.env`.
+3. Tidak perlu menjalankan ulang website. Tanpa Tesseract, foto tetap tersimpan dan formulir diisi manual sambil melihat gambarnya.
 
-Hasil OCR dari fotokopi tidak pernah sempurna, jadi selalu tampil sebagai **draf** yang diperiksa pengurus sebelum disimpan. Hanya satu foto dibaca pada satu waktu (maks. 90 detik) supaya server tetap ringan.
+KK dibaca mengikuti **struktur tabel KK Dukcapil** (garis tabel dideteksi, tiap kolom dibaca terpisah) dan hasilnya **langsung mengisi formulir KK beserta semua anggota** (biasanya 5–15 detik). Pengurus mencocokkan dengan gambar di sebelahnya, membetulkan bila perlu, lalu menekan Simpan; data tidak pernah tersimpan tanpa diperiksa. Nama kepala keluarga tidak diketik: otomatis dari anggota yang hubungannya *Kepala Keluarga*. Hasil terbaik: foto seluruh lembar, lurus dari atas, terang, tajam. Hanya satu dokumen dibaca pada satu waktu supaya server tetap ringan.
 
 **Privasi:** data warga hanya bisa dibuka pengurus wilayah itu sendiri. Wilayah di atasnya (RW/kelurahan/kecamatan) hanya melihat **angka rekap** dan surat yang dikirim untuk “diketahui”. Panel pengelola juga **tidak** menampilkan data warga. Foto KK/KTP, tanda tangan, dan cap disimpan di folder pribadi tanpa alamat publik.
 

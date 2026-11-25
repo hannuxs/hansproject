@@ -18,6 +18,7 @@ from apps.pos.models import STATE_DELETED, add_months
 
 from . import defaults
 from .models import (
+    KEPALA,
     LEVEL_ORDER,
     LEVEL_RT,
     LEVELS,
@@ -311,8 +312,13 @@ def issue(surat: Surat, *, signer: str = "", title: str = "") -> Surat:
     last = (
         Surat.objects.filter(wilayah=wilayah, tahun=today.year, nomor_urut__isnull=False)
         .order_by("-nomor_urut").values_list("nomor_urut", flat=True).first()
-    )
-    surat.nomor_urut = (last or 0) + 1
+    ) or 0
+    # Penghitung di wilayah: nomor surat yang sudah DIHAPUS tetap tidak dipakai ulang.
+    if wilayah.nomor_tahun == today.year:
+        last = max(last, wilayah.nomor_terakhir)
+    surat.nomor_urut = last + 1
+    wilayah.nomor_terakhir, wilayah.nomor_tahun = surat.nomor_urut, today.year
+    wilayah.save(update_fields=["nomor_terakhir", "nomor_tahun"])
     surat.tahun = today.year
     surat.tanggal = today
     jenis = surat.jenis
@@ -329,6 +335,19 @@ def issue(surat: Surat, *, signer: str = "", title: str = "") -> Surat:
     surat.save()
     log.info("Surat #%s terbit: %s (wilayah #%s).", surat.pk, surat.nomor, wilayah.pk)
     return surat
+
+
+@transaction.atomic
+def delete_surat(surat: Surat) -> str:
+    """Hapus surat (yang sudah terbit/ditolak/dibatalkan). QR & kode lacaknya langsung tidak berlaku;
+    nomor suratnya tidak dipakai ulang. Mengembalikan nomor/jenis untuk catatan."""
+    surat = Surat.objects.select_for_update().get(pk=surat.pk)
+    if surat.status == Surat.STATUS_SUBMITTED:
+        raise SuratError("Pengajuan yang belum diproses tidak dihapus. Tolak saja bila tidak sesuai.")
+    label = surat.nomor or surat.jenis_nama
+    log.info("Surat #%s (%s) dihapus dari wilayah #%s.", surat.pk, label, surat.wilayah_id)
+    surat.delete()
+    return label
 
 
 @transaction.atomic
@@ -396,11 +415,20 @@ def create_request(wilayah: Wilayah, jenis: JenisSurat, cleaned: dict, *, source
     return surat
 
 
+def sync_kepala(kk: KartuKeluarga) -> str:
+    """Nama kepala keluarga = anggota yang hubungannya "Kepala Keluarga" (yang masih aktif lebih dulu)."""
+    heads = kk.anggota.filter(hubungan=KEPALA)
+    head = heads.filter(status=Penduduk.STATUS_ACTIVE).order_by("urutan", "pk").first() or heads.order_by("urutan", "pk").first()
+    name = head.nama if head else ""
+    if kk.kepala_nama != name:
+        kk.kepala_nama = name
+        kk.save(update_fields=["kepala_nama", "updated_at"])
+    return name
+
+
 def prefill_from_penduduk(p: Penduduk) -> dict:
     kk = p.kk
-    alamat = kk.alamat
-    if kk.rt or kk.rw:
-        alamat = f"{alamat} RT {kk.rt or '-'} / RW {kk.rw or '-'}".strip()
+    alamat = kk.alamat_lengkap
     return {
         "nama": p.nama,
         "nik": p.nik,

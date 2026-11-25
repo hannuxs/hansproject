@@ -1,11 +1,14 @@
 {% extends "sim/base.html" %}
 {% block sim %}
-<p class="back-link"><a href="{% url 'sim:kk' w.kode kk.pk %}">{% icon "arrow-right" "icon-sm flip" %}<span>KK {{ kk.kepala_nama }}</span></a></p>
-<section class="akun-card glass akun-narrow" aria-labelledby="p-title">
+<p class="back-link"><a href="{% url 'sim:kk' w.kode kk.pk %}">{% icon "arrow-right" "icon-sm flip" %}<span>KK {{ kk.kepala_label }}</span></a></p>
+<section class="akun-card glass" aria-labelledby="p-title">
   <h2 id="p-title">{% icon "user" %} {% if person %}Ubah {{ person.nama }}{% else %}Tambah anggota keluarga{% endif %}</h2>
   <form method="post" class="akun-form" novalidate>
     {% csrf_token %}
-    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    {{ form.non_field_errors }}
+    <div class="form-grid member-grid">{% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}</div>
+    <p class="field-help">Pilih <b>Kepala Keluarga</b> di kolom Hubungan untuk menjadikan orang ini kepala keluarga (namanya otomatis dipakai sebagai nama KK).</p>
+    {% include "sim/_datalists.html" %}
     <div class="akun-actions">
       <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
       <a class="btn btn-ghost" href="{% url 'sim:kk' w.kode kk.pk %}">Batal</a>

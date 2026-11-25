@@ -111,6 +111,20 @@ class HomePageTests(SeededTestCase):
         for code in ("tunas", "tumbuh", "sim-tunas", "sim-tumbuh"):
             self.assertIn(f'id="hp-{code}"', html)
 
+    def test_users_count_on_home_only_and_editable(self):
+        from django.core.cache import cache
+
+        from apps.content.models import SiteSettings
+
+        self.assertIn("sudah dipakai <b>±900 orang</b>", self.client.get("/").content.decode())
+        self.assertNotIn("±900 orang", self.client.get("/aplikasi-kasir/").content.decode())
+        SiteSettings.objects.filter(pk=1).update(users_count=1250)
+        cache.clear()
+        self.assertIn("±1.250 orang", self.client.get("/").content.decode())
+        SiteSettings.objects.filter(pk=1).update(users_count=None)
+        cache.clear()
+        self.assertNotIn("sudah dipakai", self.client.get("/").content.decode())
+
     def test_rimba_not_in_same_pricing_grid(self):
         html = self.client.get("/aplikasi-kasir/").content.decode()
         plans = html[html.index('class="plans"'): html.index('class="addons"')]

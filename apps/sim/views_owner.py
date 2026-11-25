@@ -39,20 +39,20 @@ from .forms import (
     JenisSuratForm,
     JoinForm,
     KKForm,
+    PendudukFields,
     PendudukForm,
     PengumumanForm,
     RejectForm,
     RenewForm,
     ScanUploadForm,
     WilayahSettingsForm,
+    anggota_formset,
+    kk_initial_from_wilayah,
     surat_form_class,
     surat_initial,
 )
 from .models import (
-    GENDERS,
-    MARITAL,
-    RELATIONS,
-    RELIGIONS,
+    KEPALA,
     DokumenScan,
     KartuKeluarga,
     Penduduk,
@@ -71,7 +71,9 @@ NOTICES = {
     "anggota-hapus": "Anggota keluarga dihapus.",
     "scan": "Dokumen tersimpan.",
     "scan-hapus": "Dokumen scan dihapus.",
-    "scan-kk": "Data KK dibuat dari hasil scan. Periksa lagi setiap anggota keluarganya.",
+    "scan-kk": "KK tersimpan dari hasil scan.",
+    "scan-ktp": "Data warga tersimpan dari hasil scan KTP.",
+    "surat-hapus": "Surat dihapus. QR keaslian dan kode lacaknya tidak berlaku lagi; nomornya tidak dipakai ulang.",
     "surat": "Surat tersimpan.",
     "terbit": "Surat terbit dan sudah bernomor. Silakan cetak.",
     "tolak": "Pengajuan ditolak. Pemohon bisa melihat alasannya lewat kode lacak.",
@@ -96,7 +98,6 @@ NOTICES = {
 TABS = [
     ("ringkasan", "Ringkasan", "home", "sim:ringkasan"),
     ("warga", "Data warga", "users", "sim:warga"),
-    ("scan", "Scan KK/KTP", "scan", "sim:scan"),
     ("surat", "Surat", "file", "sim:surat"),
     ("format", "Format surat", "edit", "sim:format"),
     ("pengumuman", "Pengumuman", "megaphone", "sim:pengumuman"),
@@ -151,6 +152,7 @@ def _render(request, template: str, context: dict | None = None, status: int = 2
         "renewal": _open_renewal(w) if w else None,
         "inbox": _inbox_counts(w) if w else None,
         "akun_tabs": akun_tabs("sim", request.member),
+        "datalists": {"pendidikan": ocr.EDUCATION_WORDS, "pekerjaan": ocr.JOB_WORDS},
     }
     ctx.update(context or {})
     return render(request, template, ctx, status=status)
@@ -233,18 +235,51 @@ def warga(request, w: Wilayah):
     })
 
 
+def _kk_editor(w: Wilayah, kk: KartuKeluarga | None, data, *, initial: dict | None = None,
+               members: list[dict] | None = None) -> KartuKeluarga | dict:
+    """Formulir KK + semua anggotanya (KK baru, ubah KK, atau hasil scan). Berhasil -> KK tersimpan."""
+    existing = kk.anggota.count() if kk else 0
+    members = members or []
+    if kk:
+        extra = 2
+    else:
+        extra = max(len(members) + 2, 6)
+    extra = max(0, min(extra, 15 - existing))
+    FormSet = anggota_formset(extra=extra)
+    if kk is None:
+        base = kk_initial_from_wilayah(w)
+        base.update({k: v for k, v in (initial or {}).items() if v})
+        initial_rows = members or [{"hubungan": KEPALA, "kewarganegaraan": "WNI"}]
+    else:
+        base, initial_rows = None, []
+    form = KKForm(data, instance=kk, initial=base, wilayah=w)
+    formset = FormSet(data, instance=kk or KartuKeluarga(wilayah=w), initial=initial_rows, prefix="anggota", wilayah=w)
+    if data is not None:
+        ok = form.is_valid()
+        ok = formset.is_valid() and ok
+        if ok:
+            with transaction.atomic():
+                saved = form.save()
+                formset.instance = saved
+                formset.save()
+                services.sync_kepala(saved)
+            return saved
+    return {"form": form, "formset": formset, "relations_kepala": KEPALA}
+
+
 @require_http_methods(["GET", "HEAD", "POST"])
 @wilayah_view("warga", edit=True)
 def kk_form(request, w: Wilayah, pk: int | None = None):
     kk = get_object_or_404(w.kk_set, pk=pk) if pk else None
     if kk is None and request.method == "POST" and w.kk_set.count() >= services.MAX_KK_PER_WILAYAH:
         raise Http404
-    form = KKForm(request.POST or None, instance=kk, wilayah=w)
-    if request.method == "POST" and form.is_valid():
-        kk = form.save()
-        return redirect(_url("sim:kk", w, kk.pk, ok="kk"))
-    return _render(request, "sim/kk_form.html", {"form": form, "kk": kk, "page_title": "Ubah KK" if kk else "KK baru"},
-                   status=400 if form.errors else 200)
+    result = _kk_editor(w, kk, request.POST if request.method == "POST" else None)
+    if isinstance(result, KartuKeluarga):
+        log.info("KK #%s disimpan (wilayah #%s).", result.pk, w.pk)
+        return redirect(_url("sim:kk", w, result.pk, ok="kk"))
+    return _render(request, "sim/kk_form.html", result | {
+        "kk": kk, "page_title": f"Ubah KK {kk.kepala_label}" if kk else "KK baru",
+    }, status=400 if request.method == "POST" else 200)
 
 
 @require_safe
@@ -255,7 +290,7 @@ def kk_detail(request, w: Wilayah, pk: int):
         "kk": kk,
         "anggota": kk.anggota.all(),
         "scans": kk.scan_set.all()[:10],
-        "page_title": f"KK {kk.kepala_nama}",
+        "page_title": f"KK {kk.kepala_label}",
     })
 
 
@@ -272,7 +307,9 @@ def kk_hapus(request, w: Wilayah, pk: int):
 def penduduk_form(request, w: Wilayah, kk: int | None = None, pk: int | None = None):
     person = get_object_or_404(w.penduduk_set.select_related("kk"), pk=pk) if pk else None
     family = person.kk if person else get_object_or_404(w.kk_set, pk=kk)
-    form = PendudukForm(request.POST or None, instance=person, kk=family)
+    initial = None if person else {"kewarganegaraan": "WNI", "urutan": family.anggota.count() + 1,
+                                   **({} if family.kepala_nama else {"hubungan": KEPALA})}
+    form = PendudukForm(request.POST or None, instance=person, kk=family, initial=initial)
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect(_url("sim:kk", w, family.pk, ok="anggota"))
@@ -284,10 +321,11 @@ def penduduk_form(request, w: Wilayah, kk: int | None = None, pk: int | None = N
 @require_POST
 @wilayah_view("warga", edit=True)
 def penduduk_hapus(request, w: Wilayah, pk: int):
-    person = get_object_or_404(w.penduduk_set, pk=pk)
-    family = person.kk_id
+    person = get_object_or_404(w.penduduk_set.select_related("kk"), pk=pk)
+    family = person.kk
     person.delete()
-    return redirect(_url("sim:kk", w, family, ok="anggota-hapus"))
+    services.sync_kepala(family)
+    return redirect(_url("sim:kk", w, family.pk, ok="anggota-hapus"))
 
 
 def _csv_safe(value) -> str:
@@ -303,31 +341,37 @@ def warga_unduh(request, w: Wilayah):
     response.write("﻿")  # BOM agar Excel membaca UTF-8
     writer = csv.writer(response)
     writer.writerow([
-        "No KK", "Kepala keluarga", "Alamat", "RT", "RW", "NIK", "Nama", "Jenis kelamin", "Tempat lahir", "Tanggal lahir",
-        "Agama", "Pendidikan", "Pekerjaan", "Status perkawinan", "Hubungan", "Kewarganegaraan", "Ayah", "Ibu", "Status",
+        "No KK", "Kepala keluarga", "Alamat", "RT", "RW", "Desa/Kelurahan", "Kecamatan", "Kabupaten/Kota", "Provinsi",
+        "Kode pos", "NIK", "Nama", "Jenis kelamin", "Tempat lahir", "Tanggal lahir", "Agama", "Pendidikan", "Pekerjaan",
+        "Golongan darah", "Status perkawinan", "Tanggal perkawinan", "Hubungan", "Kewarganegaraan", "No paspor",
+        "No KITAS/KITAP", "Ayah", "Ibu", "Status",
     ])
     people = w.penduduk_set.select_related("kk").order_by("kk__kepala_nama", "kk_id", "urutan", "pk")
     for p in people.iterator(chunk_size=500):
+        k = p.kk
         writer.writerow([_csv_safe(x) for x in (
-            p.kk.no_kk, p.kk.kepala_nama, p.kk.alamat, p.kk.rt, p.kk.rw, p.nik, p.nama, p.get_jenis_kelamin_display(),
-            p.tempat_lahir, p.tanggal_lahir.isoformat() if p.tanggal_lahir else "", p.agama, p.pendidikan, p.pekerjaan,
-            p.status_perkawinan, p.hubungan, p.kewarganegaraan, p.nama_ayah, p.nama_ibu, p.get_status_display(),
+            k.no_kk, k.kepala_nama, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.kota, k.provinsi, k.kode_pos,
+            p.nik, p.nama, p.get_jenis_kelamin_display(), p.tempat_lahir,
+            p.tanggal_lahir.isoformat() if p.tanggal_lahir else "", p.agama, p.pendidikan, p.pekerjaan, p.golongan_darah,
+            p.status_perkawinan, p.tanggal_perkawinan.isoformat() if p.tanggal_perkawinan else "", p.hubungan,
+            p.kewarganegaraan, p.no_paspor, p.no_kitap, p.nama_ayah, p.nama_ibu, p.get_status_display(),
         )])
     log.info("Data warga wilayah #%s diunduh oleh pengurus #%s.", w.pk, request.member.pk)
     return response
 
 
 # ---------------------------------------------------------------------------
-# Scan KK/KTP (OCR)
+# Scan KK/KTP (OCR) — bagian dari menu Data warga
 # ---------------------------------------------------------------------------
 @require_http_methods(["GET", "HEAD", "POST"])
-@wilayah_view("scan", edit=True)
+@wilayah_view("warga", edit=True)
 def scan(request, w: Wilayah):
     form = ScanUploadForm(request.POST or None, request.FILES or None)
     error = ""
     if request.method == "POST":
         limit, used = _scan_quota(w)
-        if limit is not None and used >= limit:
+        reads = request.POST.get("jenis") != DokumenScan.TYPE_OTHER
+        if reads and limit is not None and used >= limit:
             error = (f"Kuota baca otomatis paket Anda ({limit} dokumen per bulan) sudah habis bulan ini. "
                      "Coba lagi bulan depan, atau naik ke Paket Tumbuh saat perpanjang.")
         elif not ratelimit.allow(f"sim-scan:{w.pk}", limit=services.MAX_SCANS_PER_DAY, window=86400):
@@ -337,7 +381,7 @@ def scan(request, w: Wilayah):
             doc.gambar.save(form.cleaned_data["gambar"].name, form.cleaned_data["gambar"], save=False)
             doc.save()
             _run_ocr(doc)
-            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
+            return redirect(_url("sim:scan-detail", w, doc.pk))
     page = Paginator(w.scan_set.select_related("kk"), 24).get_page(request.GET.get("hal"))
     limit, used = _scan_quota(w)
     return _render(request, "sim/scan.html", {
@@ -347,15 +391,18 @@ def scan(request, w: Wilayah):
 
 
 def _scan_quota(w: Wilayah) -> tuple[int | None, int]:
-    """(batas per bulan dari paket, jumlah scan bulan ini). Batas None = tanpa batas."""
+    """(batas per bulan dari paket, jumlah KK/KTP yang dibaca otomatis bulan ini). Batas None = tanpa batas."""
     limit = w.package.scan_limit if w.package_id and w.package else None
     # Rentang waktu (bukan __date): MariaDB tanpa tabel zona waktu tidak bisa memakai __date.
     start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    used = w.scan_set.filter(created_at__gte=start).count() if limit is not None else 0
+    used = (w.scan_set.filter(created_at__gte=start).exclude(jenis=DokumenScan.TYPE_OTHER).count()
+            if limit is not None else 0)
     return limit, used
 
 
 def _run_ocr(doc: DokumenScan) -> None:
+    if doc.jenis == DokumenScan.TYPE_OTHER:  # dokumen lain hanya disimpan sebagai gambar
+        return
     result = ocr.read_text(doc.gambar, kind=doc.jenis)
     if result.ok:
         doc.teks, doc.hasil, doc.ocr_status, doc.ocr_pesan = result.text, result.data, DokumenScan.OCR_DONE, ""
@@ -365,108 +412,81 @@ def _run_ocr(doc: DokumenScan) -> None:
     doc.save(update_fields=["teks", "hasil", "ocr_status", "ocr_pesan"])
 
 
+KK_SCAN_KEYS = ("no_kk", "alamat", "rt", "rw", "kode_pos", "kelurahan", "kecamatan", "kota", "provinsi", "tanggal_dikeluarkan")
+MEMBER_KEYS = tuple(PendudukFields.Meta.fields)
+
+
+def _scan_members(hasil: dict) -> list[dict]:
+    rows = [r for r in hasil.get("anggota", []) if isinstance(r, dict)][:15]
+    out = []
+    for row in rows:
+        clean = {k: str(row.get(k) or "") for k in MEMBER_KEYS if row.get(k)}
+        clean.setdefault("kewarganegaraan", "WNI")
+        out.append(clean)
+    return out
+
+
 @require_http_methods(["GET", "HEAD", "POST"])
-@wilayah_view("scan", edit=True)
+@wilayah_view("warga", edit=True)
 def scan_detail(request, w: Wilayah, pk: int):
-    doc = get_object_or_404(w.scan_set.select_related("kk"), pk=pk)
-    if request.method == "POST":
-        action = request.POST.get("aksi")
-        if action == "baca":
-            if ratelimit.allow(f"sim-ocr:{w.pk}", limit=60, window=3600):
-                _run_ocr(doc)
-            return redirect(_url("sim:scan-detail", w, doc.pk))
-        if action == "teks":
-            doc.teks = (request.POST.get("teks") or "")[:20000]
-            doc.save(update_fields=["teks"])
-            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
-        if action == "hubungkan":
-            kk_pk = request.POST.get("kk", "")
-            doc.kk = get_object_or_404(w.kk_set, pk=int(kk_pk)) if kk_pk.isdigit() else None
-            doc.save(update_fields=["kk"])
-            return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
-        if action == "buat-kk" and doc.jenis == DokumenScan.TYPE_KK:
-            kk = _kk_from_scan(w, doc, request.POST)
-            return redirect(_url("sim:kk", w, kk.pk, ok="scan-kk"))
-        if action == "hapus":
-            doc.delete()
-            return redirect(_url("sim:scan", w, ok="scan-hapus"))
-        raise Http404
+    doc = get_object_or_404(w.scan_set.select_related("kk", "penduduk"), pk=pk)
     hasil = doc.hasil if isinstance(doc.hasil, dict) else {}
-    found = [r for r in hasil.get("anggota", []) if isinstance(r, dict)] if doc.jenis == DokumenScan.TYPE_KK else []
-    rows = []
-    for i in range(min(max(len(found) + 3, 4), 15)):
-        row = dict(found[i]) if i < len(found) else {}
-        row["index"] = str(i)
-        rows.append(row)
-    return _render(request, "sim/scan_detail.html", {
-        "doc": doc,
-        "hasil": hasil,
-        "member_rows": rows,
-        "genders": GENDERS, "religions": RELIGIONS, "maritals": MARITAL, "relations": RELATIONS,
-        "kk_choices": w.kk_set.order_by("kepala_nama")[:500],
-        "page_title": str(doc),
-    })
+    action = request.POST.get("aksi") if request.method == "POST" else ""
+    if action == "baca":
+        if ratelimit.allow(f"sim-ocr:{w.pk}", limit=60, window=3600):
+            _run_ocr(doc)
+        return redirect(_url("sim:scan-detail", w, doc.pk))
+    if action == "hubungkan":
+        kk_pk = request.POST.get("kk", "")
+        doc.kk = get_object_or_404(w.kk_set, pk=int(kk_pk)) if kk_pk.isdigit() else None
+        doc.save(update_fields=["kk"])
+        return redirect(_url("sim:scan-detail", w, doc.pk, ok="scan"))
+    if action == "hapus":
+        doc.delete()
+        return redirect(_url("sim:scan", w, ok="scan-hapus"))
+    if action and action not in ("simpan-kk", "simpan-ktp"):
+        raise Http404
 
-
-def _digits(value: str, n: int) -> str:
-    value = "".join(ch for ch in (value or "") if ch.isdigit())
-    return value if len(value) == n else ""
-
-
-@transaction.atomic
-def _kk_from_scan(w: Wilayah, doc: DokumenScan, post) -> KartuKeluarga:
-    """Buat KK + anggota dari draf hasil OCR yang SUDAH diperiksa/diubah pengurus di formulir."""
-    no_kk = _digits(post.get("no_kk", ""), 16)
-    kk = w.kk_set.filter(no_kk=no_kk).first() if no_kk else None
-    if kk is None:
-        kk = KartuKeluarga.objects.create(
-            wilayah=w,
-            no_kk=no_kk,
-            kepala_nama=(post.get("kepala_nama") or "TANPA NAMA").strip().upper()[:100],
-            alamat=(post.get("alamat") or "").strip()[:200],
-            rt=(post.get("rt") or "").strip()[:5],
-            rw=(post.get("rw") or "").strip()[:5],
-            kode_pos=_digits(post.get("kode_pos", ""), 5),
-        )
-    existing = set(w.penduduk_set.exclude(nik="").values_list("nik", flat=True))
-    count = 0
-    for i in range(15):
-        prefix = f"a{i}_"
-        nama = (post.get(prefix + "nama") or "").strip().upper()
-        if not nama or post.get(prefix + "lewati"):
-            continue
-        nik = _digits(post.get(prefix + "nik", ""), 16)
-        if nik and nik in existing:
-            continue
-        born = None
-        try:
-            born = date.fromisoformat(post.get(prefix + "tanggal_lahir", "")) if post.get(prefix + "tanggal_lahir") else None
-        except ValueError:
-            born = None
-        gender = post.get(prefix + "jenis_kelamin", "")
-        Penduduk.objects.create(
-            wilayah=w, kk=kk, nik=nik, nama=nama[:100],
-            jenis_kelamin=gender if gender in ("L", "P") else "",
-            tempat_lahir=(post.get(prefix + "tempat_lahir") or "").strip()[:60],
-            tanggal_lahir=born,
-            agama=(post.get(prefix + "agama") or "")[:20],
-            pendidikan=(post.get(prefix + "pendidikan") or "")[:60],
-            pekerjaan=(post.get(prefix + "pekerjaan") or "").strip()[:60],
-            status_perkawinan=(post.get(prefix + "status_perkawinan") or "")[:20],
-            hubungan=(post.get(prefix + "hubungan") or "")[:20],
-            urutan=i + 1,
-        )
-        if nik:
-            existing.add(nik)
-        count += 1
-    doc.kk = kk
-    doc.save(update_fields=["kk"])
-    log.info("KK #%s dibuat/diisi dari scan #%s (%s anggota).", kk.pk, doc.pk, count)
-    return kk
+    ctx: dict = {"doc": doc, "hasil": hasil, "page_title": str(doc),
+                 "kk_choices": w.kk_set.order_by("kepala_nama")[:500]}
+    status = 200
+    if doc.jenis == DokumenScan.TYPE_KK and not doc.kk_id:
+        data = request.POST if action == "simpan-kk" else None
+        if data is not None and w.kk_set.count() >= services.MAX_KK_PER_WILAYAH:
+            raise Http404
+        initial = {k: hasil.get(k, "") for k in KK_SCAN_KEYS}
+        members = _scan_members(hasil)
+        result = _kk_editor(w, None, data, initial=initial, members=members)
+        if isinstance(result, KartuKeluarga):
+            doc.kk = result
+            doc.save(update_fields=["kk"])
+            log.info("KK #%s dibuat dari scan #%s.", result.pk, doc.pk)
+            return redirect(_url("sim:kk", w, result.pk, ok="scan-kk"))
+        ctx.update(result, found=len(members))
+        status = 400 if data is not None else 200
+    elif doc.jenis == DokumenScan.TYPE_KTP and not doc.penduduk_id:
+        data = request.POST if action == "simpan-ktp" else None
+        values = {k: hasil.get(k) for k in MEMBER_KEYS if hasil.get(k)}
+        person = w.penduduk_set.select_related("kk").filter(nik=hasil.get("nik")).first() if hasil.get("nik") else None
+        if person:
+            form = PendudukForm(data, instance=person, kk=person.kk, initial=values, ringkas=True)
+        else:
+            values.setdefault("kewarganegaraan", "WNI")
+            if doc.kk_id:
+                values["kk"] = doc.kk_id
+            form = PendudukForm(data, wilayah=w, pilih_kk=True, initial=values, ringkas=True)
+        if data is not None and form.is_valid():
+            saved = form.save()
+            doc.penduduk, doc.kk = saved, saved.kk
+            doc.save(update_fields=["penduduk", "kk"])
+            return redirect(_url("sim:kk", w, saved.kk_id, ok="scan-ktp"))
+        ctx.update(person_form=form, existing_person=person)
+        status = 400 if data is not None else 200
+    return _render(request, "sim/scan_detail.html", ctx, status=status)
 
 
 @require_safe
-@wilayah_view("scan")
+@wilayah_view("warga")
 def scan_gambar(request, w: Wilayah, pk: int):
     doc = get_object_or_404(w.scan_set, pk=pk)
     return serve_private(doc.gambar)
@@ -547,6 +567,12 @@ def surat_detail(request, w: Wilayah, pk: int):
     editable = s.status == Surat.STATUS_SUBMITTED
     form = surat_form_class(s.jenis, public=False)(initial=surat_initial(s)) if editable and s.jenis else None
     reject_form = RejectForm()
+    if request.method == "POST" and request.POST.get("aksi") == "hapus" and not editable:
+        try:
+            services.delete_surat(s)
+        except services.SuratError:
+            return redirect(_url("sim:surat-detail", w, s.pk))
+        return redirect(_url("sim:surat", w, filter="semua", ok="surat-hapus"))
     if request.method == "POST" and editable:
         action = request.POST.get("aksi")
         if action in ("simpan", "terbit") and s.jenis:

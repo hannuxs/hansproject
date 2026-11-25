@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from unittest import mock
+from unittest import mock, skipUnless
 
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
@@ -43,6 +43,26 @@ def make_wilayah(owner, level=LEVEL_RT, nomor="005", *, days=20, **kwargs) -> Wi
 def make_warga(w, nik=NIK, nama="SITI AMINAH", born=date(1990, 1, 1)) -> Penduduk:
     kk = KartuKeluarga.objects.create(wilayah=w, no_kk="3201010101900099", kepala_nama="AHMAD", alamat="JL. MELATI 1", rt="005", rw="003")
     return Penduduk.objects.create(wilayah=w, kk=kk, nik=nik, nama=nama, jenis_kelamin="P", tanggal_lahir=born, hubungan="Istri")
+
+
+MEMBER_FIELDS = ("nama", "hubungan", "nik", "jenis_kelamin", "tempat_lahir", "tanggal_lahir", "agama", "pendidikan", "pekerjaan",
+                 "golongan_darah", "status_perkawinan", "tanggal_perkawinan", "kewarganegaraan", "no_paspor", "no_kitap",
+                 "nama_ayah", "nama_ibu")
+
+
+def kk_post(rows, *, initial=0, extra_blank=1, **fields):
+    """POST formulir KK + anggota (formset berawalan 'anggota')."""
+    data = {"status": "aktif", **fields}
+    rows = list(rows) + [{} for _ in range(extra_blank)]
+    data.update({"anggota-TOTAL_FORMS": str(len(rows)), "anggota-INITIAL_FORMS": str(initial),
+                 "anggota-MIN_NUM_FORMS": "0", "anggota-MAX_NUM_FORMS": "15"})
+    for i, row in enumerate(rows):
+        for key in MEMBER_FIELDS:
+            data[f"anggota-{i}-{key}"] = row.get(key, "WNI" if key == "kewarganegaraan" and row else "")
+        for key in ("id", "DELETE"):
+            if row.get(key):
+                data[f"anggota-{i}-{key}"] = row[key]
+    return data
 
 
 def request_data(**extra):
@@ -111,7 +131,7 @@ class OcrParserTests(SimpleTestCase):
         self.assertEqual((head["nik"], head["nama"], head["jenis_kelamin"], head["tanggal_lahir"]), ("3201010101850001", "AHMAD SUBARJO", "L", "1985-05-12"))
         self.assertEqual(head["hubungan"], "Kepala Keluarga")
         self.assertEqual(wife["hubungan"], "Istri")
-        self.assertEqual(wife["pendidikan"], "Slta/Sederajat")
+        self.assertEqual(wife["pendidikan"], "SLTA/SEDERAJAT")
 
     def test_bad_dates_ignored(self):
         self.assertEqual(ocr.parse_date("31-02-1990"), "")
@@ -428,18 +448,85 @@ class ScanTests(PrivateMediaMixin, SeededTestCase):
         self.assertTrue(doc.gambar.name.startswith("sim/scan/"))
         image = self.client.get(reverse("sim:scan-gambar", args=[self.w.kode, doc.pk]))
         self.assertEqual(image["Cache-Control"], "no-store, max-age=0")
-        r = self.client.post(reverse("sim:scan-detail", args=[self.w.kode, doc.pk]), {
-            "aksi": "buat-kk", "no_kk": "3201010101900099", "kepala_nama": "ahmad", "alamat": "Jl. Melati",
-            "a0_nama": "Ahmad", "a0_nik": "3201010101850001", "a0_jenis_kelamin": "L", "a0_tanggal_lahir": "1985-05-12", "a0_hubungan": "Kepala Keluarga",
-            "a1_nama": "Siti", "a1_nik": "123", "a1_tanggal_lahir": "bukan-tanggal",
-        })
+        url = reverse("sim:scan-detail", args=[self.w.kode, doc.pk])
+        page = self.client.get(url)
+        self.assertNotContains(page, "Teks hasil baca")  # teks mentah OCR tidak ditampilkan lagi
+        self.assertNotContains(page, 'name="kepala_nama"')  # nama kepala keluarga tidak diketik
+        rows = [
+            {"nama": "Ahmad", "nik": "3201010101850001", "jenis_kelamin": "L", "tanggal_lahir": "1985-05-12", "hubungan": "Anak"},
+            {"nama": "Siti", "nik": "123"},
+        ]
+        r = self.client.post(url, kk_post(rows, aksi="simpan-kk", no_kk="3201010101900099", alamat="Jl. Melati"))
+        self.assertContains(r, "NIK harus 16 angka", status_code=400)
+        rows[1]["nik"] = ""
+        r = self.client.post(url, kk_post(rows, aksi="simpan-kk", no_kk="3201010101900099", alamat="Jl. Melati"))
+        self.assertContains(r, "Kepala Keluarga", status_code=400)  # belum ada kepala keluarga
+        self.assertFalse(KartuKeluarga.objects.exists())
+        rows[0]["hubungan"] = "Kepala Keluarga"
+        r = self.client.post(url, kk_post(rows, aksi="simpan-kk", no_kk="3201010101900099", alamat="Jl. Melati"))
         self.assertEqual(r.status_code, 302)
         kk = KartuKeluarga.objects.get()
-        self.assertEqual((kk.no_kk, kk.kepala_nama), ("3201010101900099", "AHMAD"))
+        self.assertEqual((kk.no_kk, kk.kepala_nama, kk.alamat), ("3201010101900099", "AHMAD", "JL. MELATI"))
         people = list(kk.anggota.order_by("urutan"))
-        self.assertEqual([(p.nama, p.nik) for p in people], [("AHMAD", "3201010101850001"), ("SITI", "")])
+        self.assertEqual([(p.nama, p.nik, p.urutan) for p in people], [("AHMAD", "3201010101850001", 1), ("SITI", "", 2)])
         doc.refresh_from_db()
         self.assertEqual(doc.kk, kk)
+        self.assertContains(self.client.get(url), "Sudah disimpan sebagai")
+
+    def test_scan_result_fills_kk_form(self):
+        hasil = {
+            "no_kk": "6501050409200002", "alamat": "JL. MAWAR NO 4", "rt": "006", "rw": "003", "kode_pos": "77212",
+            "kelurahan": "TANJUNG SELOR HILIR", "kecamatan": "TANJUNG SELOR", "kota": "BULUNGAN", "provinsi": "KALIMANTAN UTARA",
+            "tanggal_dikeluarkan": "2025-06-25", "kepala_nama": "RINA CONTOH",
+            "anggota": [
+                {"nama": "RINA CONTOH", "nik": "6404074205840002", "jenis_kelamin": "P", "tempat_lahir": "LONG LASAN",
+                 "tanggal_lahir": "1984-05-02", "agama": "Islam", "pendidikan": "DIPLOMA IV/STRATA I", "pekerjaan": "KARYAWAN HONORER",
+                 "golongan_darah": "O", "status_perkawinan": "Cerai Tercatat", "tanggal_perkawinan": "2025-05-07",
+                 "hubungan": "Kepala Keluarga", "kewarganegaraan": "WNI", "nama_ayah": "AHEL", "nama_ibu": "PAULINA"},
+                {"nama": "BAYU CONTOH", "nik": "6404072301050001", "jenis_kelamin": "L", "tempat_lahir": "KENDARI",
+                 "tanggal_lahir": "2005-01-23", "agama": "Islam", "pendidikan": "SLTA/SEDERAJAT", "pekerjaan": "BELUM/TIDAK BEKERJA",
+                 "golongan_darah": "TIDAK TAHU", "status_perkawinan": "Belum Kawin", "hubungan": "Anak", "kewarganegaraan": "WNI",
+                 "nama_ayah": "NURDIN", "nama_ibu": "RINA CONTOH"},
+            ],
+        }
+        result = ocr.OcrResult(True, text="(hasil)", data=hasil)
+        with mock.patch.object(ocr, "read_text", return_value=result):
+            self.client.post(reverse("sim:scan", args=[self.w.kode]), {"jenis": "kk", "gambar": png_upload("kk.png")})
+        doc = DokumenScan.objects.get()
+        url = reverse("sim:scan-detail", args=[self.w.kode, doc.pk])
+        page = self.client.get(url)
+        for text in ('value="6501050409200002"', 'value="RINA CONTOH"', 'value="BAYU CONTOH"', 'value="DIPLOMA IV/STRATA I"',
+                     'value="2025-06-25"', "terisi otomatis", "2 anggota"):
+            self.assertContains(page, text)
+        # Pengurus langsung menekan Simpan tanpa mengubah apa pun: semua baris hasil scan ikut tersimpan.
+        rows = [dict(m) for m in hasil["anggota"]]
+        keys = {k: hasil[k] for k in ("no_kk", "alamat", "rt", "rw", "kode_pos", "kelurahan", "kecamatan", "kota", "provinsi",
+                                      "tanggal_dikeluarkan")}
+        r = self.client.post(url, kk_post(rows, aksi="simpan-kk", **keys))
+        self.assertEqual(r.status_code, 302)
+        kk = KartuKeluarga.objects.get()
+        self.assertEqual((kk.kepala_nama, kk.kota, str(kk.tanggal_dikeluarkan)), ("RINA CONTOH", "BULUNGAN", "2025-06-25"))
+        head = kk.anggota.get(hubungan="Kepala Keluarga")
+        self.assertEqual((head.status_perkawinan, str(head.tanggal_perkawinan), head.golongan_darah), ("Cerai Tercatat", "2025-05-07", "O"))
+        self.assertEqual(kk.anggota.get(nama="BAYU CONTOH").golongan_darah, "TIDAK TAHU")
+
+    def test_ktp_scan_adds_member_to_chosen_kk(self):
+        kk = KartuKeluarga.objects.create(wilayah=self.w, no_kk="3201010101900099", alamat="JL. MELATI 1")
+        hasil = {"nik": NIK, "nama": "SITI AMINAH", "jenis_kelamin": "P", "tempat_lahir": "BOGOR", "tanggal_lahir": "1990-01-01",
+                 "agama": "Islam", "status_perkawinan": "Kawin", "pekerjaan": "PEDAGANG", "kewarganegaraan": "WNI"}
+        with mock.patch.object(ocr, "read_text", return_value=ocr.OcrResult(True, text="x", data=hasil)):
+            self.client.post(reverse("sim:scan", args=[self.w.kode]), {"jenis": "ktp", "gambar": png_upload("ktp.png")})
+        doc = DokumenScan.objects.get()
+        url = reverse("sim:scan-detail", args=[self.w.kode, doc.pk])
+        self.assertContains(self.client.get(url), 'value="SITI AMINAH"')
+        data = {"aksi": "simpan-ktp", "kk": kk.pk, **hasil, "hubungan": "Kepala Keluarga"}
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        person = Penduduk.objects.get(nik=NIK)
+        self.assertEqual((person.kk, person.nama, person.status), (kk, "SITI AMINAH", "aktif"))
+        kk.refresh_from_db()
+        self.assertEqual(kk.kepala_nama, "SITI AMINAH")
+        doc.refresh_from_db()
+        self.assertEqual((doc.penduduk, doc.kk), (person, kk))
 
     @mock.patch.object(ocr, "tesseract_cmd", return_value=None)
     def test_monthly_scan_quota_from_package(self, _cmd):
@@ -564,3 +651,269 @@ class PageSmokeTests(PrivateMediaMixin, SeededTestCase):
         # Halaman pesan paket SIM (formulir data wilayah).
         Package.objects.filter(code="sim-tumbuh").update(is_active=True, price=35000)
         self.assertContains(self.client.get("/akun/pesan/sim-tumbuh/"), "Data instansi")
+
+
+# ---------------------------------------------------------------------------
+# Data warga: KK + anggota, kepala keluarga otomatis
+# ---------------------------------------------------------------------------
+class DataWargaTests(SeededTestCase):
+    def setUp(self):
+        super().setUp()
+        self.owner = make_member()
+        self.w = make_wilayah(self.owner)
+        login_member(self.client, self.owner)
+
+    def test_scan_moved_into_data_warga(self):
+        page = self.client.get(reverse("sim:warga", args=[self.w.kode]))
+        html = page.content.decode()
+        nav = html[html.index('class="toko-tabs'):]
+        nav = nav[: nav.index("</nav>")]
+        self.assertNotIn("Scan KK/KTP", nav)  # bukan tab sendiri lagi
+        self.assertIn("Data warga", nav)
+        self.assertContains(page, "Scan KK/KTP")  # tombol di dalam tab Data warga
+        self.assertNotContains(page, "Dari foto KK")
+        scan = self.client.get(reverse("sim:scan", args=[self.w.kode])).content.decode()
+        tabs = scan[scan.index('class="toko-tabs'):]
+        active = tabs.split('aria-current="page">')[1][:300]
+        self.assertIn("Data warga", active)  # halaman scan tetap di tab Data warga
+
+    def test_new_kk_form_prefills_area_and_first_row_is_head(self):
+        page = self.client.get(reverse("sim:kk-baru", args=[self.w.kode]))
+        self.assertNotContains(page, 'name="kepala_nama"')
+        self.assertContains(page, 'value="SUKAMAJU"')  # kelurahan dari data wilayah
+        self.assertContains(page, 'value="005"')  # RT
+        self.assertContains(page, '<option value="Kepala Keluarga" selected>')
+
+    def test_head_rules_and_duplicate_nik(self):
+        other = make_warga(self.w)  # NIK sudah terdaftar di KK lain
+        url = reverse("sim:kk-baru", args=[self.w.kode])
+        rows = [{"nama": "budi", "hubungan": "Kepala Keluarga"}, {"nama": "ani", "hubungan": "Kepala Keluarga"}]
+        self.assertContains(self.client.post(url, kk_post(rows)), "Hanya satu anggota", status_code=400)
+        rows[1]["hubungan"] = "Istri"
+        rows[1]["nik"] = other.nik
+        self.assertContains(self.client.post(url, kk_post(rows)), "sudah terdaftar atas nama SITI AMINAH", status_code=400)
+        rows[1]["nik"] = "3201010101900077"
+        rows.append({"nama": "cici", "nik": "3201010101900077"})
+        self.assertContains(self.client.post(url, kk_post(rows)), "sama dengan anggota lain", status_code=400)
+        rows.pop()
+        r = self.client.post(url, kk_post(rows))
+        self.assertEqual(r.status_code, 302)
+        kk = KartuKeluarga.objects.get(kepala_nama="BUDI")
+        self.assertEqual(kk.anggota.count(), 2)
+
+    def test_edit_kk_changes_head_and_removes_member(self):
+        kk = KartuKeluarga.objects.create(wilayah=self.w, kepala_nama="AHMAD")
+        a = Penduduk.objects.create(wilayah=self.w, kk=kk, nama="AHMAD", hubungan="Kepala Keluarga", urutan=1)
+        b = Penduduk.objects.create(wilayah=self.w, kk=kk, nama="SITI", hubungan="Istri", urutan=2)
+        url = reverse("sim:kk-ubah", args=[self.w.kode, kk.pk])
+        self.assertContains(self.client.get(url), "Kepala keluarga: <b")
+        rows = [{"id": a.pk, "nama": "AHMAD", "hubungan": "Lainnya", "DELETE": "on"},
+                {"id": b.pk, "nama": "SITI", "hubungan": "Kepala Keluarga"}]
+        r = self.client.post(url, kk_post(rows, initial=2))
+        self.assertEqual(r.status_code, 302)
+        kk.refresh_from_db()
+        self.assertEqual(kk.kepala_nama, "SITI")
+        self.assertFalse(Penduduk.objects.filter(pk=a.pk).exists())
+
+    def test_single_member_form_keeps_one_head(self):
+        person = make_warga(self.w)  # SITI, Istri di KK AHMAD (tanpa kepala keluarga)
+        kk = person.kk
+        url = reverse("sim:anggota-baru", args=[self.w.kode, kk.pk])
+        data = {"nama": "Ahmad", "hubungan": "Kepala Keluarga", "kewarganegaraan": "WNI", "status": "aktif", "urutan": "1"}
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        kk.refresh_from_db()
+        self.assertEqual(kk.kepala_nama, "AHMAD")
+        data["nama"] = "Joko"
+        self.assertContains(self.client.post(url, data), "sudah punya kepala keluarga (AHMAD)", status_code=400)
+        head = kk.anggota.get(nama="AHMAD")
+        self.client.post(reverse("sim:anggota-hapus", args=[self.w.kode, head.pk]))
+        kk.refresh_from_db()
+        self.assertEqual(kk.kepala_nama, "")
+        self.assertContains(self.client.get(reverse("sim:kk", args=[self.w.kode, kk.pk])), "Belum ada kepala keluarga")
+
+
+class SuratDeleteTests(SeededTestCase):
+    def setUp(self):
+        super().setUp()
+        self.owner = make_member()
+        self.w = make_wilayah(self.owner)
+        login_member(self.client, self.owner)
+
+    def make_issued(self):
+        jenis = self.w.jenis_surat.get(kode="domisili")
+        s = services.create_request(self.w, jenis, {"nama": "Siti", "nik": NIK, "keperluan": "Tes"}, source=Surat.SOURCE_DIRECT)
+        return services.issue(s)
+
+    def test_delete_issued_letter_and_number_not_reused(self):
+        first = self.make_issued()
+        self.assertEqual(first.nomor_urut, 1)
+        cek = reverse("warga:cek", args=[first.verify_token])
+        self.assertEqual(self.client.get(cek).status_code, 200)
+        url = reverse("sim:surat-detail", args=[self.w.kode, first.pk])
+        self.assertContains(self.client.get(url), "Hapus surat ini")
+        r = self.client.post(url, {"aksi": "hapus"})
+        self.assertRedirects(r, reverse("sim:surat", args=[self.w.kode]) + "?filter=semua&ok=surat-hapus", fetch_redirect_response=False)
+        self.assertFalse(Surat.objects.filter(pk=first.pk).exists())
+        self.assertEqual(self.client.get(cek).status_code, 404)  # QR surat yang dihapus tidak berlaku
+        second = self.make_issued()
+        self.assertEqual(second.nomor_urut, 2)  # nomor 1 tidak dipakai ulang
+
+    def test_pending_request_cannot_be_deleted(self):
+        jenis = self.w.jenis_surat.get(kode="domisili")
+        s = services.create_request(self.w, jenis, {"nama": "Siti", "nik": NIK, "keperluan": "Tes"}, source=Surat.SOURCE_ONLINE)
+        url = reverse("sim:surat-detail", args=[self.w.kode, s.pk])
+        self.assertNotContains(self.client.get(url), "Hapus surat ini")
+        self.client.post(url, {"aksi": "hapus"})
+        self.assertTrue(Surat.objects.filter(pk=s.pk).exists())
+
+
+# ---------------------------------------------------------------------------
+# Pembaca KK: fungsi murni & deteksi tabel (tanpa Tesseract)
+# ---------------------------------------------------------------------------
+class KkReaderTests(SimpleTestCase):
+    def test_head_lines_with_two_columns_and_noise(self):
+        data = ocr.parse_head_lines([
+            "Sw aes Nama Kepala Keluarga :BUDI SANTOSO Desa/Kelurahan : SUKA MAJU",
+            "Ye Ai Alamat 1 JL. MAWAR NO 4 Kecamatan : CIBINONG",
+            "RT/RW : 006/003 Kabupaten/Kota : BOGOR",
+            "REPUBLIK INDONESIA Kode Pos : 16911 Provinsi : JAWA BARAT Dn |",
+            "Dikeluarkan Tanggal: [ 25-06-2025 |",
+        ])
+        self.assertEqual(data["kepala_nama"], "BUDI SANTOSO")
+        self.assertEqual((data["kelurahan"], data["kecamatan"], data["kota"], data["provinsi"]),
+                         ("SUKA MAJU", "CIBINONG", "BOGOR", "JAWA BARAT"))
+        self.assertEqual((data["alamat"], data["rt"], data["rw"], data["kode_pos"]), ("JL. MAWAR NO 4", "006", "003", "16911"))
+        self.assertEqual(data["tanggal_dikeluarkan"], "2025-06-25")
+
+    def test_value_normalization(self):
+        self.assertEqual(ocr._normalize("pendidikan", "SLTA'SEDERAJAT"), "SLTA/SEDERAJAT")
+        self.assertEqual(ocr._normalize("pendidikan", "TIOAX/BELUM SEKOLAH"), "TIDAK/BELUM SEKOLAH")
+        self.assertEqual(ocr._normalize("pekerjaan", "PELAJARIMAHASISWA"), "PELAJAR/MAHASISWA")
+        self.assertEqual(ocr._normalize("jenis_kelamin", "LAKH AKI"), "L")
+        self.assertEqual(ocr._normalize("status_perkawinan", "CERAI TERCATAT"), "Cerai Tercatat")
+        self.assertEqual(ocr._normalize("hubungan", "KEPALA KELUARGA"), "Kepala Keluarga")
+        self.assertEqual(ocr._normalize("golongan_darah", "TIDAK TAHU"), "TIDAK TAHU")
+        self.assertEqual(ocr._normalize("golongan_darah", "0"), "O")
+        self.assertEqual(ocr._normalize("nama_ibu", "BUDI SANTOSO sat"), "BUDI SANTOSO")
+        self.assertEqual(ocr._normalize("nama", "-"), "")
+        self.assertEqual(ocr.parse_date("23012005"), "2005-01-23")
+        self.assertEqual(ocr._vote("tanggal_lahir", [["02-05-1984"], ["02-05-1924"], ["02-05-1984"]]), ["1984-05-02"])
+        self.assertEqual(ocr._vote("tanggal_lahir", [["1405-2004"], ["100-20"], ["x"]]), [""])
+
+    def test_kk_number_region_fix_and_head(self):
+        self.assertEqual(ocr._region_fix("1501050409200002", ["6501055107170001"]), "6501050409200002")
+        self.assertEqual(ocr._region_fix("6501050409200002", ["3201010101900001"]), "6501050409200002")
+        data = ocr.finish_kk({"kepala_nama": "BUDI SANTOSO", "anggota": [{"nama": "BUDI SANTOS", "hubungan": ""}, {"nama": "ANI"}]})
+        self.assertEqual(data["anggota"][0]["hubungan"], "Kepala Keluarga")
+
+    def test_detects_kk_tables_from_lines(self):
+        from PIL import Image, ImageDraw
+
+        img = Image.new("L", (2000, 1300), 255)
+        draw = ImageDraw.Draw(img)
+        widths_a = [40, 400, 190, 100, 220, 110, 130, 290, 290, 120]  # No + 9 kolom (KK 2020+)
+        widths_b = [40, 190, 120, 230, 180, 150, 150, 400, 430]  # No + 8 kolom
+
+        def table(top, widths, rows=12, height=40):
+            x0, x1 = 50, 50 + sum(widths)
+            for r in range(rows + 1):
+                draw.rectangle((x0, top + r * height, x1, top + r * height + 2), fill=0)
+            x = x0
+            for w_ in [0] + widths:
+                x += w_
+                draw.rectangle((x, top, x + 2, top + rows * height + 2), fill=0)
+            for r in range(rows):  # isian huruf di tiap sel supaya mirip KK
+                draw.text((x0 + 60, top + r * height + 14), "AHMAD 1111", fill=0)
+            return top + rows * height
+
+        end = table(200, widths_a)
+        table(end + 30, widths_b)
+        h_lines, rows = ocr._table_rows(ocr._ink(img))
+        groups = ocr._groups(rows, img.width)
+        self.assertEqual([len(g[0].cols) for g in groups], [10, 9])
+        self.assertEqual([len(g) for g in groups], [12, 12])
+        self.assertIn(len(groups[0][0].cols) - 1, ocr.TABLE_A)
+        self.assertIn(len(groups[1][0].cols) - 1, ocr.TABLE_B)
+
+
+@skipUnless(ocr.is_available() and ocr.has_indonesian(), "Tesseract + data bahasa ind belum terpasang")
+class KkReaderTesseractTests(SimpleTestCase):
+    """Ujung ke ujung dengan Tesseract sungguhan pada KK sintetis (data palsu, digambar oleh tes)."""
+
+    def make_kk(self, path):
+        from pathlib import Path
+
+        from django.conf import settings
+        from PIL import Image, ImageDraw, ImageFont
+
+        font_path = Path(settings.BASE_DIR) / "scripts" / "fonts" / "PlusJakartaSans-var.ttf"
+        small, head, big = (ImageFont.truetype(str(font_path), size) for size in (17, 22, 44))
+        img = Image.new("L", (2400, 1700), 255)
+        d = ImageDraw.Draw(img)
+        d.text((900, 40), "KARTU KELUARGA", font=big, fill=0)
+        d.text((880, 100), "No. 3201010101900099", font=big, fill=0)
+        heads = [("Nama Kepala Keluarga", "BUDI SANTOSO", "Desa/Kelurahan", "SUKAMAJU"),
+                 ("Alamat", "JL. MELATI NO 1", "Kecamatan", "CIBINONG"),
+                 ("RT/RW", "005/003", "Kabupaten/Kota", "BOGOR"),
+                 ("Kode Pos", "16911", "Provinsi", "JAWA BARAT")]
+        for i, (l1, v1, l2, v2) in enumerate(heads):
+            y = 180 + i * 34
+            d.text((300, y), l1, font=head, fill=0)
+            d.text((560, y), ": " + v1, font=head, fill=0)
+            d.text((1400, y), l2, font=head, fill=0)
+            d.text((1620, y), ": " + v2, font=head, fill=0)
+        widths_a = [50, 430, 260, 150, 220, 160, 130, 320, 300, 160]
+        widths_b = [50, 260, 170, 300, 200, 170, 170, 430, 430]
+        rows_a = [["1", "BUDI SANTOSO", "3201011205850001", "LAKI-LAKI", "BOGOR", "12-05-1985", "ISLAM", "SLTA/SEDERAJAT", "WIRASWASTA", "A"],
+                  ["2", "SITI AMINAH", "3201014101900002", "PEREMPUAN", "BANDUNG", "01-01-1990", "ISLAM", "DIPLOMA IV/STRATA I", "GURU", "O"],
+                  ["3", "RIZKY PRATAMA", "3201011503150003", "LAKI-LAKI", "BOGOR", "15-03-2015", "ISLAM", "TIDAK/BELUM SEKOLAH", "BELUM/TIDAK BEKERJA", "TIDAK TAHU"]]
+        rows_b = [["1", "KAWIN TERCATAT", "20-06-2012", "KEPALA KELUARGA", "WNI", "-", "-", "SLAMET", "SUMIATI"],
+                  ["2", "KAWIN TERCATAT", "20-06-2012", "ISTRI", "WNI", "-", "-", "HASAN", "AMINAH"],
+                  ["3", "BELUM KAWIN", "-", "ANAK", "WNI", "-", "-", "BUDI SANTOSO", "SITI AMINAH"]]
+
+        def table(top, widths, header, rows, height=40):
+            x0 = 60
+            lines = [top, top + 60, top + 90] + [top + 90 + (r + 1) * height for r in range(10)]
+            for y in lines:
+                d.rectangle((x0, y, x0 + sum(widths), y + 2), fill=0)
+            x = x0
+            for w_ in [0] + widths:
+                x += w_
+                d.rectangle((x, top, x + 2, lines[-1] + 2), fill=0)
+            xs = [x0 + sum(widths[:i]) for i in range(len(widths))]
+            for i, text in enumerate(header):
+                d.text((xs[i] + 8, top + 18), text, font=small, fill=0)
+                d.text((xs[i] + 8, top + 64), f"({i})" if i else "", font=small, fill=0)
+            for r in range(10):
+                values = rows[r] if r < len(rows) else [str(r + 1)] + ["-"] * (len(widths) - 1)
+                for i, text in enumerate(values):
+                    d.text((xs[i] + 8, top + 90 + r * height + 10), text, font=small, fill=0)
+            return lines[-1]
+
+        end = table(330, widths_a, ["No", "Nama Lengkap", "NIK", "Jenis Kelamin", "Tempat Lahir", "Tanggal Lahir", "Agama",
+                                    "Pendidikan", "Jenis Pekerjaan", "Golongan Darah"], rows_a)
+        end = table(end + 20, widths_b, ["No", "Status Perkawinan", "Tgl Perkawinan", "Status Hubungan", "Kewarganegaraan",
+                                         "No. Paspor", "No. KITAP", "Ayah", "Ibu"], rows_b)
+        d.text((120, end + 40), "Dikeluarkan Tanggal: 25-06-2025", font=head, fill=0)
+        img.rotate(0.8, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=255).save(path)
+
+    def test_reads_synthetic_kk(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = f"{tmp}/kk.png"
+            self.make_kk(path)
+            result = ocr._read_structured(ocr.tesseract_cmd(), path, tmp)
+        self.assertIsNotNone(result)
+        data = ocr.finish_kk(result[0])
+        self.assertEqual(data["kepala_nama"], "BUDI SANTOSO")
+        self.assertEqual((data.get("kelurahan"), data.get("rt"), data.get("rw")), ("SUKAMAJU", "005", "003"))
+        self.assertEqual(data.get("tanggal_dikeluarkan"), "2025-06-25")
+        members = data["anggota"]
+        self.assertEqual([m["nama"] for m in members], ["BUDI SANTOSO", "SITI AMINAH", "RIZKY PRATAMA"])
+        self.assertEqual([m["nik"] for m in members], ["3201011205850001", "3201014101900002", "3201011503150003"])
+        self.assertEqual([m["hubungan"] for m in members], ["Kepala Keluarga", "Istri", "Anak"])
+        self.assertEqual(members[1]["tanggal_lahir"], "1990-01-01")
+        self.assertEqual(members[1]["pendidikan"], "DIPLOMA IV/STRATA I")
+        self.assertEqual(members[2]["golongan_darah"], "TIDAK TAHU")
+        self.assertEqual(members[0]["status_perkawinan"], "Kawin Tercatat")

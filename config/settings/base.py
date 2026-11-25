@@ -263,6 +263,11 @@ SIM_SCAN_MAX_BYTES = 6 * 1024 * 1024
 # OCR lokal (Tesseract). Kosong = cari di C:/Program Files/Tesseract-OCR/tesseract.exe lalu di PATH.
 TESSERACT_CMD = env_str("TESSERACT_CMD")
 TESSERACT_LANG = env_str("TESSERACT_LANG", "ind+eng")
+# Folder data bahasa (ind/eng/osd). Kosong = tools/tessdata di folder proyek bila ada (diisi pasang-ocr.bat),
+# selain itu folder bawaan Tesseract.
+TESSERACT_DATA_DIR = env_str("TESSERACT_DATA_DIR") or str(BASE_DIR / "tools" / "tessdata")
+# Jumlah proses Tesseract sekaligus saat membaca satu KK (per kolom tabel). 1–4.
+TESSERACT_WORKERS = 3
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
 FILE_UPLOAD_PERMISSIONS = 0o640
 

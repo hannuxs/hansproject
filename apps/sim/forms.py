@@ -13,6 +13,7 @@ from apps.core.images import ImageRule, process_image
 from . import services
 from .models import (
     GENDERS,
+    KEPALA,
     LEVEL_KECAMATAN,
     LEVEL_KELURAHAN,
     LEVEL_RT,
@@ -185,11 +186,26 @@ class WilayahSettingsForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 # Data warga
 # ---------------------------------------------------------------------------
+DATE_INPUT = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
+UPPER_FIELDS = ("nama", "tempat_lahir", "pendidikan", "pekerjaan", "nama_ayah", "nama_ibu", "no_paspor", "no_kitap")
+
+
 class KKForm(forms.ModelForm):
+    """Data di kepala KK. Nama kepala keluarga TIDAK diketik: diambil dari anggota berhubungan Kepala Keluarga."""
+
     class Meta:
         model = KartuKeluarga
-        fields = ["no_kk", "kepala_nama", "alamat", "rt", "rw", "kode_pos", "status", "catatan"]
-        widgets = {"catatan": forms.Textarea(attrs={"rows": 2})}
+        fields = ["no_kk", "alamat", "rt", "rw", "kode_pos", "kelurahan", "kecamatan", "kota", "provinsi",
+                  "tanggal_dikeluarkan", "status", "catatan"]
+        widgets = {
+            "catatan": forms.Textarea(attrs={"rows": 2}),
+            "tanggal_dikeluarkan": DATE_INPUT,
+            "no_kk": forms.TextInput(attrs={"inputmode": "numeric", "autocomplete": "off", "class": "mono-sm"}),
+            "rt": forms.TextInput(attrs={"inputmode": "numeric"}),
+            "rw": forms.TextInput(attrs={"inputmode": "numeric"}),
+            "kode_pos": forms.TextInput(attrs={"inputmode": "numeric"}),
+        }
+        help_texts = {"no_kk": "16 angka, tertera di bawah tulisan KARTU KELUARGA."}
 
     def __init__(self, *args, wilayah: Wilayah, **kwargs):
         super().__init__(*args, **kwargs)
@@ -200,13 +216,20 @@ class KKForm(forms.ModelForm):
         if value and not NIK_RE.match(value):
             raise ValidationError("Nomor KK harus 16 angka.")
         if value:
-            dupe = KartuKeluarga.objects.filter(wilayah=self.wilayah, no_kk=value).exclude(pk=self.instance.pk)
-            if dupe.exists():
-                raise ValidationError("Nomor KK ini sudah ada di data wilayah Anda.")
+            dupe = KartuKeluarga.objects.filter(wilayah=self.wilayah, no_kk=value).exclude(pk=self.instance.pk).first()
+            if dupe:
+                raise ValidationError(f"Nomor KK ini sudah ada di data Anda (KK {dupe.kepala_label}). Buka KK itu untuk mengubahnya.")
         return value
 
-    def clean_kepala_nama(self):
-        return (self.cleaned_data.get("kepala_nama") or "").strip().upper()
+    def clean(self):
+        cleaned = super().clean()
+        for key in ("rt", "rw"):
+            value = (cleaned.get(key) or "").strip()
+            if value.isdigit() and len(value) <= 3:
+                cleaned[key] = value.zfill(3)
+        for key in ("alamat", "kelurahan", "kecamatan", "kota", "provinsi"):
+            cleaned[key] = (cleaned.get(key) or "").strip().upper()
+        return cleaned
 
     def save(self, commit=True):
         kk = super().save(commit=False)
@@ -216,40 +239,183 @@ class KKForm(forms.ModelForm):
         return kk
 
 
-class PendudukForm(forms.ModelForm):
+def kk_initial_from_wilayah(w: Wilayah) -> dict:
+    """KK baru: alamat wilayah sudah terisi (pengurus RT jarang perlu mengubahnya)."""
+    initial = {"kelurahan": w.kelurahan or (w.nama if w.level == LEVEL_KELURAHAN else ""),
+               "kecamatan": w.kecamatan or (w.nama if w.level == LEVEL_KECAMATAN else ""),
+               "kota": w.kota, "provinsi": w.provinsi}
+    if w.level == LEVEL_RT:
+        initial.update(rt=w.nomor, rw=w.rw)
+    elif w.level == LEVEL_RW:
+        initial["rw"] = w.nomor
+    return {k: (v or "").upper() if k not in ("rt", "rw") else v for k, v in initial.items()}
+
+
+class PendudukFields(forms.ModelForm):
+    """Kolom anggota keluarga persis seperti di KK (dipakai baris anggota & formulir satu orang)."""
+
     class Meta:
         model = Penduduk
         fields = [
-            "nama", "nik", "jenis_kelamin", "tempat_lahir", "tanggal_lahir", "agama", "pendidikan", "pekerjaan",
-            "status_perkawinan", "hubungan", "kewarganegaraan", "nama_ayah", "nama_ibu", "golongan_darah",
-            "status", "status_tanggal", "status_keterangan", "urutan",
+            "nama", "hubungan", "nik", "jenis_kelamin", "tempat_lahir", "tanggal_lahir", "agama", "pendidikan",
+            "pekerjaan", "golongan_darah", "status_perkawinan", "tanggal_perkawinan", "kewarganegaraan",
+            "no_paspor", "no_kitap", "nama_ayah", "nama_ibu",
         ]
         widgets = {
-            "tanggal_lahir": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "status_tanggal": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "tanggal_lahir": DATE_INPUT,
+            "tanggal_perkawinan": DATE_INPUT,
+            "nik": forms.TextInput(attrs={"inputmode": "numeric", "autocomplete": "off", "class": "mono-sm"}),
+            "pendidikan": forms.TextInput(attrs={"list": "dl-pendidikan", "autocomplete": "off"}),
+            "pekerjaan": forms.TextInput(attrs={"list": "dl-pekerjaan", "autocomplete": "off"}),
+            "kewarganegaraan": forms.Select(choices=[("WNI", "WNI"), ("WNA", "WNA")]),
+            "hubungan": forms.Select(attrs={"data-hubungan": ""}),
         }
+        labels = {"tanggal_perkawinan": "Tgl. perkawinan/perceraian", "no_kitap": "No. KITAS/KITAP"}
 
-    def __init__(self, *args, kk: KartuKeluarga, **kwargs):
+    def __init__(self, *args, wilayah: Wilayah, **kwargs):
         super().__init__(*args, **kwargs)
-        self.kk = kk
+        self.wilayah = wilayah
+        self.fields["nama"].widget.attrs["data-nama"] = ""
+        for name in ("jenis_kelamin", "agama", "golongan_darah", "status_perkawinan", "hubungan"):
+            field = self.fields[name]
+            field.choices = [("", "—")] + [c for c in field.choices if c[0]]
 
     def clean_nik(self):
-        value = normalize_nik(self.cleaned_data.get("nik"), required=False)
+        return normalize_nik(self.cleaned_data.get("nik"), required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        for key in UPPER_FIELDS:
+            if key in cleaned:
+                cleaned[key] = re.sub(r"\s+", " ", cleaned.get(key) or "").strip().upper()
+        return cleaned
+
+
+class AnggotaForm(PendudukFields):
+    """Satu baris anggota di formulir KK (baru, ubah, atau dari hasil scan)."""
+
+    def has_changed(self):
+        # Baris berisi nama (termasuk hasil scan yang tidak diubah) selalu diproses. Baris tanpa nama dianggap
+        # kosong kecuali ada isian lain selain pilihan bawaan (WNI / hubungan).
+        if (self.data.get(self.add_prefix("nama")) or "").strip():
+            return True
+        return any(name not in ("kewarganegaraan", "hubungan") for name in self.changed_data)
+
+
+class BaseAnggotaFormSet(forms.BaseInlineFormSet):
+    def __init__(self, *args, wilayah: Wilayah, **kwargs):
+        self.wilayah = wilayah
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["wilayah"] = self.wilayah
+        return kwargs
+
+    def active_forms(self):
+        return [f for f in self.forms if hasattr(f, "cleaned_data") and f.cleaned_data.get("nama")
+                and not (self.can_delete and self._should_delete_form(f))]
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        active = self.active_forms()
+        if not active:
+            raise ValidationError("Isi minimal satu anggota keluarga (nama).")
+        heads = [f for f in active if f.cleaned_data.get("hubungan") == KEPALA]
+        if not heads:
+            raise ValidationError(f"Pilih satu anggota sebagai \"{KEPALA}\" di kolom Hubungan. Namanya otomatis menjadi nama kepala keluarga.")
+        if len(heads) > 1:
+            for form in heads[1:]:
+                form.add_error("hubungan", f"Hanya satu anggota yang boleh menjadi {KEPALA}.")
+            return
+        seen: dict[str, AnggotaForm] = {}
+        mine = {f.instance.pk for f in self.forms if f.instance.pk}
+        niks = [f.cleaned_data.get("nik") for f in active if f.cleaned_data.get("nik")]
+        taken = {p.nik: p for p in Penduduk.objects.filter(wilayah=self.wilayah, nik__in=niks).exclude(pk__in=mine)
+                 .select_related("kk")}
+        for form in active:
+            nik = form.cleaned_data.get("nik")
+            if not nik:
+                continue
+            if nik in seen:
+                form.add_error("nik", "NIK ini sama dengan anggota lain di KK ini.")
+            elif nik in taken:
+                other = taken[nik]
+                form.add_error("nik", f"NIK ini sudah terdaftar atas nama {other.nama} (KK {other.kk.kepala_label}).")
+            seen[nik] = form
+
+    def save(self, commit=True):
+        people = super().save(commit=False)
+        for obj in self.deleted_objects:
+            obj.delete()
+        order = {id(f.instance): i for i, f in enumerate(self.forms)}
+        for person in people:
+            person.wilayah = self.wilayah
+            person.kk = self.instance
+            person.urutan = order.get(id(person), 0) + 1
+            if commit:
+                person.save()
+        return people
+
+
+def anggota_formset(*, extra: int):
+    return forms.inlineformset_factory(
+        KartuKeluarga, Penduduk, form=AnggotaForm, formset=BaseAnggotaFormSet,
+        extra=extra, can_delete=True, max_num=15, validate_max=True, absolute_max=15,
+    )
+
+
+class PendudukForm(PendudukFields):
+    """Ubah/tambah satu anggota (termasuk status pindah/meninggal). ``pilih_kk``: dari scan KTP, KK dipilih dulu."""
+
+    class Meta(PendudukFields.Meta):
+        fields = PendudukFields.Meta.fields + ["status", "status_tanggal", "status_keterangan", "urutan"]
+        widgets = PendudukFields.Meta.widgets | {"status_tanggal": DATE_INPUT}
+
+    STATUS_FIELDS = ("status", "status_tanggal", "status_keterangan", "urutan")
+
+    def __init__(self, *args, kk: KartuKeluarga | None = None, wilayah: Wilayah | None = None, pilih_kk: bool = False,
+                 ringkas: bool = False, **kwargs):
+        wilayah = wilayah or kk.wilayah
+        super().__init__(*args, wilayah=wilayah, **kwargs)
+        self.kk = kk
+        if ringkas:  # dari scan KTP: hanya kolom yang ada di KTP/KK, status warga tidak disentuh
+            for name in self.STATUS_FIELDS:
+                del self.fields[name]
+        if pilih_kk:
+            self.fields["kk"] = forms.ModelChoiceField(
+                label="Masukkan ke KK", queryset=wilayah.kk_set.order_by("kepala_nama", "pk"),
+                empty_label="— pilih KK —", help_text="Belum ada KK-nya? Scan KK-nya dulu atau buat KK baru.",
+            )
+            self.fields["kk"].label_from_instance = lambda k: f"{k.kepala_label}" + (f" ({k.no_kk})" if k.no_kk else "")
+            self.order_fields(["kk"])
+
+    def clean_nik(self):
+        value = super().clean_nik()
         if value:
-            dupe = Penduduk.objects.filter(wilayah=self.kk.wilayah, nik=value).exclude(pk=self.instance.pk)
-            if dupe.exists():
-                raise ValidationError("NIK ini sudah terdaftar di data wilayah Anda.")
+            dupe = Penduduk.objects.filter(wilayah=self.wilayah, nik=value).exclude(pk=self.instance.pk).select_related("kk").first()
+            if dupe:
+                raise ValidationError(f"NIK ini sudah terdaftar atas nama {dupe.nama} (KK {dupe.kk.kepala_label}).")
         return value
 
-    def clean_nama(self):
-        return (self.cleaned_data.get("nama") or "").strip().upper()
+    def clean(self):
+        cleaned = super().clean()
+        kk = cleaned.get("kk") or self.kk
+        if kk and cleaned.get("hubungan") == KEPALA:
+            other = kk.anggota.filter(hubungan=KEPALA, status=Penduduk.STATUS_ACTIVE).exclude(pk=self.instance.pk).first()
+            if other:
+                self.add_error("hubungan", f"KK ini sudah punya kepala keluarga ({other.nama}). Ubah dulu hubungan {other.nama}.")
+        return cleaned
 
     def save(self, commit=True):
         p = super().save(commit=False)
-        p.kk = self.kk
-        p.wilayah = self.kk.wilayah
+        p.kk = self.cleaned_data.get("kk") or self.kk
+        p.wilayah = self.wilayah
         if commit:
             p.save()
+            services.sync_kepala(p.kk)
         return p
 
 
@@ -257,7 +423,10 @@ class ScanUploadForm(forms.Form):
     jenis = forms.ChoiceField(label="Jenis dokumen", choices=DokumenScan.TYPES)
     judul = forms.CharField(label="Keterangan (opsional)", max_length=120, required=False,
                             help_text="Mis. KK Pak Budi, Blok C-12.")
-    gambar = forms.FileField(label="Foto dokumen", help_text="Foto lurus dari atas, terang, tidak buram. JPG/PNG/WebP.")
+    gambar = forms.FileField(
+        label="Foto dokumen",
+        help_text="Foto seluruh lembar dari atas (tegak lurus), terang, tajam, dan memenuhi layar. JPG/PNG/WebP.",
+    )
 
     def clean_gambar(self):
         return clean_upload(self.cleaned_data["gambar"], SCAN, max_bytes=scan_max_bytes())

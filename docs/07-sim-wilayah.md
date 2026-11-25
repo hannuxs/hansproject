@@ -47,7 +47,7 @@ Semua halaman warga `no-store` + `noindex` dan diblokir di `robots.txt`.
 |---|---|
 | `Wilayah` | pemilik (Member), tingkat, nomor RT/RW, nama, konteks alamat (RW, kelurahan, kecamatan, kota, provinsi), sekretariat, ketua & jabatan & NIP, gambar tanda tangan/cap (pribadi), format nomor surat, terima online, warga boleh cetak, **kode halaman warga**, **kode undangan**, `parent` & permintaan bergabung, paket & masa aktif & status & catatan admin |
 | `KartuKeluarga`, `Penduduk` | data warga per wilayah; status warga aktif/pindah/meninggal (mutasi) |
-| `DokumenScan` | foto KK/KTP/dokumen (pribadi), teks OCR, draf data terstruktur, status baca |
+| `DokumenScan` | foto KK/KTP/dokumen (pribadi), draf data terstruktur hasil baca (+ teks mentah untuk pemeriksaan), status baca |
 | `JenisSurat` | format surat per wilayah: judul, kode nomor, isi dengan `{isian}`, kolom tambahan (JSON), perlu “diketahui” atas, bisa online |
 | `Surat` | pengajuan/surat: data isian (JSON), isi final, nomor urut per tahun, penanda tangan, status, sumber (online/langsung), status “mengetahui” wilayah atas, kode lacak, kode keaslian, IP-hash |
 | `Pengumuman` | per wilayah, bisa diteruskan ke semua wilayah di bawahnya, jadwal tampil |
@@ -67,8 +67,19 @@ Semua halaman warga `no-store` + `noindex` dan diblokir di `robots.txt`.
 - **Pengajuan warga**: NIK wajib 16 angka, kotak persetujuan wajib, honeypot, rate limit 5/jam per IP-hash
   dan 150/hari per wilayah. NIK dicocokkan dengan data warga **hanya untuk pengurus** (tidak ada bocoran
   “NIK terdaftar/tidak” ke publik).
-- **OCR**: `apps/sim/ocr.py` memanggil Tesseract tanpa shell, batas 90 detik, satu proses sekaligus,
-  pixel dicek sebelum dibuka. Unggah maks. 6 MB (`SIM_SCAN_MAX_BYTES`); `static/js/sim.js` mengecilkan foto
+- **OCR**: `apps/sim/ocr.py` memanggil Tesseract tanpa shell, maks. 40 detik per panggilan, satu dokumen
+  sekaligus (beberapa kolom dibaca paralel, `TESSERACT_WORKERS`), pixel dicek sebelum dibuka.
+  KK dibaca **mengikuti struktur tabel Dukcapil**: gambar diluruskan, garis tabel dideteksi dari proyeksi
+  piksel (kolom = konsensus garis di banyak baris), tiap kolom dipotong & dibaca terpisah (NIK & tanggal
+  hanya angka, dibaca 3 skala lalu divoting), nilai dicocokkan ke ejaan baku (pendidikan, pekerjaan,
+  status perkawinan "tercatat", hubungan, golongan darah). No. KK (huruf segmen) dibaca beberapa variasi.
+  Kepala KK dibaca per baris (label kiri & kanan). Bila tabel tidak terdeteksi, dipakai pembacaan teks biasa.
+  Hasilnya **langsung mengisi formulir KK + anggota**; pengurus mencocokkan dengan gambar lalu menyimpan
+  (tidak pernah tersimpan otomatis). Teks mentah OCR tidak ditampilkan.
+- **Kepala keluarga** tidak diketik: `KartuKeluarga.kepala_nama` diisi otomatis dari anggota yang
+  hubungannya "Kepala Keluarga" (`services.sync_kepala`); satu KK hanya boleh punya satu kepala keluarga.
+- **Hapus surat**: surat terbit/ditolak/dibatalkan bisa dihapus pengurus; QR & kode lacaknya langsung
+  tidak berlaku. Nomor urut tidak dipakai ulang (`Wilayah.nomor_terakhir`/`nomor_tahun`). Unggah maks. 6 MB (`SIM_SCAN_MAX_BYTES`); `static/js/sim.js` mengecilkan foto
   di HP sebelum dikirim. Gambar di-re-encode (EXIF/lokasi dibuang) dan disimpan di `PRIVATE_MEDIA_ROOT/sim/`.
 - **File pribadi** (scan, tanda tangan, cap) dihapus setelah transaksi penghapusan berhasil
   (`transaction.on_commit`, `apps/sim/signals.py`).

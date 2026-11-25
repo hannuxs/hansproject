@@ -1,10 +1,16 @@
 {% extends "sim/base.html" %}
 {% block sim %}
+<p class="back-link"><a href="{% url 'sim:warga' w.kode %}">{% icon "arrow-right" "icon-sm flip" %}<span>Data warga</span></a></p>
 <section class="akun-card glass" aria-labelledby="up-title">
-  <h2 id="up-title">{% icon "scan" %} Foto KK / KTP jadi data</h2>
-  <p class="muted">Potret KK atau KTP (asli maupun fotokopi) dengan HP. Gambar disimpan aman (tidak punya alamat publik) dan teksnya dibaca otomatis. Hasil bacaan adalah <b>draf</b>: periksa dan betulkan sebelum disimpan sebagai data warga.</p>
+  <h2 id="up-title">{% icon "scan" %} Scan KK / KTP</h2>
+  <p class="muted">Potret KK atau KTP (asli maupun fotokopi) dengan HP. Isinya dibaca otomatis lalu <b>langsung mengisi formulir</b> data KK beserta semua anggotanya. Anda tinggal mencocokkan dengan gambar, membetulkan bila perlu, lalu menyimpan. Gambar disimpan aman (tidak punya alamat publik).</p>
+  <ul class="tips-list muted small">
+    <li>Foto <b>seluruh lembar</b> dari atas, tegak lurus, memenuhi layar.</li>
+    <li>Tempat terang, tanpa bayangan dan pantulan lampu; letakkan di alas berwarna terang.</li>
+    <li>Pastikan tulisan tajam (ketuk layar untuk fokus sebelum memotret).</li>
+  </ul>
   {% if not ocr_ready %}
-    <p class="alert" role="note">{% icon "info" %}<span>Mesin pembaca teks (Tesseract OCR) belum terpasang di server, jadi teks belum bisa dibaca otomatis. Gambar tetap tersimpan dan data bisa diisi manual sambil melihat gambarnya.</span></p>
+    <p class="alert" role="note">{% icon "info" %}<span>Mesin pembaca (Tesseract OCR) belum terpasang di server, jadi isi belum bisa dibaca otomatis. Gambar tetap tersimpan dan formulir bisa diisi manual sambil melihat gambarnya.</span></p>
   {% endif %}
   {% if scan_limit is not None %}<p class="muted small">Kuota baca otomatis bulan ini: <b>{{ scan_used }} / {{ scan_limit }}</b> dokumen (Paket {{ w.package_name }}).</p>{% endif %}
   {% if error %}<p class="alert alert-error" role="alert">{% icon "alert" %}<span>{{ error }}</span></p>{% endif %}
@@ -24,7 +30,7 @@
         {% endif %}
       {% endfor %}
       <div class="akun-actions"><button class="btn" type="submit">{% icon "scan" %}<span>Unggah &amp; baca</span></button></div>
-      <p class="muted small" data-scan-status hidden aria-live="polite">Mengirim &amp; membaca gambar… (bisa sampai 1 menit)</p>
+      <p class="muted small" data-scan-status hidden aria-live="polite">Mengirim &amp; membaca gambar… biasanya 5–15 detik.</p>
     </form>
   {% endif %}
 </section>
@@ -37,8 +43,8 @@
         <li>
           <a href="{% url 'sim:scan-detail' w.kode d.pk %}">
             <img src="{% url 'sim:scan-gambar' w.kode d.pk %}" alt="{{ d }}" loading="lazy">
-            <span><b>{{ d }}</b><span class="muted small">{{ d.get_jenis_display }} · {{ d.created_at|date:"j M Y" }}{% if d.kk %} · KK {{ d.kk.kepala_nama }}{% endif %}</span></span>
-            <span class="status status-{% if d.ocr_status == 'selesai' %}ok{% elif d.ocr_status == 'menunggu' %}wait{% else %}off{% endif %}">{{ d.get_ocr_status_display }}</span>
+            <span><b>{{ d }}</b><span class="muted small">{{ d.get_jenis_display }} · {{ d.created_at|date:"j M Y" }}{% if d.kk %} · KK {{ d.kk.kepala_label }}{% endif %}</span></span>
+            {% if d.kk_id or d.penduduk_id %}<span class="status status-ok">Tersimpan</span>{% elif d.jenis == "lain" %}<span class="status status-off">Gambar</span>{% elif d.ocr_status == "selesai" %}<span class="status status-wait">Perlu diperiksa</span>{% else %}<span class="status status-off">{{ d.get_ocr_status_display }}</span>{% endif %}
           </a>
         </li>
       {% endfor %}

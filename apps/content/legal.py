@@ -192,7 +192,7 @@ PRIVACY_BODY = """Kebijakan Privasi ini menjelaskan data pribadi apa yang kami k
 
 ### Saat Anda memakai SIM (sebagai pengurus instansi)
 - **Data instansi**: tingkat, nomor/nama, alamat (RW, kelurahan, kecamatan, kota, provinsi), nama dan jabatan penanda tangan, NIP bila diisi, gambar tanda tangan dan cap, format nomor surat, serta hubungan dengan instansi di atas atau di bawahnya.
-- **Data warga yang dimasukkan pengurus**: nomor KK, NIK, nama, tempat dan tanggal lahir, jenis kelamin, agama, pendidikan, pekerjaan, status perkawinan, hubungan dalam keluarga, kewarganegaraan, nama ayah dan ibu, golongan darah, alamat, dan status warga (aktif, pindah, meninggal), termasuk data anak yang tercantum di KK.
+- **Data warga yang dimasukkan pengurus**: nomor KK, NIK, nama, tempat dan tanggal lahir, jenis kelamin, agama, pendidikan, pekerjaan, status perkawinan, hubungan dalam keluarga, kewarganegaraan, nomor paspor dan KITAS/KITAP (bila ada), tanggal perkawinan atau perceraian, nama ayah dan ibu, golongan darah, alamat beserta desa/kelurahan sampai provinsi, tanggal KK dikeluarkan, dan status warga (aktif, pindah, meninggal), termasuk data anak yang tercantum di KK.
 - **Foto dokumen** (KK, KTP, dan dokumen lain) beserta teks hasil baca otomatis. Saat diunggah, foto diproses ulang sehingga data tersembunyi di dalamnya (misalnya lokasi) terhapus, lalu disimpan secara pribadi tanpa alamat publik.
 - **Surat dan pengumuman**: jenis surat, isian, isi, nomor, status, catatan pengurus, dan penanda tangan.
 

@@ -161,7 +161,7 @@ SETTINGS = Section(
     fieldsets=[
         ("Kontak & media sosial", ["instagram_username", "email", "support_hours", "facebook_url", "tiktok_url", "youtube_url"]),
         ("Pembayaran", ["show_payment_info", "qris_image"]),
-        ("Halaman utama", ["hero_title", "hero_subtitle", "announcement_active", "announcement_text", "show_testimonials"]),
+        ("Halaman utama", ["hero_title", "hero_subtitle", "announcement_active", "announcement_text", "users_count", "show_testimonials"]),
         ("Pencarian Google (SEO)", ["seo_title", "seo_description"]),
         ("Syarat & Ketentuan / Kebijakan Privasi", ["legal_version"]),
     ],

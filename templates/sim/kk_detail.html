@@ -4,18 +4,20 @@
   <div class="card-head">
     <div>
       <p class="eyebrow">Kartu keluarga</p>
-      <h2 id="kk-title">{{ kk.kepala_nama }}</h2>
+      <h2 id="kk-title">{{ kk.kepala_label }}</h2>
     </div>
     {% if w.can_edit %}
       <div class="head-actions">
-        <a class="btn btn-sm btn-ghost" href="{% url 'sim:kk-ubah' w.kode kk.pk %}">{% icon "edit" %}<span>Ubah KK</span></a>
+        <a class="btn btn-sm btn-ghost" href="{% url 'sim:kk-ubah' w.kode kk.pk %}">{% icon "edit" %}<span>Ubah KK &amp; anggota</span></a>
         <a class="btn btn-sm" href="{% url 'sim:anggota-baru' w.kode kk.pk %}">{% icon "plus" %}<span>Tambah anggota</span></a>
       </div>
     {% endif %}
   </div>
   <ul class="kv" role="list">
     <li><span>No. KK</span><b class="mono">{{ kk.no_kk|default:"–" }}</b></li>
-    <li><span>Alamat</span><b>{{ kk.alamat|default:"–" }}{% if kk.rt %} RT {{ kk.rt }}{% endif %}{% if kk.rw %} / RW {{ kk.rw }}{% endif %}{% if kk.kode_pos %} · {{ kk.kode_pos }}{% endif %}</b></li>
+    <li><span>Alamat</span><b>{{ kk.alamat_lengkap|default:"–" }}{% if kk.kode_pos %} · {{ kk.kode_pos }}{% endif %}</b></li>
+    {% if kk.kota or kk.provinsi %}<li><span>Kabupaten/kota</span><b>{{ kk.kota|default:"–" }}{% if kk.provinsi %}, {{ kk.provinsi }}{% endif %}</b></li>{% endif %}
+    {% if kk.tanggal_dikeluarkan %}<li><span>Dikeluarkan</span><b>{{ kk.tanggal_dikeluarkan|date:"j F Y" }}</b></li>{% endif %}
     <li><span>Status</span><b>{{ kk.get_status_display }}</b></li>
     {% if kk.catatan %}<li><span>Catatan</span><b>{{ kk.catatan|linebreaksbr }}</b></li>{% endif %}
   </ul>
@@ -30,7 +32,7 @@
         <tbody>
           {% for p in anggota %}
             <tr{% if p.status != "aktif" %} class="row-off"{% endif %}>
-              <td><b>{{ p.nama }}</b><br><span class="muted small">{{ p.get_jenis_kelamin_display|default:"" }}{% if p.pekerjaan %} · {{ p.pekerjaan }}{% endif %}</span></td>
+              <td><b>{{ p.nama }}</b><br><span class="muted small">{{ p.get_jenis_kelamin_display|default:"" }}{% if p.pendidikan %} · {{ p.pendidikan }}{% endif %}{% if p.pekerjaan %} · {{ p.pekerjaan }}{% endif %}</span></td>
               <td class="mono-sm">{{ p.nik|default:"–" }}</td>
               <td>{{ p.hubungan|default:"–" }}</td>
               <td>{{ p.tempat_lahir|default:"" }}{% if p.tanggal_lahir %}, {{ p.tanggal_lahir|date:"j M Y" }} <span class="muted small">({{ p.umur }} th)</span>{% endif %}</td>
@@ -63,7 +65,7 @@
 {% if w.can_edit %}
 <details class="void-box">
   <summary>Hapus KK ini</summary>
-  <form method="post" action="{% url 'sim:kk-hapus' w.kode kk.pk %}" data-confirm="Hapus KK {{ kk.kepala_nama }} beserta {{ anggota|length }} anggotanya? Data tidak bisa dikembalikan.">
+  <form method="post" action="{% url 'sim:kk-hapus' w.kode kk.pk %}" data-confirm="Hapus KK {{ kk.kepala_label }} beserta {{ anggota|length }} anggotanya? Data tidak bisa dikembalikan.">
     {% csrf_token %}
     <p class="field-help">Bila keluarga pindah, lebih baik ubah status KK menjadi <b>Sudah pindah</b> supaya riwayatnya tetap ada.</p>
     <button class="btn btn-sm btn-ghost" type="submit">{% icon "trash" %}<span>Hapus permanen</span></button>

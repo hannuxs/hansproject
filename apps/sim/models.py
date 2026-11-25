@@ -125,6 +125,9 @@ class Wilayah(models.Model):
         "format nomor surat", max_length=80, default="{nomor}/{kode_surat}/{wilayah}/{bulan_romawi}/{tahun}",
         help_text="Isian: {nomor} {kode_surat} {wilayah} {bulan} {bulan_romawi} {tahun}.",
     )
+    # Nomor urut surat terakhir yang PERNAH dipakai (per tahun). Surat yang dihapus tidak membuat nomornya dipakai ulang.
+    nomor_terakhir = models.PositiveIntegerField("nomor urut surat terakhir", default=0, editable=False)
+    nomor_tahun = models.PositiveSmallIntegerField("tahun nomor surat", null=True, blank=True, editable=False)
 
     kode = models.SlugField("kode halaman warga", max_length=12, unique=True, default=new_public_code, editable=False)
     terima_online = models.BooleanField(
@@ -305,11 +308,17 @@ class KartuKeluarga(models.Model):
 
     wilayah = models.ForeignKey(Wilayah, on_delete=models.CASCADE, related_name="kk_set")
     no_kk = models.CharField("nomor KK", max_length=16, blank=True, db_index=True)
-    kepala_nama = models.CharField("nama kepala keluarga", max_length=100)
+    # Otomatis dari anggota yang hubungannya "Kepala Keluarga" (services.sync_kepala), tidak diketik.
+    kepala_nama = models.CharField("nama kepala keluarga", max_length=100, blank=True, editable=False)
     alamat = models.CharField("alamat", max_length=200, blank=True)
     rt = models.CharField("RT", max_length=5, blank=True)
     rw = models.CharField("RW", max_length=5, blank=True)
     kode_pos = models.CharField("kode pos", max_length=5, blank=True)
+    kelurahan = models.CharField("desa/kelurahan", max_length=80, blank=True)
+    kecamatan = models.CharField("kecamatan", max_length=80, blank=True)
+    kota = models.CharField("kabupaten/kota", max_length=80, blank=True)
+    provinsi = models.CharField("provinsi", max_length=80, blank=True)
+    tanggal_dikeluarkan = models.DateField("tanggal dikeluarkan", null=True, blank=True)
     status = models.CharField("status", max_length=10, choices=STATUSES, default=STATUS_ACTIVE)
     catatan = models.TextField("catatan", blank=True, max_length=1000)
     created_at = models.DateTimeField("dibuat", auto_now_add=True)
@@ -322,12 +331,36 @@ class KartuKeluarga(models.Model):
         verbose_name_plural = "kartu keluarga"
 
     def __str__(self) -> str:
-        return f"KK {self.no_kk or '-'} ({self.kepala_nama})"
+        return f"KK {self.no_kk or '-'} ({self.kepala_label})"
+
+    @property
+    def kepala_label(self) -> str:
+        return self.kepala_nama or "Belum ada kepala keluarga"
+
+    @property
+    def alamat_lengkap(self) -> str:
+        parts = [self.alamat]
+        if self.rt or self.rw:
+            parts.append(f"RT {self.rt or '-'} / RW {self.rw or '-'}")
+        if self.kelurahan:
+            parts.append(f"Kel. {self.kelurahan}")
+        if self.kecamatan:
+            parts.append(f"Kec. {self.kecamatan}")
+        return ", ".join(p for p in parts if p)
 
 
 GENDERS = [("L", "Laki-laki"), ("P", "Perempuan")]
 RELIGIONS = [(x, x) for x in ("Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu", "Kepercayaan")]
-MARITAL = [(x, x) for x in ("Belum Kawin", "Kawin", "Cerai Hidup", "Cerai Mati")]
+# Istilah di KK terbaru (tercatat/belum tercatat) + istilah lama.
+MARITAL = [
+    (x, x) for x in (
+        "Belum Kawin", "Kawin Tercatat", "Kawin Belum Tercatat", "Kawin",
+        "Cerai Hidup Tercatat", "Cerai Hidup Belum Tercatat", "Cerai Tercatat", "Cerai Belum Tercatat", "Cerai Hidup",
+        "Cerai Mati Tercatat", "Cerai Mati Belum Tercatat", "Cerai Mati",
+    )
+]
+BLOOD_TYPES = [(x, x) for x in ("A", "B", "AB", "O", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "TIDAK TAHU")]
+KEPALA = "Kepala Keluarga"
 RELATIONS = [
     (x, x)
     for x in ("Kepala Keluarga", "Suami", "Istri", "Anak", "Menantu", "Cucu", "Orang Tua", "Mertua", "Famili Lain", "Pembantu", "Lainnya")
@@ -350,12 +383,15 @@ class Penduduk(models.Model):
     agama = models.CharField("agama", max_length=20, choices=RELIGIONS, blank=True)
     pendidikan = models.CharField("pendidikan", max_length=60, blank=True)
     pekerjaan = models.CharField("pekerjaan", max_length=60, blank=True)
-    status_perkawinan = models.CharField("status perkawinan", max_length=20, choices=MARITAL, blank=True)
+    status_perkawinan = models.CharField("status perkawinan", max_length=30, choices=MARITAL, blank=True)
+    tanggal_perkawinan = models.DateField("tanggal perkawinan/perceraian", null=True, blank=True)
     hubungan = models.CharField("hubungan dalam keluarga", max_length=20, choices=RELATIONS, blank=True)
     kewarganegaraan = models.CharField("kewarganegaraan", max_length=10, default="WNI")
+    no_paspor = models.CharField("no. paspor", max_length=30, blank=True)
+    no_kitap = models.CharField("no. KITAS/KITAP", max_length=30, blank=True)
     nama_ayah = models.CharField("nama ayah", max_length=100, blank=True)
     nama_ibu = models.CharField("nama ibu", max_length=100, blank=True)
-    golongan_darah = models.CharField("golongan darah", max_length=3, blank=True)
+    golongan_darah = models.CharField("golongan darah", max_length=10, choices=BLOOD_TYPES, blank=True)
     status = models.CharField("status", max_length=10, choices=STATUSES, default=STATUS_ACTIVE)
     status_tanggal = models.DateField("tanggal pindah/meninggal", null=True, blank=True)
     status_keterangan = models.CharField("keterangan status", max_length=200, blank=True)

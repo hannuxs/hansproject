@@ -6,7 +6,7 @@
     <div class="head-actions">
       <a class="btn btn-sm btn-ghost" href="{% url 'sim:warga-unduh' w.kode %}">{% icon "arrow-down" %}<span>Unduh Excel (CSV)</span></a>
       {% if w.can_edit %}
-        <a class="btn btn-sm btn-ghost" href="{% url 'sim:scan' w.kode %}">{% icon "scan" %}<span>Dari foto KK</span></a>
+        <a class="btn btn-sm btn-ghost" href="{% url 'sim:scan' w.kode %}">{% icon "scan" %}<span>Scan KK/KTP</span></a>
         <a class="btn btn-sm" href="{% url 'sim:kk-baru' w.kode %}">{% icon "plus" %}<span>KK baru</span></a>
       {% endif %}
     </div>
@@ -32,7 +32,7 @@
         <tbody>
           {% for kk in page.object_list %}
             <tr{% if kk.status != "aktif" %} class="row-off"{% endif %}>
-              <td><a href="{% url 'sim:kk' w.kode kk.pk %}"><b>{{ kk.kepala_nama }}</b></a></td>
+              <td><a href="{% url 'sim:kk' w.kode kk.pk %}"><b>{{ kk.kepala_label }}</b></a></td>
               <td class="mono-sm">{{ kk.no_kk|default:"–" }}</td>
               <td class="muted">{{ kk.alamat|default:"–" }}{% if kk.rt %} RT {{ kk.rt }}{% endif %}{% if kk.rw %}/RW {{ kk.rw }}{% endif %}</td>
               <td class="num">{{ kk.jumlah }}</td>
@@ -45,7 +45,7 @@
   {% elif q %}
     <p class="empty">Tidak ada KK yang cocok.</p>
   {% else %}
-    <p class="empty">Belum ada data warga. Mulai dari <a href="{% url 'sim:scan' w.kode %}">foto KK</a> atau tekan <b>KK baru</b>.</p>
+    <p class="empty">Belum ada data warga. Tekan <a href="{% url 'sim:scan' w.kode %}"><b>Scan KK/KTP</b></a> untuk mengisi otomatis dari foto KK, atau <b>KK baru</b> untuk mengetik sendiri.</p>
   {% endif %}
 </section>
 {% endblock %}

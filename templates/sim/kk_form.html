@@ -1,14 +1,12 @@
 {% extends "sim/base.html" %}
 {% block sim %}
-<section class="akun-card glass akun-narrow" aria-labelledby="kk-title">
-  <h2 id="kk-title">{% icon "users" %} {% if kk %}Ubah KK {{ kk.kepala_nama }}{% else %}Kartu keluarga baru{% endif %}</h2>
-  <form method="post" class="akun-form" novalidate>
-    {% csrf_token %}
-    {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
-    <div class="akun-actions">
-      <button class="btn" type="submit">{% icon "check" %}<span>Simpan</span></button>
-      <a class="btn btn-ghost" href="{% if kk %}{% url 'sim:kk' w.kode kk.pk %}{% else %}{% url 'sim:warga' w.kode %}{% endif %}">Batal</a>
-    </div>
-  </form>
+<p class="back-link"><a href="{% if kk %}{% url 'sim:kk' w.kode kk.pk %}{% else %}{% url 'sim:warga' w.kode %}{% endif %}">{% icon "arrow-right" "icon-sm flip" %}<span>{% if kk %}KK {{ kk.kepala_label }}{% else %}Data warga{% endif %}</span></a></p>
+<section class="akun-card glass" aria-labelledby="kk-title">
+  <div class="card-head">
+    <h2 id="kk-title">{% icon "users" %} {% if kk %}Ubah KK {{ kk.kepala_label }}{% else %}Kartu keluarga baru{% endif %}</h2>
+    {% if not kk and w.can_edit %}<a class="btn btn-sm btn-ghost" href="{% url 'sim:scan' w.kode %}">{% icon "scan" %}<span>Isi dari foto KK</span></a>{% endif %}
+  </div>
+  {% if kk %}{% url 'sim:kk' w.kode kk.pk as cancel %}{% else %}{% url 'sim:warga' w.kode as cancel %}{% endif %}
+  {% include "sim/_kk_editor.html" with submit_label="Simpan KK & anggota" cancel_url=cancel %}
 </section>
 {% endblock %}

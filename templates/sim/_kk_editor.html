@@ -1,0 +1,51 @@
+{% comment %}
+  Formulir KK + anggota (KK baru, ubah KK, hasil scan). Nama kepala keluarga TIDAK diketik:
+  otomatis dari anggota yang kolom Hubungan-nya "Kepala Keluarga" (sim.js menampilkannya langsung).
+  Parameter: form, formset, aksi (opsional), submit_label, cancel_url.
+{% endcomment %}
+<form method="post" class="akun-form kk-editor" novalidate data-kk-editor>
+  {% csrf_token %}
+  {% if aksi %}<input type="hidden" name="aksi" value="{{ aksi }}">{% endif %}
+  {% if form.errors or formset.total_error_count %}
+    <p class="alert alert-error" role="alert">{% icon "alert" %}<span>Ada isian yang perlu dibetulkan (ditandai merah di bawah).</span></p>
+  {% endif %}
+
+  <p class="kepala-preview" aria-live="polite">{% icon "user" %}<span>Kepala keluarga: <b data-kepala-name data-empty="belum dipilih (pilih &quot;{{ relations_kepala }}&quot; di kolom Hubungan salah satu anggota)">{{ kk.kepala_nama|default:"" }}</b></span></p>
+
+  <fieldset class="kk-block">
+    <legend class="form-sub">Data KK</legend>
+    {{ form.non_field_errors }}
+    <div class="form-grid kk-grid">
+      {% for field in form.visible_fields %}{{ field.as_field_group }}{% endfor %}
+    </div>
+  </fieldset>
+
+  <fieldset class="kk-block">
+    <legend class="form-sub">Anggota keluarga</legend>
+    <p class="field-help">Isi sesuai urutan di KK. Pilih <b>{{ relations_kepala }}</b> di kolom <b>Hubungan</b> untuk satu anggota: namanya otomatis menjadi nama kepala keluarga, tidak perlu diketik lagi.</p>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="alert alert-error" role="alert">{% icon "alert" %}<span>{% for e in formset.non_form_errors %}{{ e }} {% endfor %}</span></div>{% endif %}
+    <div class="member-rows">
+      {% for f in formset %}
+        <fieldset class="member-row{% if f.errors %} has-error{% endif %}" data-member-row{% if not f.nama.value and not f.instance.pk and not f.errors %} data-blank{% endif %}>
+          <legend>Anggota {{ forloop.counter }} <span class="member-tag" data-kepala-tag hidden>Kepala keluarga</span></legend>
+          {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+          {{ f.non_field_errors }}
+          <div class="form-grid member-grid">
+            {% for field in f.visible_fields %}{% if field.name != "DELETE" %}{{ field.as_field_group }}{% endif %}{% endfor %}
+          </div>
+          {% if f.nama.value or f.instance.pk %}
+            <label class="switch member-drop" for="{{ f.DELETE.auto_id }}">{{ f.DELETE }}<span class="switch-ui" aria-hidden="true"></span><span>{% if f.instance.pk %}Hapus anggota ini dari data warga{% else %}Jangan simpan baris ini{% endif %}</span></label>
+          {% endif %}
+        </fieldset>
+      {% endfor %}
+    </div>
+    <p class="member-add" hidden data-member-add-wrap><button class="btn btn-sm btn-ghost" type="button" data-member-add>{% icon "plus" %}<span>Tambah baris anggota</span></button></p>
+  </fieldset>
+
+  <div class="akun-actions">
+    <button class="btn" type="submit">{% icon "check" %}<span>{{ submit_label|default:"Simpan" }}</span></button>
+    {% if cancel_url %}<a class="btn btn-ghost" href="{{ cancel_url }}">Batal</a>{% endif %}
+  </div>
+  {% include "sim/_datalists.html" %}
+</form>

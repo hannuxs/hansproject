@@ -1,3 +1,71 @@
+/* SIM: formulir KK + anggota.
+   - Baris anggota kosong disembunyikan; tombol "Tambah baris anggota" memunculkannya satu per satu.
+   - Nama kepala keluarga tampil otomatis dari anggota yang Hubungan-nya "Kepala Keluarga".
+   Tanpa JavaScript semua baris tampil dan formulir tetap bisa disimpan. */
+(function () {
+  "use strict";
+  var KEPALA = "Kepala Keluarga";
+  document.querySelectorAll("[data-kk-editor]").forEach(function (editor) {
+    var rows = Array.prototype.slice.call(editor.querySelectorAll("[data-member-row]"));
+    var blank = rows.filter(function (r) { return r.hasAttribute("data-blank"); });
+    var addWrap = editor.querySelector("[data-member-add-wrap]");
+    var addBtn = editor.querySelector("[data-member-add]");
+    var nameOut = editor.querySelector("[data-kepala-name]");
+
+    // Sisakan satu baris kosong (atau baris pertama bila semua kosong) supaya formulir ringkas.
+    blank.slice(1).forEach(function (r) { r.hidden = true; });
+    function refreshAdd() {
+      var hidden = rows.filter(function (r) { return r.hidden; });
+      if (addWrap) addWrap.hidden = hidden.length === 0;
+    }
+    refreshAdd();
+    if (addBtn) {
+      addBtn.addEventListener("click", function () {
+        var next = rows.filter(function (r) { return r.hidden; })[0];
+        if (!next) return;
+        next.hidden = false;
+        var input = next.querySelector("[data-nama]");
+        if (input) input.focus();
+        refreshAdd();
+      });
+    }
+
+    function refreshKepala() {
+      var head = null;
+      rows.forEach(function (r) {
+        var rel = r.querySelector("[data-hubungan]");
+        var del = r.querySelector("input[type=checkbox][name$='-DELETE']");
+        var isHead = !!(rel && rel.value === KEPALA && !(del && del.checked));
+        var tag = r.querySelector("[data-kepala-tag]");
+        if (tag) tag.hidden = !isHead;
+        if (isHead && !head) head = r;
+      });
+      if (!nameOut) return;
+      var name = head ? (head.querySelector("[data-nama]") || {}).value || "" : "";
+      name = name.trim().toUpperCase();
+      nameOut.textContent = name || nameOut.getAttribute("data-empty") || "";
+      nameOut.classList.toggle("is-empty", !name);
+    }
+    editor.addEventListener("input", function (ev) {
+      if (ev.target.matches("[data-nama]")) refreshKepala();
+    });
+    editor.addEventListener("change", function (ev) {
+      if (ev.target.matches("[data-hubungan], input[type=checkbox]")) refreshKepala();
+    });
+    refreshKepala();
+  });
+
+  /* Tombol yang butuh waktu (mis. Baca ulang otomatis): tandai sedang bekerja & cegah klik ganda. */
+  document.addEventListener("submit", function (ev) {
+    var btn = ev.target.querySelector && ev.target.querySelector("button[data-busy]");
+    if (!btn || ev.defaultPrevented) return;
+    var label = btn.querySelector("span");
+    if (label) label.textContent = btn.getAttribute("data-busy");
+    btn.setAttribute("aria-disabled", "true");
+    setTimeout(function () { btn.disabled = true; }, 0);
+  });
+})();
+
 /* SIM: kecilkan foto KK/KTP di HP sebelum diunggah (hemat kuota & tetap terbaca),
    lalu tampilkan status "sedang membaca". Tanpa JavaScript, unggah tetap jalan apa adanya. */
 (function () {
